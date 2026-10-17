@@ -1,0 +1,28 @@
+{
+  "name": "gen-air-automation",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report",
+    "stack": "node src/environment/start-stack.ts",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write ."
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "24.19.1",
+    "@types/pg": "8.23.0",
+    "embedded-postgres": "17.10.0-beta.17",
+    "pg": "8.23.0",
+    "prettier": "3.9.9",
+    "prettier-plugin-pyramid-imports": "1.0.1",
+    "prettier-plugin-pyramid-interface-keys": "1.0.1",
+    "typescript": "6.0.3"
+  }
+}
