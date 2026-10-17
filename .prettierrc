@@ -1,0 +1,8 @@
+{
+  "semi": true,
+  "printWidth": 100,
+  "singleQuote": false,
+  "trailingComma": "all",
+  "arrowParens": "avoid",
+  "plugins": ["prettier-plugin-pyramid-imports", "prettier-plugin-pyramid-interface-keys"]
+}
