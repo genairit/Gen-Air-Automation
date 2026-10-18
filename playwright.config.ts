@@ -1,4 +1,10 @@
 import {
+  REPORTERS,
+  BROWSER_OPTIONS,
+  DESKTOP_BROWSER,
+} from "./src/constants/playwright.constant.ts";
+
+import {
   URLS,
   PORTS,
   IS_CI,
@@ -7,10 +13,12 @@ import {
   AUTOMATION_DIRECTORIES,
 } from "./src/constants/environment.constant.ts";
 
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig } from "@playwright/test";
+import { HOSTED_TESTS } from "./src/constants/hosted.constant.ts";
 
 export default defineConfig({
   testDir: "./tests",
+  testIgnore: HOSTED_TESTS.IGNORE_PATTERN,
   outputDir: AUTOMATION_DIRECTORIES.RESULTS,
   workers: 1,
   fullyParallel: false,
@@ -18,25 +26,18 @@ export default defineConfig({
   retries: IS_CI ? 1 : 0,
   timeout: STACK_TIMEOUTS.TEST_MS,
   expect: { timeout: STACK_TIMEOUTS.EXPECT_MS },
-  reporter: [
-    [IS_CI ? "github" : "list"],
-    ["html", { open: "never", outputFolder: AUTOMATION_DIRECTORIES.HTML }],
-    ["json", { outputFile: AUTOMATION_DIRECTORIES.JSON }],
-  ],
+  reporter: REPORTERS,
   use: {
-    locale: "he-IL",
+    ...BROWSER_OPTIONS,
     baseURL: URLS.FRONTEND,
-    timezoneId: "Asia/Jerusalem",
-    trace: "retain-on-failure",
     video: "retain-on-failure",
-    screenshot: "only-on-failure",
   },
   projects: [
     { name: "setup", testMatch: /.*\.setup\.ts/ },
     {
       name: "chromium",
       dependencies: ["setup"],
-      use: { ...devices["Desktop Chrome"] },
+      use: DESKTOP_BROWSER,
     },
   ],
   webServer: [

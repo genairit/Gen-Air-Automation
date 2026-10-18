@@ -40,21 +40,21 @@ jobs:
       - name: Check out Gen-Air-Automation
         uses: actions/checkout@v4
         with:
-          repository: kfirmr/Gen-Air-Automation
+          repository: genairit/Gen-Air-Automation
           ref: ${{ env.AUTOMATION_REF }}
           path: Gen-Air-Automation
 
       - name: Check out Gen-Air-Backend
         uses: actions/checkout@v4
         with:
-          repository: kfirmr/Gen-Air-Backend
+          repository: genairit/Gen-Air-Backend
           ref: ${{ env.BACKEND_REF }}
           path: Gen-Air-Backend
 
       - name: Check out Gen-Air-Frontend
         uses: actions/checkout@v4
         with:
-          repository: kfirmr/Gen-Air-Frontend
+          repository: genairit/Gen-Air-Frontend
           ref: ${{ env.FRONTEND_REF }}
           path: Gen-Air-Frontend
 

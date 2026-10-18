@@ -6,6 +6,7 @@
   "scripts": {
     "test": "playwright test",
     "test:ui": "playwright test --ui",
+    "test:hosted": "playwright test --config playwright.hosted.config.ts",
     "report": "playwright show-report",
     "stack": "node src/environment/start-stack.ts",
     "typecheck": "tsc --noEmit",
