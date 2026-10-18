@@ -1,4 +1,10 @@
 import {
+  REPORTERS,
+  BROWSER_OPTIONS,
+  DESKTOP_BROWSER,
+} from "./src/constants/playwright.constant.ts";
+
+import {
   URLS,
   PORTS,
   IS_CI,
@@ -7,9 +13,8 @@ import {
   AUTOMATION_DIRECTORIES,
 } from "./src/constants/environment.constant.ts";
 
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig } from "@playwright/test";
 import { HOSTED_TESTS } from "./src/constants/hosted.constant.ts";
-import { REPORTERS, BROWSER_OPTIONS } from "./src/constants/playwright.constant.ts";
 
 export default defineConfig({
   testDir: "./tests",
@@ -32,7 +37,7 @@ export default defineConfig({
     {
       name: "chromium",
       dependencies: ["setup"],
-      use: { ...devices["Desktop Chrome"] },
+      use: DESKTOP_BROWSER,
     },
   ],
   webServer: [

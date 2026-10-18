@@ -1,6 +1,11 @@
-import { defineConfig, devices } from "@playwright/test";
+import {
+  REPORTERS,
+  BROWSER_OPTIONS,
+  DESKTOP_BROWSER,
+} from "./src/constants/playwright.constant.ts";
+
+import { defineConfig } from "@playwright/test";
 import { HOSTED_URL, HOSTED_TESTS } from "./src/constants/hosted.constant.ts";
-import { REPORTERS, BROWSER_OPTIONS } from "./src/constants/playwright.constant.ts";
 import { STACK_TIMEOUTS, AUTOMATION_DIRECTORIES } from "./src/constants/environment.constant.ts";
 
 if (HOSTED_URL === null) {
@@ -17,5 +22,5 @@ export default defineConfig({
   timeout: STACK_TIMEOUTS.TEST_MS,
   expect: { timeout: STACK_TIMEOUTS.EXPECT_MS },
   use: { ...BROWSER_OPTIONS, baseURL: HOSTED_URL },
-  projects: [{ name: "hosted", use: { ...devices["Desktop Chrome"] } }],
+  projects: [{ name: "hosted", use: DESKTOP_BROWSER }],
 });

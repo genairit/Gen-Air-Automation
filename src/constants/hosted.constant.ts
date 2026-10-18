@@ -2,16 +2,16 @@ import { ROUTES } from "./routes.constant.ts";
 
 export const HOSTED_URL = process.env.GEN_AIR_HOSTED_URL ?? null;
 
+const HOSTED_FOLDER = "hosted";
+
 export const HOSTED_TESTS = {
-  DIRECTORY: "./tests/hosted",
-  IGNORE_PATTERN: "**/hosted/**",
+  DIRECTORY: `./tests/${HOSTED_FOLDER}`,
+  IGNORE_PATTERN: `**/${HOSTED_FOLDER}/**`,
 } as const;
 
-export const SECURE_PROTOCOL = "https:";
-
-export const HTML_CONTENT_TYPE = "text/html";
-
-export const MISSING_ASSET_PATH = "/assets/missing-chunk.js";
+export const HOSTED_PROBES = {
+  MISSING_ASSET_PATH: "/assets/missing-chunk.js",
+} as const;
 
 export const HOSTED_CLIENT_ROUTES = [
   ROUTES.TASKS,

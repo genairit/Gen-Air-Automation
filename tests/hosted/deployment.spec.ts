@@ -1,7 +1,12 @@
 import {
-  SECURE_PROTOCOL,
-  HTML_CONTENT_TYPE,
-  MISSING_ASSET_PATH,
+  HTTP_STATUS,
+  HTTP_HEADERS,
+  CONTENT_TYPES,
+  HTTP_PROTOCOLS,
+} from "../../src/constants/http.constant.ts";
+
+import {
+  HOSTED_PROBES,
   UNKNOWN_CREDENTIALS,
   HOSTED_CLIENT_ROUTES,
 } from "../../src/constants/hosted.constant.ts";
@@ -9,7 +14,6 @@ import {
 import { test, expect } from "@playwright/test";
 import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { createLoginPage } from "../../src/pages/login.page.ts";
-import { HTTP_STATUS, HTTP_HEADERS } from "../../src/constants/http.constant.ts";
 import { API_PATHS, API_PROXY_PREFIX } from "../../src/constants/api.constant.ts";
 
 const LOGIN_API = `${API_PROXY_PREFIX}${API_PATHS.LOGIN}`;
@@ -26,7 +30,7 @@ test.describe("hosted deployment", () => {
 
     const { protocol } = new URL(page.url());
 
-    expect(protocol).toBe(SECURE_PROTOCOL);
+    expect(protocol).toBe(HTTP_PROTOCOLS.SECURE);
   });
 
   for (const route of HOSTED_CLIENT_ROUTES) {
@@ -35,7 +39,7 @@ test.describe("hosted deployment", () => {
       const response = await request.get(route);
 
       expect(response.status()).toBe(HTTP_STATUS.OK);
-      expect(response.headers()[HTTP_HEADERS.CONTENT_TYPE]).toContain(HTML_CONTENT_TYPE);
+      expect(response.headers()[HTTP_HEADERS.CONTENT_TYPE]).toContain(CONTENT_TYPES.HTML);
 
       await page.goto(route);
 
@@ -45,7 +49,7 @@ test.describe("hosted deployment", () => {
   }
 
   test("a missing hashed asset is not answered with the app shell", async ({ request }) => {
-    const response = await request.get(MISSING_ASSET_PATH);
+    const response = await request.get(HOSTED_PROBES.MISSING_ASSET_PATH);
 
     expect(response.status()).toBe(HTTP_STATUS.NOT_FOUND);
   });

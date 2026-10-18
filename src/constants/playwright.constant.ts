@@ -1,4 +1,4 @@
-import type { ReporterDescription } from "@playwright/test";
+import { devices, type ReporterDescription } from "@playwright/test";
 import { IS_CI, AUTOMATION_DIRECTORIES } from "./environment.constant.ts";
 
 export const REPORTERS: ReporterDescription[] = [
@@ -13,3 +13,5 @@ export const BROWSER_OPTIONS = {
   trace: "retain-on-failure",
   screenshot: "only-on-failure",
 } as const;
+
+export const DESKTOP_BROWSER = devices["Desktop Chrome"];
