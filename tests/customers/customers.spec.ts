@@ -106,7 +106,8 @@ test("a server failure preserves the customer form and retry persists the custom
   await failNextCustomerCreation(page);
   await formPage.saveButton.click();
 
-  await expect(page.getByText(CUSTOMER_CREATION_FAILURE, { exact: true })).toBeVisible();
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.getByRole("alert")).toContainText(CUSTOMER_CREATION_FAILURE);
   await expect(page).toHaveURL(ROUTES.NEW_CUSTOMER);
   for (const name of CUSTOMER_FIELD_NAMES) {
     await expect(formPage.field(name)).toHaveValue(input[name]);
