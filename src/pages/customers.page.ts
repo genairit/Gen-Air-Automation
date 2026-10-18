@@ -38,5 +38,5 @@ export const createCustomerFormPage = (page: Page) => {
     }
   };
 
-  return { saveButton, invalidMessage, goto, fill };
+  return { saveButton, invalidMessage, goto, fill, field };
 };

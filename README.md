@@ -24,12 +24,12 @@ npm test
 
 Point the suite at other checkouts with `GEN_AIR_BACKEND_DIR` and `GEN_AIR_FRONTEND_DIR`.
 
-| Command           | What it does                                                 |
-| ----------------- | ------------------------------------------------------------ |
-| `npm test`        | Start the whole stack, run every spec, stop the stack        |
-| `npm run test:ui` | Playwright UI mode for writing and debugging specs           |
-| `npm run report`  | Open the HTML report of the last run                         |
-| `npm run stack`   | Start only the stack, to explore the app on `localhost:5180` |
+| Command                                       | What it does                                                 |
+| --------------------------------------------- | ------------------------------------------------------------ |
+| `npm test`                                    | Start the whole stack, run every spec, stop the stack        |
+| `npm run test:ui`                             | Playwright UI mode for writing and debugging specs           |
+| `npm run report -- <artifact-directory>/html` | Open the HTML report of that run                             |
+| `npm run stack`                               | Start only the stack, to explore the app on `localhost:5180` |
 
 No Docker, database or Google credentials are needed.
 
@@ -90,5 +90,55 @@ tests/            one folder per area of the app
 | Customers    | `tests/customers/customers.spec.ts`   | create, validation, pending count, search, customer page                   |
 | Employees    | `tests/employees/employees.spec.ts`   | add, new employee login, delete, search                                    |
 | Settings     | `tests/settings/settings.spec.ts`     | fixed statuses, password mismatch, change password                         |
+| Hosted       | `tests/hosted/deployment.spec.ts`     | HTTPS, client-route fallback, missing assets, `/api` proxy, auth rejection |
 
 Every new page or flow in the app gets a spec here as part of the same task.
+
+## Hosted smoke checks
+
+`tests/hosted` runs against a deployed environment instead of the local stack, so `npm test` skips
+it. Its checks only read: unauthenticated pages, unknown-credential login and a protected route
+without a session. They create no data, so they are safe against every environment.
+
+```bash
+GEN_AIR_HOSTED_URL=https://gen-air-frontend-development.up.railway.app npm run test:hosted
+```
+
+## Feature QA handoff
+
+The development QA agent owns tests in this repository and reads application branches without
+editing them. Its canonical instructions live in Spec-Development-Component `agents/qa-agent.md`;
+Gen-Air-Backend and Gen-Air-Frontend install Claude, Codex, and Copilot adapters. Run it after a
+clean code review and before feature proof/PRs. A FAILED report returns to the responsible developer
+(application bug) or QA agent (test bug); application fixes must pass code review before another QA
+run. A complete targeted and regression pass, with unchanged tested refs, is required.
+
+Set up adjacent checkouts at the exact backend and frontend feature commits (or set
+`GEN_AIR_BACKEND_DIR` and `GEN_AIR_FRONTEND_DIR`). Record their SHAs and working-tree fingerprints;
+do not reuse an unidentified running stack. Create a unique temporary evidence directory per run:
+
+```bash
+export GEN_AIR_ARTIFACTS_DIR="$(mktemp -d /tmp/gen-air-qa.XXXXXX)"
+npx playwright test tests/customers/customers.spec.ts
+export GEN_AIR_ARTIFACTS_DIR="$(mktemp -d /tmp/gen-air-qa.XXXXXX)"
+npx playwright test
+npm run report -- "$GEN_AIR_ARTIFACTS_DIR/html"
+```
+
+Use separate directories for failure, targeted, and regression evidence so reruns preserve the
+original failure. Authentication state and the disposable database also live in that directory;
+keep those private. Only publish sanitized `html`, `test-results`, and `results.json` artifacts.
+When the variable is omitted, paths default to an OS-temp directory namespaced by checkout.
+No reports, traces, login state, or test database are written into the repository.
+
+The JSON report supplies machine-readable outcomes; HTML and retained traces/screenshots explain
+failed steps. Return the canonical structured `QA_RESULT: PASSED | FAILED` report with the card,
+coverage mapping, exact application/Automation refs, commands/counts, artifacts, and the Automation
+PR into `dev`. Before a feature PR exists, link its real branch compare URL and backfill the PR link
+later. New test changes require clean code review; unchanged coverage can reference its tested
+commit with an explicit no-PR justification.
+
+For a remote feature run, select this Automation branch in **Actions → End-to-end → Run workflow**
+and supply exact `backend-ref` and `frontend-ref` SHAs. Automatic Automation PR runs use app `dev`
+by default; those runs do not prove an unmerged feature unless the tested refs match. The reusable
+app merge gate continues to use the app PR commit and the companion app's `dev`.

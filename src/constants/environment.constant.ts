@@ -1,4 +1,6 @@
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { createHash } from "node:crypto";
 import { TIME_UNITS } from "./time.constant.ts";
 
 const AUTOMATION_ROOT = resolve(import.meta.dirname, "../..");
@@ -11,9 +13,17 @@ export const APP_DIRECTORIES = {
   FRONTEND: process.env.GEN_AIR_FRONTEND_DIR ?? resolve(REPOSITORIES_ROOT, "Gen-Air-Frontend"),
 } as const;
 
+const CHECKOUT_ID = createHash("sha256").update(AUTOMATION_ROOT).digest("hex").slice(0, 12);
+const ARTIFACTS_ROOT = resolve(
+  process.env.GEN_AIR_ARTIFACTS_DIR ?? resolve(tmpdir(), "gen-air-automation", CHECKOUT_ID),
+);
+
 export const AUTOMATION_DIRECTORIES = {
-  AUTH: resolve(AUTOMATION_ROOT, ".auth"),
-  DATABASE: resolve(AUTOMATION_ROOT, ".database"),
+  AUTH: resolve(ARTIFACTS_ROOT, "auth"),
+  HTML: resolve(ARTIFACTS_ROOT, "html"),
+  JSON: resolve(ARTIFACTS_ROOT, "results.json"),
+  RESULTS: resolve(ARTIFACTS_ROOT, "test-results"),
+  DATABASE: resolve(ARTIFACTS_ROOT, "database"),
 } as const;
 
 export const PORTS = {
