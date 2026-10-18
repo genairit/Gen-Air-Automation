@@ -13,11 +13,11 @@ export const failNextCustomerCreation = async (page: Page): Promise<void> => {
       return;
     }
 
-    await page.unroute(pattern, failCreation);
     await route.fulfill({
       status: HTTP_STATUS.INTERNAL_SERVER_ERROR,
       json: { message: CUSTOMER_CREATION_FAILURE },
     });
+    await page.unroute(pattern, failCreation);
   };
 
   await page.route(pattern, failCreation);
