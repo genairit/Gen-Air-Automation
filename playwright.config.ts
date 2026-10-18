@@ -4,21 +4,25 @@ import {
   IS_CI,
   STACK_TIMEOUTS,
   APP_DIRECTORIES,
+  AUTOMATION_DIRECTORIES,
 } from "./src/constants/environment.constant.ts";
 
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests",
+  outputDir: AUTOMATION_DIRECTORIES.RESULTS,
   workers: 1,
   fullyParallel: false,
   forbidOnly: IS_CI,
   retries: IS_CI ? 1 : 0,
   timeout: STACK_TIMEOUTS.TEST_MS,
   expect: { timeout: STACK_TIMEOUTS.EXPECT_MS },
-  reporter: IS_CI
-    ? [["github"], ["html", { open: "never" }]]
-    : [["list"], ["html", { open: "never" }]],
+  reporter: [
+    [IS_CI ? "github" : "list"],
+    ["html", { open: "never", outputFolder: AUTOMATION_DIRECTORIES.HTML }],
+    ["json", { outputFile: AUTOMATION_DIRECTORIES.JSON }],
+  ],
   use: {
     locale: "he-IL",
     baseURL: URLS.FRONTEND,
