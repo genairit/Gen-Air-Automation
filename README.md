@@ -90,8 +90,19 @@ tests/            one folder per area of the app
 | Customers    | `tests/customers/customers.spec.ts`   | create, validation, pending count, search, customer page                   |
 | Employees    | `tests/employees/employees.spec.ts`   | add, new employee login, delete, search                                    |
 | Settings     | `tests/settings/settings.spec.ts`     | fixed statuses, password mismatch, change password                         |
+| Hosted       | `tests/hosted/deployment.spec.ts`     | HTTPS, client-route fallback, missing assets, `/api` proxy, auth rejection |
 
 Every new page or flow in the app gets a spec here as part of the same task.
+
+## Hosted smoke checks
+
+`tests/hosted` runs against a deployed environment instead of the local stack, so `npm test` skips
+it. Its checks only read: unauthenticated pages, unknown-credential login and a protected route
+without a session. They create no data, so they are safe against every environment.
+
+```bash
+GEN_AIR_HOSTED_URL=https://gen-air-frontend-development.up.railway.app npm run test:hosted
+```
 
 ## Feature QA handoff
 
