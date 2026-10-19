@@ -1,61 +1,56 @@
 name: End-to-end
 
 on:
-  pull_request:
-  workflow_dispatch:
-    inputs:
-      backend-ref:
-        description: Backend feature commit SHA (defaults to dev)
-        type: string
-        default: dev
-      frontend-ref:
-        description: Frontend feature commit SHA (defaults to dev)
-        type: string
-        default: dev
   workflow_call:
     inputs:
-      repository-under-test:
+      automation-ref:
         type: string
         required: true
-        description: Gen-Air-Backend or Gen-Air-Frontend
-      ref-under-test:
-        type: string
-        required: true
-        description: Commit of the repository under test; the other app runs at dev
+        description: Immutable Automation SHA matching this reusable workflow
 
 permissions:
   contents: read
-
-env:
-  BACKEND_REF: ${{ inputs.repository-under-test == 'Gen-Air-Backend' && inputs.ref-under-test || inputs.backend-ref || 'dev' }}
-  FRONTEND_REF: ${{ inputs.repository-under-test == 'Gen-Air-Frontend' && inputs.ref-under-test || inputs.frontend-ref || 'dev' }}
-  AUTOMATION_REF: ${{ inputs.repository-under-test && 'main' || github.head_ref || github.ref }}
+  statuses: write
 
 jobs:
   playwright:
     name: Playwright
+    if: ${{ github.repository == 'genairit/Gen-Air-Frontend' && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      AUTOMATION_REF: ${{ inputs.automation-ref }}
     steps:
       - name: Check out Gen-Air-Automation
         uses: actions/checkout@v4
         with:
           repository: genairit/Gen-Air-Automation
           ref: ${{ env.AUTOMATION_REF }}
+          persist-credentials: false
           path: Gen-Air-Automation
+
+      - name: Validate frontend release and resolve backend
+        id: revisions
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { prepare } = await import(`${process.env.GITHUB_WORKSPACE}/Gen-Air-Automation/.github/scripts/release-gate.mjs`);
+            await prepare({ github, context, core });
 
       - name: Check out Gen-Air-Backend
         uses: actions/checkout@v4
         with:
           repository: genairit/Gen-Air-Backend
-          ref: ${{ env.BACKEND_REF }}
+          ref: ${{ steps.revisions.outputs.backend-ref }}
+          persist-credentials: false
           path: Gen-Air-Backend
 
       - name: Check out Gen-Air-Frontend
         uses: actions/checkout@v4
         with:
           repository: genairit/Gen-Air-Frontend
-          ref: ${{ env.FRONTEND_REF }}
+          ref: ${{ steps.revisions.outputs.frontend-ref }}
+          persist-credentials: false
           path: Gen-Air-Frontend
 
       - uses: actions/setup-node@v4
@@ -78,10 +73,22 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run the suite
+        id: suite
         env:
           GEN_AIR_ARTIFACTS_DIR: ${{ runner.temp }}/gen-air-automation
         working-directory: Gen-Air-Automation
         run: npx playwright test
+
+      - name: Verify backend freshness and publish result
+        if: ${{ always() && steps.revisions.outcome == 'success' }}
+        uses: actions/github-script@v7
+        env:
+          SUITE_OUTCOME: ${{ steps.suite.outcome }}
+          TESTED_BACKEND_REF: ${{ steps.revisions.outputs.backend-ref }}
+        with:
+          script: |
+            const { finish } = await import(`${process.env.GITHUB_WORKSPACE}/Gen-Air-Automation/.github/scripts/release-gate.mjs`);
+            await finish({ github, context, core });
 
       - name: Upload the report
         if: ${{ !cancelled() }}

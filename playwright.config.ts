@@ -2,6 +2,7 @@ import {
   REPORTERS,
   BROWSER_OPTIONS,
   DESKTOP_BROWSER,
+  TEST_IGNORE_PATTERNS,
 } from "./src/constants/playwright.constant.ts";
 
 import {
@@ -14,11 +15,10 @@ import {
 } from "./src/constants/environment.constant.ts";
 
 import { defineConfig } from "@playwright/test";
-import { HOSTED_TESTS } from "./src/constants/hosted.constant.ts";
 
 export default defineConfig({
   testDir: "./tests",
-  testIgnore: HOSTED_TESTS.IGNORE_PATTERN,
+  testIgnore: TEST_IGNORE_PATTERNS,
   outputDir: AUTOMATION_DIRECTORIES.RESULTS,
   workers: 1,
   fullyParallel: false,
