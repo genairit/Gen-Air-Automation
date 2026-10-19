@@ -28,22 +28,33 @@ export const BOARD_COPY = {
 
 export const CUSTOMERS_COPY = {
   PENDING_TAB: "ממתין",
-  NEW_CUSTOMER: "+ לקוח חדש",
+  NEW_CUSTOMER: "לקוח חדש",
   DETAILS_TITLE: "פרטי הלקוח",
+  BACK_TO_CUSTOMERS: "חזרה ללקוחות",
   PENDING_SYNC: "ממתין ל-Priority",
-  CREATE_DENIED: "אין הרשאה ליצור לקוח",
+  CREATE_DENIED: "אין הרשאה ליצירת לקוחות",
+  MANAGERS_ONLY: "רק מנהלים עם הרשאת ניהול לקוחות יכולים ליצור לקוחות",
   SEARCH_PLACEHOLDER: "חיפוש לפי שם, ח.פ, איש קשר, טלפון או מזהה Priority...",
 } as const;
 
 export const CUSTOMER_FORM_COPY = {
+  CANCEL: "ביטול",
+  EYEBROW: "לקוחות",
+  TITLE: "לקוח חדש",
   SAVE: "שמור לקוח",
-  INVALID: "יש לתקן את השדות המסומנים לפני השמירה",
+  TYPE: "סוג הלקוח",
+  SUMMARY: "מה יישמר",
+  REQUIRED: "שדה חובה",
+  IDENTITY: "זהות הלקוח",
+  CONTACT: "איש קשר ראשי",
+  CONFLICT_STATUS: "הפעולה מתנגשת בנתונים קיימים",
+  DUPLICATE_TAX_ID: "לקוח עם מספר מזהה זה כבר קיים",
   FIELDS: {
     PHONE: "טלפון",
     EMAIL: "דוא״ל",
     ADDRESS: "כתובת",
     NAME: "שם הלקוח",
-    TAX_ID: "ח.פ / מ״ע / ת.ז",
+    TAX_ID: "ח.פ / ת.פ / ת.ז",
     CONTACT_NAME: "איש קשר ראשי",
   },
 } as const;
@@ -58,6 +69,41 @@ export const CUSTOMER_FIELD_NAMES: CustomerFieldType[] = [
   "PHONE",
   "EMAIL",
 ];
+
+export const CUSTOMER_IDENTITY_FIELD_NAMES: CustomerFieldType[] = ["NAME", "TAX_ID", "ADDRESS"];
+
+export const CUSTOMER_CONTACT_FIELD_NAMES: CustomerFieldType[] = ["CONTACT_NAME", "PHONE", "EMAIL"];
+
+export const CUSTOMER_FIELD_PLACEHOLDERS: Record<CustomerFieldType, string> = {
+  TAX_ID: "9 ספרות",
+  ADDRESS: "רחוב ומספר, עיר",
+  EMAIL: "name@company.co.il",
+  NAME: "בבלי נדל״ן ופיתוח בע״מ",
+  CONTACT_NAME: SHARED_COPY.PERSON_NAME_PLACEHOLDER,
+  PHONE: SHARED_COPY.MOBILE_PHONE_PLACEHOLDER,
+};
+
+export const CUSTOMER_FIELD_HINTS = {
+  TAX_ID: "9 ספרות, נבדק מול ספרת ביקורת",
+  PHONE: "נייד או קווי, עם או בלי מקף",
+} as const;
+
+export const CUSTOMER_TYPE_LABELS = {
+  COMPANY: "חברה",
+  INSTITUTION: "מוסד",
+  PRIVATE_CLIENT: "לקוח פרטי",
+} as const;
+
+export const CUSTOMER_SUMMARY_LABELS = {
+  CREATED_BY: "נוצר ע״י",
+  PRIORITY_ID: "מזהה Priority",
+  SYNC_STATUS: "סטטוס סנכרון",
+} as const;
+
+export const CUSTOMER_SUMMARY_VALUES = {
+  PRIORITY_ID: "יוקצה כשהסנכרון עם Priority יופעל",
+  SYNC_STATUS: "ממתין ל-Priority · אין סנכרון אוטומטי",
+} as const;
 
 export const TASKS_COPY = {
   NEW_TASK: "משימה חדשה",

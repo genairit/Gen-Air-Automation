@@ -87,7 +87,7 @@ tests/            one folder per area of the app
 | Apartments   | `tests/projects/apartments.spec.ts`   | add, details, independent stage, notes, next apartment, open from building |
 | Drive        | `tests/projects/drive.spec.ts`        | unavailable banner, folder status and files, upload, blocked file          |
 | Tasks        | `tests/tasks/tasks.spec.ts`           | create, validation, counts, status, urgency, reassign, description, claim  |
-| Customers    | `tests/customers/customers.spec.ts`   | create, validation, pending count, search, customer page                   |
+| Customers    | `tests/customers/customers.spec.ts`   | header button, form layout, validation, create, duplicate, cancel, mobile  |
 | Employees    | `tests/employees/employees.spec.ts`   | add, new employee login, delete, search                                    |
 | Settings     | `tests/settings/settings.spec.ts`     | fixed statuses, password mismatch, change password                         |
 | Hosted       | `tests/hosted/deployment.spec.ts`     | HTTPS, client-route fallback, missing assets, `/api` proxy, auth rejection |

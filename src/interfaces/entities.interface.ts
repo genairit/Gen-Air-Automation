@@ -27,6 +27,11 @@ export interface ICustomer extends IEntityReference {
   contactName: string;
 }
 
+export interface ICustomerRecord extends ICustomer {
+  customerType: string;
+  prioritySyncStatus: string;
+}
+
 export interface ISession {
   user: IUser;
   accessToken: string;

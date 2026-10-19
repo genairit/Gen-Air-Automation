@@ -12,17 +12,18 @@ import {
   isCustomer,
   isTaskCounts,
   isStageCounts,
+  isCustomerRecord,
   isProjectTypeList,
   isProjectStageList,
 } from "../utilities/entity-guard.utility.ts";
 
 import { API_PATHS } from "../constants/api.constant.ts";
-import { buildApartmentsPath } from "../utilities/api-path.utility.ts";
 import type { APIResponse, APIRequestContext } from "@playwright/test";
 import type { UserRoleType } from "../constants/user-role.constant.ts";
 import type { ICredentials } from "../interfaces/test-user.interface.ts";
 import { isNumberRecord, type TGuard } from "../utilities/guard.utility.ts";
 import type { ISession, IProjectType } from "../interfaces/entities.interface.ts";
+import { buildCustomerPath, buildApartmentsPath } from "../utilities/api-path.utility.ts";
 
 const readJson = async <T>(response: APIResponse, isExpected: TGuard<T>): Promise<T> => {
   if (!response.ok()) {
@@ -112,6 +113,7 @@ export const createGenAirApi = (request: APIRequestContext, session: ISession) =
     createTask: (task: object) => post(API_PATHS.TASK, task, isTask),
     createProject: (project: object) => post(API_PATHS.PROJECT, project, isProject),
     createCustomer: (customer: object) => post(API_PATHS.CUSTOMER, customer, isCustomer),
+    getCustomer: (customerId: string) => get(buildCustomerPath(customerId), isCustomerRecord),
     createApartment: (buildingId: string, apartment: object) =>
       post(buildApartmentsPath(buildingId), apartment, isProject),
   };
