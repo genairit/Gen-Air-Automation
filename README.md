@@ -1,7 +1,8 @@
 # Gen-Air-Automation
 
-End-to-end Playwright suite for the Gen-Air app (Gen-Air-Frontend + Gen-Air-Backend). Every pull
-request into `main` in either app repo runs this suite, and a failing run blocks the merge.
+End-to-end Playwright suite for Gen-Air-Frontend and Gen-Air-Backend. The QA agent runs targeted
+feature tests and the full suite before feature PRs. GitHub Actions runs the full suite only for
+frontend `dev` → `test` and `test` → `main`; feature → `dev` has no duplicate GitHub run.
 
 ## Run it locally
 
@@ -52,14 +53,36 @@ browser (`src/mocks/drive.mock.ts`).
 
 ## Merge gate
 
-- `.github/workflows/e2e.yml` is a reusable workflow. It checks out all three repos, runs the suite
-  and uploads the HTML report, traces and failure screenshots as the `playwright-report` artifact.
-- Gen-Air-Backend and Gen-Air-Frontend each call it from `.github/workflows/merge-gate.yml` on every
-  pull request into `main`. The repo under test is checked out at the PR head, the other app at
-  `dev`, and this suite at `main`.
-- In both app repos, a ruleset on `main` makes the **End-to-end / Playwright** check required, so a
-  red run blocks the merge.
-- Pull requests in this repo run the same workflow against both apps' `dev`.
+The frontend calls `.github/workflows/e2e.yml` at an immutable Automation commit. The workflow has
+only `workflow_call`; there are no Automation PR, push, schedule, or manual-dispatch triggers.
+
+| Frontend PR | Backend revision               |
+| ----------- | ------------------------------ |
+| dev → test  | latest test, resolved to a SHA |
+| test → main | latest main, resolved to a SHA |
+
+The promotion candidate merge commit is tested, including its destination branch. Unsupported
+promotion directions and fork callers fail before installing dependencies or running Playwright.
+Merge or promote backend dependencies into the matching destination first. A missing API/schema
+contract fails the integration suite; merge the backend dependency and rerun the frontend gate.
+The summary records immutable frontend, backend and Automation revisions. Existing coverage,
+isolated seeded Postgres, faked integrations and report/trace retention remain in use.
+
+Backend test/main pushes run a lightweight notifier, which marks eligible open frontend PRs pending
+and reruns their latest completed merge-gate run. It never checks out the apps or runs Playwright.
+If the gate is already active, it fails freshness verification and requires an explicit rerun.
+The suite also checks backend/head/base freshness before publishing success. GitHub events are
+asynchronous: the notifier cannot provide an atomic lock between repositories. Do not merge a
+frontend PR while its backend promotion or notifier is still running.
+
+See [release-gate rollout](docs/release-gate-rollout.md) for credentials, required checks, coordinated
+activation and rollback. Do not remove the old required check before the replacement is available.
+
+Workflow policy tests (adjacent backend checkout must contain this task's notifier):
+
+```bash
+node --test tests/workflows/*.test.mjs
+```
 
 ## Layout
 
@@ -77,20 +100,22 @@ tests/            one folder per area of the app
 
 ## Coverage
 
-| Area         | Spec                                  | Flows                                                                      |
-| ------------ | ------------------------------------- | -------------------------------------------------------------------------- |
-| Auth         | `tests/auth/login.spec.ts`            | login, invalid login, disabled submit, session guard, logout               |
-| Roles        | `tests/auth/role-access.spec.ts`      | what each of the four roles can create or manage, denied forms             |
-| Board        | `tests/projects/board.spec.ts`        | status counts, search, buildings without apartments, status change, mobile |
-| Projects     | `tests/projects/project-form.spec.ts` | create with verified address, validation, edit, delete                     |
-| Project page | `tests/projects/project-page.spec.ts` | standalone and building views, edit entry, not found                       |
-| Apartments   | `tests/projects/apartments.spec.ts`   | add, details, independent stage, notes, next apartment, open from building |
-| Drive        | `tests/projects/drive.spec.ts`        | unavailable banner, folder status and files, upload, blocked file          |
-| Tasks        | `tests/tasks/tasks.spec.ts`           | create, validation, counts, status, urgency, reassign, description, claim  |
-| Customers    | `tests/customers/customers.spec.ts`   | create, validation, pending count, search, customer page                   |
-| Employees    | `tests/employees/employees.spec.ts`   | add, new employee login, delete, search                                    |
-| Settings     | `tests/settings/settings.spec.ts`     | fixed statuses, password mismatch, change password                         |
-| Hosted       | `tests/hosted/deployment.spec.ts`     | HTTPS, client-route fallback, missing assets, `/api` proxy, auth rejection |
+| Area            | Spec                                        | Flows                                                                                  |
+| --------------- | ------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Auth            | `tests/auth/login.spec.ts`                  | login, invalid login, disabled submit, session guard, logout                           |
+| Roles           | `tests/auth/role-access.spec.ts`            | what each of the four roles can create or manage, denied forms                         |
+| Board           | `tests/projects/board.spec.ts`              | status counts, search, buildings without apartments, status change, mobile             |
+| Projects        | `tests/projects/project-form.spec.ts`       | create with verified address, validation, edit, delete                                 |
+| Project page    | `tests/projects/project-page.spec.ts`       | standalone and building views, edit entry, not found                                   |
+| Priority fields | `tests/projects/priority-fields.spec.ts`    | renamed API fields, preserved sync date and nullable unsynced caption                  |
+| Migration       | `tests/projects/priority-migration.spec.ts` | populated/null preservation, staged read compatibility, final types and column cleanup |
+| Apartments      | `tests/projects/apartments.spec.ts`         | add, details, independent stage, notes, next apartment, open from building             |
+| Drive           | `tests/projects/drive.spec.ts`              | unavailable banner, folder status and files, upload, blocked file                      |
+| Tasks           | `tests/tasks/tasks.spec.ts`                 | create, validation, counts, status, urgency, reassign, description, claim              |
+| Customers       | `tests/customers/customers.spec.ts`         | header button, form layout, validation, create, duplicate, cancel, mobile              |
+| Employees       | `tests/employees/employees.spec.ts`         | add, new employee login, delete, search                                                |
+| Settings        | `tests/settings/settings.spec.ts`           | fixed statuses, password mismatch, change password                                     |
+| Hosted          | `tests/hosted/deployment.spec.ts`           | HTTPS, client-route fallback, missing assets, `/api` proxy, auth rejection             |
 
 Every new page or flow in the app gets a spec here as part of the same task.
 
@@ -107,11 +132,18 @@ GEN_AIR_HOSTED_URL=https://gen-air-frontend-development.up.railway.app npm run t
 ## Feature QA handoff
 
 The development QA agent owns tests in this repository and reads application branches without
-editing them. Its canonical instructions live in Spec-Development-Component `agents/qa-agent.md`;
-Gen-Air-Backend and Gen-Air-Frontend install Claude, Codex, and Copilot adapters. Run it after a
-clean code review and before feature proof/PRs. A FAILED report returns to the responsible developer
-(application bug) or QA agent (test bug); application fixes must pass code review before another QA
-run. A complete targeted and regression pass, with unchanged tested refs, is required.
+editing them. Its existing canonical instructions live in Spec-Development-Component
+`agents/qa-agent.md`; app repositories install Claude, Codex and Copilot copies. After clean code
+review, QA maintains feature coverage, runs targeted tests and then the full existing suite against
+exact feature revisions, and returns PASSED/FAILED before feature PR publication. Failures return
+to development or QA according to ownership; application fixes require another clean review.
+
+For frontend feature → dev, use a developer-prepared isolated candidate with current frontend dev
+and latest backend dev after backend dependencies merge. Recheck candidate/base, backend and
+Automation revisions before feature merge; changed revisions require renewed QA. GitHub does not
+run this feature suite again. Release promotions instead use the automatic dev → test / test → main
+frontend gate, without an additional duplicate feature-QA run.
+When coverage changes, update both frontend workflow pins to the reviewed Automation test commit.
 
 Set up adjacent checkouts at the exact backend and frontend feature commits (or set
 `GEN_AIR_BACKEND_DIR` and `GEN_AIR_FRONTEND_DIR`). Record their SHAs and working-tree fingerprints;
@@ -133,12 +165,11 @@ No reports, traces, login state, or test database are written into the repositor
 
 The JSON report supplies machine-readable outcomes; HTML and retained traces/screenshots explain
 failed steps. Return the canonical structured `QA_RESULT: PASSED | FAILED` report with the card,
-coverage mapping, exact application/Automation refs, commands/counts, artifacts, and the Automation
+coverage mapping, exact application/Automation refs, commands/counts, integration state, artifacts, and the Automation
 PR into `dev`. Before a feature PR exists, link its real branch compare URL and backfill the PR link
 later. New test changes require clean code review; unchanged coverage can reference its tested
 commit with an explicit no-PR justification.
 
-For a remote feature run, select this Automation branch in **Actions → End-to-end → Run workflow**
-and supply exact `backend-ref` and `frontend-ref` SHAs. Automatic Automation PR runs use app `dev`
-by default; those runs do not prove an unmerged feature unless the tested refs match. The reusable
-app merge gate continues to use the app PR commit and the companion app's `dev`.
+Automatic GitHub runs belong only to frontend dev → test and test → main PRs, including reruns.
+There is no Automation PR/push/manual-dispatch suite, no backend-PR suite and no feature → dev suite
+in GitHub. QA-owned targeted/full local runs before feature PRs remain part of development.

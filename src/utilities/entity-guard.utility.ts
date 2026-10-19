@@ -15,6 +15,7 @@ import type {
   IStageCounts,
   IProjectType,
   IProjectStage,
+  ICustomerRecord,
 } from "../interfaces/entities.interface.ts";
 
 export const isTask = createStringFieldsGuard<ITask>(["id", "title"]);
@@ -32,6 +33,15 @@ export const isCustomer = createStringFieldsGuard<ICustomer>([
   "name",
   "taxId",
   "contactName",
+]);
+
+export const isCustomerRecord = createStringFieldsGuard<ICustomerRecord>([
+  "id",
+  "name",
+  "taxId",
+  "contactName",
+  "customerType",
+  "prioritySyncStatus",
 ]);
 
 export const isSession = (value: unknown): value is ISession =>
