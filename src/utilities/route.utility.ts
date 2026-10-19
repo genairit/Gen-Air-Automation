@@ -17,3 +17,6 @@ export const toEndAnchoredPattern = (path: string): RegExp => new RegExp(`${path
 
 export const buildApartmentRoute = (buildingId: string, apartmentId: string): string =>
   joinPath(buildProjectRoute(buildingId), ROUTE_SEGMENTS.APARTMENTS, apartmentId);
+
+export const readLastPathSegment = (url: string): string =>
+  new URL(url).pathname.split("/").filter(Boolean).at(-1) ?? "";
