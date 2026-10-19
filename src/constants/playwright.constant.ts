@@ -1,3 +1,4 @@
+import { HOSTED_TESTS } from "./hosted.constant.ts";
 import { devices, type ReporterDescription } from "@playwright/test";
 import { IS_CI, AUTOMATION_DIRECTORIES } from "./environment.constant.ts";
 
@@ -15,3 +16,5 @@ export const BROWSER_OPTIONS = {
 } as const;
 
 export const DESKTOP_BROWSER = devices["Desktop Chrome"];
+
+export const TEST_IGNORE_PATTERNS = [HOSTED_TESTS.IGNORE_PATTERN, "**/workflows/**"];

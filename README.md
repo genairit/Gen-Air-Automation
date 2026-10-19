@@ -1,7 +1,7 @@
 # Gen-Air-Automation
 
-End-to-end Playwright suite for the Gen-Air app (Gen-Air-Frontend + Gen-Air-Backend). Every pull
-request into `main` in either app repo runs this suite, and a failing run blocks the merge.
+End-to-end Playwright suite for the Gen-Air app (Gen-Air-Frontend + Gen-Air-Backend). Automatic end-to-end runs belong only to frontend release PRs:
+feature → `dev`, `dev` → `test`, and `test` → `main`. Backend and Automation PRs do not run Playwright.
 
 ## Run it locally
 
@@ -52,14 +52,37 @@ browser (`src/mocks/drive.mock.ts`).
 
 ## Merge gate
 
-- `.github/workflows/e2e.yml` is a reusable workflow. It checks out all three repos, runs the suite
-  and uploads the HTML report, traces and failure screenshots as the `playwright-report` artifact.
-- Gen-Air-Backend and Gen-Air-Frontend each call it from `.github/workflows/merge-gate.yml` on every
-  pull request into `main`. The repo under test is checked out at the PR head, the other app at
-  `dev`, and this suite at `main`.
-- In both app repos, a ruleset on `main` makes the **End-to-end / Playwright** check required, so a
-  red run blocks the merge.
-- Pull requests in this repo run the same workflow against both apps' `dev`.
+The frontend calls `.github/workflows/e2e.yml` at an immutable Automation commit. The workflow has
+only `workflow_call`; there are no Automation PR, push, schedule, or manual-dispatch triggers.
+
+| Frontend PR   | Backend revision               |
+| ------------- | ------------------------------ |
+| feature → dev | latest dev, resolved to a SHA  |
+| dev → test    | latest test, resolved to a SHA |
+| test → main   | latest main, resolved to a SHA |
+
+The frontend candidate merge commit is tested, including its destination branch. Unsupported
+promotion directions and fork callers fail before installing dependencies or running Playwright.
+Merge or promote backend dependencies into the matching destination first. A missing API/schema
+contract fails the integration suite; merge the backend dependency and rerun the frontend gate.
+The summary records immutable frontend, backend and Automation revisions. Existing coverage,
+isolated seeded Postgres, faked integrations and report/trace retention remain in use.
+
+Backend release pushes run a lightweight notifier, which marks eligible open frontend PRs pending
+and reruns their latest completed merge-gate run. It never checks out the apps or runs Playwright.
+If the gate is already active, it fails freshness verification and requires an explicit rerun.
+The suite also checks backend/head/base freshness before publishing success. GitHub events are
+asynchronous: the notifier cannot provide an atomic lock between repositories. Do not merge a
+frontend PR while its backend promotion or notifier is still running.
+
+See [release-gate rollout](docs/release-gate-rollout.md) for credentials, required checks, coordinated
+activation and rollback. Do not remove the old required check before the replacement is available.
+
+Workflow policy tests (adjacent backend checkout must contain this task's notifier):
+
+```bash
+node --test tests/workflows/*.test.mjs
+```
 
 ## Layout
 
@@ -138,7 +161,9 @@ PR into `dev`. Before a feature PR exists, link its real branch compare URL and 
 later. New test changes require clean code review; unchanged coverage can reference its tested
 commit with an explicit no-PR justification.
 
-For a remote feature run, select this Automation branch in **Actions → End-to-end → Run workflow**
-and supply exact `backend-ref` and `frontend-ref` SHAs. Automatic Automation PR runs use app `dev`
-by default; those runs do not prove an unmerged feature unless the tested refs match. The reusable
-app merge gate continues to use the app PR commit and the companion app's `dev`.
+Automatic remote QA runs only through an eligible frontend PR's merge gate, including reruns.
+There is no standalone Automation workflow dispatch. Backend and Automation changes still receive
+code review and relevant local type/contract/unit checks. Maintain their Playwright coverage, then
+verify integration through the consuming frontend release PR after backend dependencies have been
+merged into the destination. Local exploratory commands above remain available when explicitly
+requested; do not automatically launch the full browser suite for backend or Automation PRs.
