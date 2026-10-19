@@ -131,10 +131,13 @@ GEN_AIR_HOSTED_URL=https://gen-air-frontend-development.up.railway.app npm run t
 
 The development QA agent owns tests in this repository and reads application branches without
 editing them. Its canonical instructions live in Spec-Development-Component `agents/qa-agent.md`;
-Gen-Air-Backend and Gen-Air-Frontend install Claude, Codex, and Copilot adapters. Run it after a
-clean code review and before feature proof/PRs. A FAILED report returns to the responsible developer
-(application bug) or QA agent (test bug); application fixes must pass code review before another QA
-run. A complete targeted and regression pass, with unchanged tested refs, is required.
+Gen-Air-Backend and Gen-Air-Frontend install Claude, Codex, and Copilot adapters. Run it after clean code review for relevant local checks and maintained feature coverage. Before
+feature PR publication, return a scoped local result with browser integration explicitly PENDING.
+Backend and Automation PRs do not launch the browser suite. Full regression runs only through
+frontend feature → dev, dev → test and test → main PRs, against the matching backend destination
+after dependencies merge. That full gate and fresh backend compatibility must pass before frontend
+merge. Application failures return to development and clean review; test failures return to QA.
+When coverage changes, update both frontend workflow pins to the reviewed Automation test commit.
 
 Set up adjacent checkouts at the exact backend and frontend feature commits (or set
 `GEN_AIR_BACKEND_DIR` and `GEN_AIR_FRONTEND_DIR`). Record their SHAs and working-tree fingerprints;
@@ -156,7 +159,7 @@ No reports, traces, login state, or test database are written into the repositor
 
 The JSON report supplies machine-readable outcomes; HTML and retained traces/screenshots explain
 failed steps. Return the canonical structured `QA_RESULT: PASSED | FAILED` report with the card,
-coverage mapping, exact application/Automation refs, commands/counts, artifacts, and the Automation
+coverage mapping, exact application/Automation refs, commands/counts, integration state, artifacts, and the Automation
 PR into `dev`. Before a feature PR exists, link its real branch compare URL and backfill the PR link
 later. New test changes require clean code review; unchanged coverage can reference its tested
 commit with an explicit no-PR justification.
