@@ -22,6 +22,8 @@ export const createProjectFormPage = (page: Page) => {
   const form = findMainContent(page);
   const nameInput = findFieldByTitle(form, PROJECT_FORM_COPY.NAME);
   const addressVerified = page.getByText(PROJECT_FORM_COPY.ADDRESS_VERIFIED);
+  const contactNameInput = form.getByPlaceholder(PROJECT_FORM_COPY.CONTACT_NAME_PLACEHOLDER);
+  const contactPhoneInput = form.getByPlaceholder(PROJECT_FORM_COPY.CONTACT_PHONE_PLACEHOLDER);
   const saveButton = page.getByRole("button", { name: PROJECT_FORM_COPY.SAVE });
   const createButton = page.getByRole("button", { name: PROJECT_FORM_COPY.CREATE });
   const deleteButton = page.getByRole("button", { name: PROJECT_FORM_COPY.DELETE });
@@ -60,5 +62,17 @@ export const createProjectFormPage = (page: Page) => {
     await form.getByRole("radio", { name: input.paymentTermsLabel }).check();
   };
 
-  return { nameInput, saveButton, createButton, deleteButton, addressVerified, goto, fill };
+  return {
+    nameInput,
+    contactNameInput,
+    contactPhoneInput,
+    addressInput,
+    customerSearch,
+    saveButton,
+    createButton,
+    deleteButton,
+    addressVerified,
+    goto,
+    fill,
+  };
 };

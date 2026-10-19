@@ -129,6 +129,8 @@ export const SETTINGS_COPY = {
 } as const;
 
 export const PROJECT_FORM_COPY = {
+  DRAFT_RESTORED: "טיוטת הפרויקט שוחזרה",
+  DISCARD_DRAFT: "מחק טיוטה והתחל מחדש",
   SAVE: "שמור שינויים",
   CREATE: "צור פרויקט",
   DELETE: "מחק פרויקט",
