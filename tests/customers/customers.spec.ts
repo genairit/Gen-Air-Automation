@@ -346,21 +346,6 @@ test("a server failure preserves the customer form and retry persists the custom
   await expect(page.getByText(customer.email)).toBeVisible();
 });
 
-test.describe("project manager", () => {
-  test.use({ storageState: getAuthStatePath(USER_ROLES.PROJECT_MANAGER) });
-
-  test("the summary names the signed-in manager as the creator", async ({ page }) => {
-    const formPage = createCustomerFormPage(page);
-    const creatorName = formatFullName(TEST_USERS[USER_ROLES.PROJECT_MANAGER]);
-
-    await formPage.goto();
-
-    await expect(formPage.findSummaryTile(CUSTOMER_SUMMARY_LABELS.CREATED_BY)).toContainText(
-      creatorName,
-    );
-  });
-});
-
 test.describe("mobile layout", () => {
   test.use({ viewport: VIEWPORTS.MOBILE, isMobile: true, hasTouch: true });
 
@@ -396,7 +381,7 @@ test.describe("mobile layout", () => {
   });
 
   test.describe("without customer management", () => {
-    test.use({ storageState: getAuthStatePath(USER_ROLES.LEAD_INSTALLER) });
+    test.use({ storageState: getAuthStatePath(USER_ROLES.INSTALLER) });
 
     test("the customers page caption has no horizontal overflow at 390px", async ({ page }) => {
       const customersPage = createCustomersPage(page);

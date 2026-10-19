@@ -2,8 +2,11 @@ import type { Page } from "@playwright/test";
 import { findFieldByTitle } from "./field.component.ts";
 import { findMainContent } from "./layout.component.ts";
 import { ROUTES } from "../constants/routes.constant.ts";
+import { findFormSectionByTitle } from "./card.component.ts";
 import { PROJECT_FORM_COPY } from "../constants/copy.constant.ts";
+import { buildEditProjectRoute } from "../utilities/route.utility.ts";
 import type { IFakePlace } from "../interfaces/fake-place.interface.ts";
+import { USER_ROLE_LABELS, type ProjectMemberRoleType } from "../constants/user-role.constant.ts";
 
 export interface IProjectFormInput {
   name: string;
@@ -27,8 +30,30 @@ export const createProjectFormPage = (page: Page) => {
   const deleteButton = page.getByRole("button", { name: PROJECT_FORM_COPY.DELETE });
   const addressInput = form.getByRole("combobox", { name: PROJECT_FORM_COPY.ADDRESS });
   const customerSearch = form.getByPlaceholder(PROJECT_FORM_COPY.CUSTOMER_SEARCH_PLACEHOLDER);
+  const rolesSection = findFormSectionByTitle(form, PROJECT_FORM_COPY.ROLES_TITLE);
+  const memberSlotPickers = rolesSection.getByRole("combobox");
+  const createDenied = form.getByText(PROJECT_FORM_COPY.CREATE_DENIED, { exact: true });
+  const editDenied = form.getByText(PROJECT_FORM_COPY.EDIT_DENIED, { exact: true });
+  const draftRestored = form.getByText(PROJECT_FORM_COPY.DRAFT_RESTORED, { exact: true });
 
   const goto = () => page.goto(ROUTES.NEW_PROJECT);
+
+  const gotoEdit = (projectId: string) => page.goto(buildEditProjectRoute(projectId));
+
+  const memberSlotPicker = (role: ProjectMemberRoleType) =>
+    findFormSectionByTitle(rolesSection, USER_ROLE_LABELS[role]).getByRole("combobox");
+
+  const openMemberSlot = async (role: ProjectMemberRoleType) => {
+    await memberSlotPicker(role).click();
+
+    return page.getByRole("option");
+  };
+
+  const chooseMember = async (role: ProjectMemberRoleType, userName: string) => {
+    const options = await openMemberSlot(role);
+
+    await options.filter({ hasText: userName }).click();
+  };
 
   const chooseProjectType = (projectTypeName: string) =>
     form.getByText(projectTypeName, { exact: true }).click();
@@ -60,5 +85,22 @@ export const createProjectFormPage = (page: Page) => {
     await form.getByRole("radio", { name: input.paymentTermsLabel }).check();
   };
 
-  return { nameInput, saveButton, createButton, deleteButton, addressVerified, goto, fill };
+  return {
+    nameInput,
+    saveButton,
+    editDenied,
+    createButton,
+    deleteButton,
+    createDenied,
+    draftRestored,
+    addressVerified,
+    rolesSection,
+    memberSlotPickers,
+    goto,
+    fill,
+    gotoEdit,
+    chooseMember,
+    openMemberSlot,
+    memberSlotPicker,
+  };
 };

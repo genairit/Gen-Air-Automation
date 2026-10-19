@@ -5,25 +5,34 @@ import type {
 } from "../constants/domain.constant.ts";
 
 import {
+  buildTaskPath,
+  buildCustomerPath,
+  buildApartmentsPath,
+  buildProjectMembersPath,
+} from "../utilities/api-path.utility.ts";
+
+import {
   isTask,
-  isUser,
   isProject,
   isSession,
   isCustomer,
   isTaskCounts,
+  isTaskRecord,
+  isUserRecord,
   isStageCounts,
   isCustomerRecord,
   isProjectTypeList,
   isProjectStageList,
+  isProjectMemberList,
 } from "../utilities/entity-guard.utility.ts";
 
 import { API_PATHS } from "../constants/api.constant.ts";
+import type { HttpMethodType } from "../constants/http.constant.ts";
 import type { APIResponse, APIRequestContext } from "@playwright/test";
 import type { UserRoleType } from "../constants/user-role.constant.ts";
 import type { ICredentials } from "../interfaces/test-user.interface.ts";
 import { isNumberRecord, type TGuard } from "../utilities/guard.utility.ts";
-import type { ISession, IProjectType } from "../interfaces/entities.interface.ts";
-import { buildCustomerPath, buildApartmentsPath } from "../utilities/api-path.utility.ts";
+import type { ISession, IProjectType, IProjectStage } from "../interfaces/entities.interface.ts";
 
 const readJson = async <T>(response: APIResponse, isExpected: TGuard<T>): Promise<T> => {
   if (!response.ok()) {
@@ -59,6 +68,9 @@ export const createGenAirApi = (request: APIRequestContext, session: ISession) =
   const post = async <T>(path: string, data: object, isExpected: TGuard<T>) =>
     readJson(await request.post(path, { headers, data }), isExpected);
 
+  const send = (method: HttpMethodType, path: string, data: object | null = null) =>
+    request.fetch(path, { method, headers, ...(data && { data }) });
+
   const findProjectType = async (name: ProjectTypeNameType): Promise<IProjectType> => {
     const projectTypes = await get(API_PATHS.PROJECT_TYPE, isProjectTypeList);
     const projectType = projectTypes.find(candidate => candidate.name === name);
@@ -70,20 +82,28 @@ export const createGenAirApi = (request: APIRequestContext, session: ISession) =
     return projectType;
   };
 
-  const countProjectsInStage = async (stageName: string): Promise<number> => {
+  const findProjectStage = async (stageName: string): Promise<IProjectStage> => {
     const stages = await get(API_PATHS.PROJECT_STAGE, isProjectStageList);
-    const counts = await get(API_PATHS.PROJECT_STAGE_COUNTS, isStageCounts);
     const stage = stages.find(candidate => candidate.name === stageName);
 
     if (!stage) {
       throw new Error(`Project stage "${stageName}" is not seeded`);
     }
 
+    return stage;
+  };
+
+  const countProjectsInStage = async (stageName: string): Promise<number> => {
+    const stage = await findProjectStage(stageName);
+    const counts = await get(API_PATHS.PROJECT_STAGE_COUNTS, isStageCounts);
+
     return counts.byStage[stage.id] ?? 0;
   };
 
+  const readRoleCounts = () => get(API_PATHS.USER_ROLE_COUNTS, isNumberRecord);
+
   const countUsersInRole = async (role: UserRoleType): Promise<number> => {
-    const counts = await get(API_PATHS.USER_ROLE_COUNTS, isNumberRecord);
+    const counts = await readRoleCounts();
 
     return counts[role] ?? 0;
   };
@@ -104,12 +124,18 @@ export const createGenAirApi = (request: APIRequestContext, session: ISession) =
 
   return {
     session,
+    send,
+    readRoleCounts,
     findProjectType,
+    findProjectStage,
     countUsersInRole,
     countMyTasksInStatus,
     countProjectsInStage,
     countCustomersInSyncStatus,
-    createUser: (user: object) => post(API_PATHS.USER, user, isUser),
+    getTask: (taskId: string) => get(buildTaskPath(taskId), isTaskRecord),
+    createUser: (user: object) => post(API_PATHS.USER, user, isUserRecord),
+    getProjectMembers: (projectId: string) =>
+      get(buildProjectMembersPath(projectId), isProjectMemberList),
     createTask: (task: object) => post(API_PATHS.TASK, task, isTask),
     createProject: (project: object) => post(API_PATHS.PROJECT, project, isProject),
     createCustomer: (customer: object) => post(API_PATHS.CUSTOMER, customer, isCustomer),

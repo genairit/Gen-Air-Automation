@@ -6,6 +6,19 @@ export interface ITask extends IEntityReference {
   title: string;
 }
 
+export interface ITaskRecord extends ITask {
+  assigneeId: string | null;
+}
+
+export interface IProjectMember {
+  role: string;
+  userId: string;
+}
+
+export interface IUserRecord extends IUser {
+  role: string;
+}
+
 export interface IProjectType extends IEntityReference {
   name: string;
 }
