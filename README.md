@@ -1,7 +1,8 @@
 # Gen-Air-Automation
 
-End-to-end Playwright suite for the Gen-Air app (Gen-Air-Frontend + Gen-Air-Backend). Automatic end-to-end runs belong only to frontend release PRs:
-feature → `dev`, `dev` → `test`, and `test` → `main`. Backend and Automation PRs do not run Playwright.
+End-to-end Playwright suite for Gen-Air-Frontend and Gen-Air-Backend. The QA agent runs targeted
+feature tests and the full suite before feature PRs. GitHub Actions runs the full suite only for
+frontend `dev` → `test` and `test` → `main`; feature → `dev` has no duplicate GitHub run.
 
 ## Run it locally
 
@@ -55,20 +56,19 @@ browser (`src/mocks/drive.mock.ts`).
 The frontend calls `.github/workflows/e2e.yml` at an immutable Automation commit. The workflow has
 only `workflow_call`; there are no Automation PR, push, schedule, or manual-dispatch triggers.
 
-| Frontend PR   | Backend revision               |
-| ------------- | ------------------------------ |
-| feature → dev | latest dev, resolved to a SHA  |
-| dev → test    | latest test, resolved to a SHA |
-| test → main   | latest main, resolved to a SHA |
+| Frontend PR | Backend revision               |
+| ----------- | ------------------------------ |
+| dev → test  | latest test, resolved to a SHA |
+| test → main | latest main, resolved to a SHA |
 
-The frontend candidate merge commit is tested, including its destination branch. Unsupported
+The promotion candidate merge commit is tested, including its destination branch. Unsupported
 promotion directions and fork callers fail before installing dependencies or running Playwright.
 Merge or promote backend dependencies into the matching destination first. A missing API/schema
 contract fails the integration suite; merge the backend dependency and rerun the frontend gate.
 The summary records immutable frontend, backend and Automation revisions. Existing coverage,
 isolated seeded Postgres, faked integrations and report/trace retention remain in use.
 
-Backend release pushes run a lightweight notifier, which marks eligible open frontend PRs pending
+Backend test/main pushes run a lightweight notifier, which marks eligible open frontend PRs pending
 and reruns their latest completed merge-gate run. It never checks out the apps or runs Playwright.
 If the gate is already active, it fails freshness verification and requires an explicit rerun.
 The suite also checks backend/head/base freshness before publishing success. GitHub events are
@@ -130,13 +130,17 @@ GEN_AIR_HOSTED_URL=https://gen-air-frontend-development.up.railway.app npm run t
 ## Feature QA handoff
 
 The development QA agent owns tests in this repository and reads application branches without
-editing them. Its canonical instructions live in Spec-Development-Component `agents/qa-agent.md`;
-Gen-Air-Backend and Gen-Air-Frontend install Claude, Codex, and Copilot adapters. Run it after clean code review for relevant local checks and maintained feature coverage. Before
-feature PR publication, return a scoped local result with browser integration explicitly PENDING.
-Backend and Automation PRs do not launch the browser suite. Full regression runs only through
-frontend feature → dev, dev → test and test → main PRs, against the matching backend destination
-after dependencies merge. That full gate and fresh backend compatibility must pass before frontend
-merge. Application failures return to development and clean review; test failures return to QA.
+editing them. Its existing canonical instructions live in Spec-Development-Component
+`agents/qa-agent.md`; app repositories install Claude, Codex and Copilot copies. After clean code
+review, QA maintains feature coverage, runs targeted tests and then the full existing suite against
+exact feature revisions, and returns PASSED/FAILED before feature PR publication. Failures return
+to development or QA according to ownership; application fixes require another clean review.
+
+For frontend feature → dev, use a developer-prepared isolated candidate with current frontend dev
+and latest backend dev after backend dependencies merge. Recheck candidate/base, backend and
+Automation revisions before feature merge; changed revisions require renewed QA. GitHub does not
+run this feature suite again. Release promotions instead use the automatic dev → test / test → main
+frontend gate, without an additional duplicate feature-QA run.
 When coverage changes, update both frontend workflow pins to the reviewed Automation test commit.
 
 Set up adjacent checkouts at the exact backend and frontend feature commits (or set
@@ -164,9 +168,6 @@ PR into `dev`. Before a feature PR exists, link its real branch compare URL and 
 later. New test changes require clean code review; unchanged coverage can reference its tested
 commit with an explicit no-PR justification.
 
-Automatic remote QA runs only through an eligible frontend PR's merge gate, including reruns.
-There is no standalone Automation workflow dispatch. Backend and Automation changes still receive
-code review and relevant local type/contract/unit checks. Maintain their Playwright coverage, then
-verify integration through the consuming frontend release PR after backend dependencies have been
-merged into the destination. Local exploratory commands above remain available when explicitly
-requested; do not automatically launch the full browser suite for backend or Automation PRs.
+Automatic GitHub runs belong only to frontend dev → test and test → main PRs, including reruns.
+There is no Automation PR/push/manual-dispatch suite, no backend-PR suite and no feature → dev suite
+in GitHub. QA-owned targeted/full local runs before feature PRs remain part of development.

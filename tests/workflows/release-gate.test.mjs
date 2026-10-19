@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { prepare, finish, validatePullRequest } from "../../.github/scripts/release-gate.mjs";
 import { refreshFrontendGates } from "../../../Gen-Air-Backend/.github/scripts/refresh-frontend-gates.mjs";
 
-const createContext = (source = "feature", target = "dev") => ({
+const createContext = (source = "dev", target = "test") => ({
   eventName: "pull_request",
   repo: { owner: "genairit", repo: "Gen-Air-Frontend" },
   payload: {
@@ -59,7 +59,6 @@ const createHarness = (context = createContext()) => {
 };
 
 for (const [source, target] of [
-  ["feature", "dev"],
   ["dev", "test"],
   ["test", "main"],
 ]) {
@@ -69,6 +68,8 @@ for (const [source, target] of [
 }
 
 for (const [source, target] of [
+  ["feature", "dev"],
+  ["dev", "main"],
   ["feature", "main"],
   ["feature", "test"],
   ["main", "dev"],
@@ -164,8 +165,9 @@ test("API failures propagate without publishing success", async () => {
   assert.ok(harness.statuses.every(status => status.state !== "success"));
 });
 
-const createRefreshHarness = (target = "dev") => {
-  const harness = createHarness(createContext("feature", target));
+const createRefreshHarness = (target = "test") => {
+  const source = target === "main" ? "test" : "dev";
+  const harness = createHarness(createContext(source, target));
   harness.context = {
     eventName: "push",
     ref: `refs/heads/${target}`,
@@ -183,10 +185,12 @@ test("backend push invalidates frontend result before rerunning its gate", async
 
 test("unsupported paths and forks are not refreshed", async () => {
   const harness = createRefreshHarness("main");
+  harness.request.head.ref = "feature";
   await refreshFrontendGates(harness);
   assert.equal(harness.statuses.length, 0);
+  harness.request.head.ref = "dev";
   harness.request.head.repo.full_name = "external/fork";
-  harness.context.ref = "refs/heads/dev";
+  harness.context.ref = "refs/heads/test";
   await refreshFrontendGates(harness);
   assert.equal(harness.statuses.length, 0);
 });
@@ -208,7 +212,7 @@ test("invalid refresh context and inaccessible token fail visibly", async () => 
   harness.context.eventName = "pull_request";
   await assert.rejects(refreshFrontendGates(harness), /Only backend/);
   harness.context.eventName = "push";
-  harness.context.ref = "refs/heads/dev";
+  harness.context.ref = "refs/heads/test";
   harness.github.paginate = async () => {
     throw new Error("403");
   };
@@ -225,9 +229,9 @@ test("actual workflows only start the suite from frontend release PRs", () => {
   );
   assert.deepEqual(Object.keys(automation.on), ["workflow_call"]);
   assert.deepEqual(Object.keys(frontend.on), ["pull_request"]);
-  assert.deepEqual(frontend.on.pull_request.branches, ["dev", "test", "main"]);
+  assert.deepEqual(frontend.on.pull_request.branches, ["test", "main"]);
   assert.deepEqual(Object.keys(backend.on), ["push"]);
-  assert.deepEqual(backend.on.push.branches, ["dev", "test", "main"]);
+  assert.deepEqual(backend.on.push.branches, ["test", "main"]);
   assert.ok(automation.jobs.playwright.if.includes("github.event_name == 'pull_request'"));
   assert.ok(
     automation.jobs.playwright.if.includes("github.repository == 'genairit/Gen-Air-Frontend'"),
@@ -240,7 +244,6 @@ test("actual workflows only start the suite from frontend release PRs", () => {
 });
 
 for (const [source, target] of [
-  ["feature", "dev"],
   ["dev", "test"],
   ["test", "main"],
 ]) {
@@ -271,4 +274,25 @@ test("retargeting to a branch at the same SHA invalidates prepare and finish", a
   process.env.TESTED_BACKEND_REF = harness.backend.sha;
   await finish(harness);
   assert.equal(harness.statuses.at(-1).state, "failure");
+});
+
+test("feature → dev cannot call the automatic gate or publish compatibility", async () => {
+  const harness = createHarness(createContext("feature", "dev"));
+  await assert.rejects(prepare(harness), /Feature → dev is verified by QA/);
+  await assert.rejects(finish(harness), /Feature → dev is verified by QA/);
+  assert.equal(harness.statuses.length, 0);
+});
+
+test("backend dev cannot refresh a feature → dev gate", async () => {
+  const harness = createRefreshHarness("dev");
+  await assert.rejects(refreshFrontendGates(harness), /Unsupported/);
+  assert.equal(harness.statuses.length, 0);
+  assert.equal(harness.reruns.length, 0);
+});
+
+test("backend main refreshes only the frontend test → main promotion", async () => {
+  const harness = createRefreshHarness("main");
+  await refreshFrontendGates(harness);
+  assert.equal(harness.statuses[0].state, "pending");
+  assert.equal(harness.reruns.length, 1);
 });

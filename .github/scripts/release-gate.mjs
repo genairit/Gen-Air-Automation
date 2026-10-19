@@ -6,11 +6,11 @@ const REPOSITORIES = {
 const STATUS_CONTEXT = "Backend compatibility";
 const COMMIT_STATES = { PENDING: "pending", SUCCESS: "success", FAILURE: "failure" };
 const RELEASE_BRANCHES = { DEV: "dev", TEST: "test", MAIN: "main" };
-const RELEASE_TARGETS = Object.values(RELEASE_BRANCHES);
 const PROMOTIONS = {
   [RELEASE_BRANCHES.TEST]: RELEASE_BRANCHES.DEV,
   [RELEASE_BRANCHES.MAIN]: RELEASE_BRANCHES.TEST,
 };
+const RELEASE_TARGETS = Object.keys(PROMOTIONS);
 
 export const validatePullRequest = context => {
   const request = context.payload.pull_request;
@@ -23,19 +23,17 @@ export const validatePullRequest = context => {
 
   const target = request.base.ref;
   if (!RELEASE_TARGETS.includes(target)) {
-    throw new Error(`Unsupported release target: ${target}`);
+    throw new Error(
+      `Unsupported automatic release target: ${target}. Feature → dev is verified by QA.`,
+    );
   }
 
-  const expectedSource = PROMOTIONS[target] ?? null;
-  const isPromotion = expectedSource !== null;
-  const isWrongSource = isPromotion && request.head.ref !== expectedSource;
-  const isReversePromotion =
-    target === RELEASE_BRANCHES.DEV && Object.keys(PROMOTIONS).includes(request.head.ref);
+  const isWrongSource = request.head.ref !== PROMOTIONS[target];
   const isSameRepository =
     request.head.repo?.full_name === `${REPOSITORIES.owner}/${REPOSITORIES.frontend}`;
-  if (!isSameRepository || isWrongSource || isReversePromotion || request.head.ref === target) {
+  if (!isSameRepository || isWrongSource) {
     throw new Error(
-      "Allowed paths: feature → dev, dev → test, test → main, within Gen-Air-Frontend.",
+      "Automatic gates allow only dev → test and test → main within Gen-Air-Frontend.",
     );
   }
 

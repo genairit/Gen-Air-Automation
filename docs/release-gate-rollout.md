@@ -23,19 +23,28 @@ The notifier requires no Google Drive, Supabase or Railway credentials.
    this workflow. Both references must match. Do not replace them with a moving branch.
 3. Remove backend ruleset 25315801's obsolete `End-to-end / Playwright` requirement while installing
    the backend notifier and removing its merge-gate workflow. Preserve any other rules. Promote
-   backend to test and main first so future pushes to all three destinations can notify frontend.
-4. Install the frontend caller on dev, then promote through test and main. Run one eligible PR per
-   destination and verify the actual GitHub check context is `End-to-end / Playwright`.
-5. Update frontend ruleset 25315803 to include `refs/heads/dev`, `refs/heads/test`, `refs/heads/main`.
+   backend to test and main first so future test/main pushes can refresh frontend promotions.
+4. Install the frontend caller on dev, then promote through test and main. Verify feature → dev
+   starts no GitHub suite. Run dev → test and test → main and verify the actual GitHub check context
+   is `End-to-end / Playwright`. QA still runs targeted tests and full regression before feature PRs.
+5. Update frontend ruleset 25315803 to include only `refs/heads/test` and `refs/heads/main`.
    Require `End-to-end / Playwright` (GitHub Actions integration 15368) and `Backend compatibility`
    (no integration restriction, because the notifier and workflow use different issuers). Enable
    strict required checks so frontend destination changes require a refreshed branch/check.
    Preserve other rules, bypass policies and review requirements. Require PRs, preventing direct
-   branch pushes from bypassing release checks. Do not activate missing contexts.
+   branch pushes from bypassing release checks. Do not activate missing contexts. Do not require
+   these GitHub contexts on dev: feature → dev has no workflow producing them. Preserve dev's
+   existing review protections and require the QA agent's targeted/full report before feature merge.
 6. Demonstrate a frontend contract failing before its backend dependency is promoted; promote the
    dependency, verify notifier invalidation/rerun, then obtain a green frontend integration check.
    Also verify a subsequent backend promotion marks a previous pass pending. Check notifier health
    and do not merge frontend during backend promotion or notifier processing.
+
+Before feature → dev merge, the developer verifies that the QA report still identifies the current
+frontend candidate/base, latest backend dev and Automation test revisions. Backend dependencies
+must already be in dev. Changes invalidate the QA evidence and require renewed QA; do not replace
+that verification with a fake green status or enable a duplicate feature GitHub run. The backend
+notifier deliberately observes only test/main and does not automatically rerun feature QA.
 
 The implementation PRs do not themselves change live rulesets. Changing rules before these
 workflows are installed would leave required contexts without a producer or disable protection.
