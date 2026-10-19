@@ -15,6 +15,7 @@ import {
   CUSTOMER_FIELD_HINTS,
   CUSTOMER_FIELD_NAMES,
   CUSTOMER_TYPE_LABELS,
+  type CustomerFieldType,
   CUSTOMER_SUMMARY_LABELS,
   CUSTOMER_SUMMARY_VALUES,
   CUSTOMER_FIELD_PLACEHOLDERS,
@@ -22,11 +23,10 @@ import {
   CUSTOMER_IDENTITY_FIELD_NAMES,
 } from "../../src/constants/copy.constant.ts";
 
-import type { Page, Request } from "@playwright/test";
+import type { Page, Locator, Request } from "@playwright/test";
 import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { readTabCount } from "../../src/pages/tab.component.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
-import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { formatFullName } from "../../src/utilities/user.utility.ts";
 import { VIEWPORTS } from "../../src/constants/viewport.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
@@ -36,6 +36,7 @@ import { formatFieldErrorCount } from "../../src/utilities/copy.utility.ts";
 import { getAuthStatePath } from "../../src/utilities/auth-state.utility.ts";
 import { seedCustomer, buildCustomerInput } from "../../src/api/seed-data.ts";
 import { ROUTE_PATTERNS } from "../../src/constants/route-patterns.constant.ts";
+import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
 import { API_PATHS, API_PROXY_PREFIX } from "../../src/constants/api.constant.ts";
 import type { TCustomerFormInput } from "../../src/interfaces/customer-form.interface.ts";
 import { buildCustomerRoute, readLastPathSegment } from "../../src/utilities/route.utility.ts";
@@ -71,6 +72,13 @@ const isCustomerCreationRequest = (request: Request) => {
   const isCustomerPath = new URL(request.url()).pathname === CUSTOMER_CREATION_URL;
 
   return isPost && isCustomerPath;
+};
+
+const expectCardFields = async (card: Locator, fieldNames: CustomerFieldType[]) => {
+  await expect(card.getByRole("textbox")).toHaveCount(fieldNames.length);
+  for (const name of fieldNames) {
+    await expect(card.getByLabel(CUSTOMER_FORM_COPY.FIELDS[name], { exact: true })).toBeVisible();
+  }
 };
 
 const recordCustomerCreationRequests = (page: Page) => {
@@ -124,9 +132,13 @@ test("the header new-customer button has the add icon, is not full width and ope
   const buttonBox = await readBoundingBox(customersPage.newCustomerButton);
   const mainBox = await readBoundingBox(customersPage.main);
   const searchBox = await readBoundingBox(customersPage.searchBox);
+  const headingBox = await readBoundingBox(customersPage.heading);
+  const startsBeforeHeadingEnds = buttonBox.y < headingBox.y + headingBox.height;
+  const endsAfterHeadingStarts = buttonBox.y + buttonBox.height > headingBox.y;
 
   expect(buttonBox.width).toBeLessThan(mainBox.width * MAX_HEADER_BUTTON_WIDTH_RATIO);
   expect(buttonBox.y + buttonBox.height).toBeLessThanOrEqual(searchBox.y);
+  expect(startsBeforeHeadingEnds && endsAfterHeadingStarts).toBe(true);
 
   await customersPage.newCustomerButton.click();
 
@@ -144,22 +156,8 @@ test("the new-customer form shows the approved identity, contact and summary car
   await expect(formPage.eyebrow).toBeVisible();
   await expect(formPage.heading).toBeVisible();
   await expect(formPage.typeSelector).toHaveValue(CUSTOMER_TYPE_LABELS.COMPANY);
-  await expect(formPage.identityCard.getByRole("textbox")).toHaveCount(
-    CUSTOMER_IDENTITY_FIELD_NAMES.length,
-  );
-  await expect(formPage.contactCard.getByRole("textbox")).toHaveCount(
-    CUSTOMER_CONTACT_FIELD_NAMES.length,
-  );
-  for (const name of CUSTOMER_IDENTITY_FIELD_NAMES) {
-    await expect(
-      formPage.identityCard.getByLabel(CUSTOMER_FORM_COPY.FIELDS[name], { exact: true }),
-    ).toBeVisible();
-  }
-  for (const name of CUSTOMER_CONTACT_FIELD_NAMES) {
-    await expect(
-      formPage.contactCard.getByLabel(CUSTOMER_FORM_COPY.FIELDS[name], { exact: true }),
-    ).toBeVisible();
-  }
+  await expectCardFields(formPage.identityCard, CUSTOMER_IDENTITY_FIELD_NAMES);
+  await expectCardFields(formPage.contactCard, CUSTOMER_CONTACT_FIELD_NAMES);
   for (const name of CUSTOMER_FIELD_NAMES) {
     await expect(formPage.field(name)).toHaveAttribute(
       "placeholder",
@@ -245,8 +243,12 @@ test("a duplicate tax ID shows the conflict error and keeps the inputs", async (
 
   await formPage.goto();
   await formPage.fill(input);
-  await formPage.saveButton.click();
+  const [creationResponse] = await Promise.all([
+    page.waitForResponse(response => isCustomerCreationRequest(response.request())),
+    formPage.saveButton.click(),
+  ]);
 
+  expect(creationResponse.status()).toBe(HTTP_STATUS.CONFLICT);
   await expect(formPage.errorBanner).toContainText(CUSTOMER_FORM_COPY.CONFLICT_STATUS);
   await expect(formPage.errorBanner).toContainText(CUSTOMER_FORM_COPY.DUPLICATE_TAX_ID);
   await expect(page).toHaveURL(ROUTES.NEW_CUSTOMER);
