@@ -106,6 +106,7 @@ tests/            one folder per area of the app
 | Roles           | `tests/auth/role-access.spec.ts`            | what each of the four roles can create or manage, denied forms                         |
 | Board           | `tests/projects/board.spec.ts`              | status counts, search, buildings without apartments, status change, mobile             |
 | Projects        | `tests/projects/project-form.spec.ts`       | create with verified address, validation, edit, delete                                 |
+| Project drafts  | `tests/projects/project-form-draft.spec.ts` | pending address verification, draft restore/privacy/discard, success cleanup, edit isolation |
 | Project page    | `tests/projects/project-page.spec.ts`       | standalone and building views, edit entry, not found                                   |
 | Priority fields | `tests/projects/priority-fields.spec.ts`    | renamed API fields, preserved sync date and nullable unsynced caption                  |
 | Migration       | `tests/projects/priority-migration.spec.ts` | populated/null preservation, staged read compatibility, final types and column cleanup |
