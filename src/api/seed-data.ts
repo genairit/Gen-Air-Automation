@@ -89,6 +89,16 @@ export const buildCustomerInput = () => ({
 export const seedCustomer = (api: TGenAirApi): Promise<ICustomer> =>
   api.createCustomer(buildCustomerInput());
 
+export const seedCustomers = async (api: TGenAirApi, count: number): Promise<ICustomer[]> => {
+  const customers: ICustomer[] = [];
+
+  for (const _ of Array.from({ length: count })) {
+    customers.push(await seedCustomer(api));
+  }
+
+  return customers;
+};
+
 export const buildProjectInput = (options: IProjectInputOptions) => ({
   members: options.members ?? [],
   projectTypeId: options.projectTypeId,
