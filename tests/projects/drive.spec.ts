@@ -116,7 +116,7 @@ const DRIVE_SCENARIOS = {
     const project = await seedApartment(api, building);
     return {
       project,
-      hasUploads: false,
+      hasUploads: true,
       open: () => createApartmentPage(page).goto(building.id, project.id),
     };
   },
