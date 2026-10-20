@@ -16,3 +16,6 @@ export const buildAuthState = (session: ISession) => ({
     },
   ],
 });
+
+export const buildProjectDraftKey = (userId: string): string =>
+  `${LOCAL_STORAGE_KEYS.PROJECT_FORM_DRAFT}:${userId}`;

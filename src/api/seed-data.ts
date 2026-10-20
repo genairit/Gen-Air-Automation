@@ -32,9 +32,21 @@ interface ISeedTaskOptions {
   assigneeId?: string;
 }
 
+interface IProjectMemberInput {
+  userId: string;
+  role: UserRoleType;
+}
+
 interface ISeedProjectOptions {
   customer: ICustomer;
+  members?: IProjectMemberInput[];
   projectTypeName: ProjectTypeNameType;
+}
+
+interface IProjectInputOptions {
+  customer: ICustomer;
+  projectTypeId: string;
+  members?: IProjectMemberInput[];
 }
 
 interface ISeededUser extends IUser {
@@ -42,7 +54,7 @@ interface ISeededUser extends IUser {
   role: UserRoleType;
 }
 
-interface IAssignedTaskScenario {
+interface ITaskScenario {
   task: ITask;
   project: IProject;
   customer: ICustomer;
@@ -77,23 +89,45 @@ export const buildCustomerInput = () => ({
 export const seedCustomer = (api: TGenAirApi): Promise<ICustomer> =>
   api.createCustomer(buildCustomerInput());
 
+export const seedCustomers = async (api: TGenAirApi, count: number): Promise<ICustomer[]> => {
+  const customers: ICustomer[] = [];
+
+  for (const _ of Array.from({ length: count })) {
+    customers.push(await seedCustomer(api));
+  }
+
+  return customers;
+};
+
+export const buildProjectInput = (options: IProjectInputOptions) => ({
+  members: options.members ?? [],
+  projectTypeId: options.projectTypeId,
+  contactPhone: createMobilePhone(),
+  customerId: options.customer.id,
+  addressPlaceId: FAKE_PLACES[0].placeId,
+  contactRole: CONTACT_ROLES.PROJECT_MANAGER,
+  paymentTerms: PAYMENT_TERMS.MILESTONES_NET_60,
+  contactName: SEED_VALUES.PROJECT_CONTACT_NAME,
+  name: createUniqueName(SEED_NAME_PREFIXES.PROJECT),
+});
+
+export const buildStandaloneProjectInput = async (
+  api: TGenAirApi,
+  customer: ICustomer,
+  members: IProjectMemberInput[] = [],
+) => {
+  const projectType = await api.findProjectType(PROJECT_TYPE_NAMES.COMMERCIAL);
+
+  return buildProjectInput({ customer, members, projectTypeId: projectType.id });
+};
+
 export const seedProject = async (
   api: TGenAirApi,
   options: ISeedProjectOptions,
 ): Promise<IProject> => {
   const projectType = await api.findProjectType(options.projectTypeName);
 
-  return api.createProject({
-    members: [],
-    projectTypeId: projectType.id,
-    contactPhone: createMobilePhone(),
-    customerId: options.customer.id,
-    addressPlaceId: FAKE_PLACES[0].placeId,
-    contactRole: CONTACT_ROLES.PROJECT_MANAGER,
-    paymentTerms: PAYMENT_TERMS.MILESTONES_NET_60,
-    contactName: SEED_VALUES.PROJECT_CONTACT_NAME,
-    name: createUniqueName(SEED_NAME_PREFIXES.PROJECT),
-  });
+  return api.createProject(buildProjectInput({ ...options, projectTypeId: projectType.id }));
 };
 
 export const seedBuilding = (api: TGenAirApi, customer: ICustomer): Promise<IProject> =>
@@ -110,22 +144,25 @@ export const seedApartment = (api: TGenAirApi, building: IProject): Promise<IPro
     customerApartment: String(createSequenceNumber()),
   });
 
-export const seedTask = (api: TGenAirApi, options: ISeedTaskOptions): Promise<ITask> =>
-  api.createTask({
-    dueDate: SEED_VALUES.DUE_DATE,
-    projectId: options.project.id,
-    customerId: options.customer.id,
-    assigneeId: options.assigneeId ?? null,
-    description: SEED_VALUES.TASK_DESCRIPTION,
-    title: createUniqueName(SEED_NAME_PREFIXES.TASK),
-  });
+export const buildTaskInput = (options: ISeedTaskOptions) => ({
+  dueDate: SEED_VALUES.DUE_DATE,
+  projectId: options.project.id,
+  customerId: options.customer.id,
+  assigneeId: options.assigneeId ?? null,
+  description: SEED_VALUES.TASK_DESCRIPTION,
+  title: createUniqueName(SEED_NAME_PREFIXES.TASK),
+});
 
-export const seedTaskAssignedToSession = async (
+export const seedTask = (api: TGenAirApi, options: ISeedTaskOptions): Promise<ITask> =>
+  api.createTask(buildTaskInput(options));
+
+export const seedTaskScenario = async (
   api: TGenAirApi,
-): Promise<IAssignedTaskScenario> => {
+  assigneeId: string | null = null,
+): Promise<ITaskScenario> => {
   const customer = await seedCustomer(api);
   const project = await seedStandaloneProject(api, customer);
-  const task = await seedTask(api, { project, customer, assigneeId: api.session.user.id });
+  const task = await seedTask(api, { project, customer, ...(assigneeId && { assigneeId }) });
 
   return { task, project, customer };
 };

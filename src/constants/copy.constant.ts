@@ -28,7 +28,9 @@ export const BOARD_COPY = {
 
 export const CUSTOMERS_COPY = {
   PENDING_TAB: "ממתין",
+  NEXT_PAGE: "העמוד הבא",
   NEW_CUSTOMER: "לקוח חדש",
+  PREVIOUS_PAGE: "העמוד הקודם",
   DETAILS_TITLE: "פרטי הלקוח",
   BACK_TO_CUSTOMERS: "חזרה ללקוחות",
   PENDING_SYNC: "ממתין ל-Priority",
@@ -129,11 +131,14 @@ export const SETTINGS_COPY = {
 } as const;
 
 export const PROJECT_FORM_COPY = {
-  DRAFT_RESTORED: "טיוטת הפרויקט שוחזרה",
   DISCARD_DRAFT: "מחק טיוטה והתחל מחדש",
   SAVE: "שמור שינויים",
   CREATE: "צור פרויקט",
   DELETE: "מחק פרויקט",
+  ROLES_TITLE: "הקצאת תפקידים וצוות",
+  DRAFT_RESTORED: "טיוטת הפרויקט שוחזרה",
+  CREATE_DENIED: "אין הרשאה ליצירת פרויקטים",
+  EDIT_DENIED: "אין הרשאה לעריכת פרויקטים",
   ADDRESS: "כתובת הפרויקט",
   NAME: "שם הפרויקט / כותרת הנדסית",
   ADDRESS_VERIFIED: "כתובת מאומתת ע״י Google Maps",

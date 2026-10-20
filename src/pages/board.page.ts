@@ -15,8 +15,10 @@ export const createBoardPage = (page: Page) => {
 
   const statusTab = (statusName: string) => findCountedTab(page, statusName);
 
-  const changeStatus = (projectName: string, statusName: string) =>
-    selectOption(page, findRow(projectName).getByRole("combobox"), statusName);
+  const statusPicker = (projectName: string) => findRow(projectName).getByRole("combobox");
 
-  return { searchBox, newProjectButton, goto, findRow, statusTab, changeStatus };
+  const changeStatus = (projectName: string, statusName: string) =>
+    selectOption(page, statusPicker(projectName), statusName);
+
+  return { searchBox, newProjectButton, goto, findRow, statusTab, statusPicker, changeStatus };
 };

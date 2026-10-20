@@ -27,15 +27,18 @@ export const createTasksPage = (page: Page) => {
 
   const findRow = (text: string) => findTableRow(page, text);
 
-  const changeStatus = (taskTitle: string, statusName: string) =>
-    selectOption(page, findRow(taskTitle).getByRole("combobox"), statusName);
+  const statusPicker = (taskTitle: string) => findRow(taskTitle).getByRole("combobox");
 
-  return { searchBox, newTaskButton, goto, tab, findRow, changeStatus };
+  const changeStatus = (taskTitle: string, statusName: string) =>
+    selectOption(page, statusPicker(taskTitle), statusName);
+
+  return { searchBox, newTaskButton, goto, tab, findRow, statusPicker, changeStatus };
 };
 
 export const createTaskFormPage = (page: Page) => {
   const form = findMainContent(page);
   const saveButton = form.getByRole("button", { name: TASK_FORM_COPY.SAVE });
+  const assigneePicker = form.getByRole("combobox", { name: TASK_FORM_COPY.ASSIGNEE_PLACEHOLDER });
 
   const goto = () => page.goto(ROUTES.NEW_TASK);
 
@@ -51,17 +54,19 @@ export const createTaskFormPage = (page: Page) => {
       form.getByRole("combobox", { name: TASK_FORM_COPY.CUSTOMER_PLACEHOLDER }),
       input.customerName,
     );
-    await selectOption(
-      page,
-      form.getByRole("combobox", { name: TASK_FORM_COPY.ASSIGNEE_PLACEHOLDER }),
-      input.assigneeName,
-    );
+    await selectOption(page, assigneePicker, input.assigneeName);
     await form.getByPlaceholder(TASK_FORM_COPY.TITLE_PLACEHOLDER).fill(input.title);
     await findFieldContainer(form, TASK_FORM_COPY.DUE_DATE).locator("input").fill(input.dueDate);
     await form.getByPlaceholder(TASK_FORM_COPY.DESCRIPTION_PLACEHOLDER).fill(input.description);
   };
 
-  return { saveButton, goto, fill };
+  const openAssigneeOptions = async () => {
+    await assigneePicker.click();
+
+    return page.getByRole("option");
+  };
+
+  return { saveButton, assigneePicker, goto, fill, openAssigneeOptions };
 };
 
 export const createTaskPage = (page: Page) => {
@@ -86,6 +91,12 @@ export const createTaskPage = (page: Page) => {
 
   const changeAssignee = (assigneeName: string) => selectOption(page, assigneeSelect, assigneeName);
 
+  const openAssigneeOptions = async () => {
+    await assigneeSelect.click();
+
+    return page.getByRole("option");
+  };
+
   return {
     history,
     claimButton,
@@ -97,5 +108,6 @@ export const createTaskPage = (page: Page) => {
     statusTab,
     markUrgent,
     changeAssignee,
+    openAssigneeOptions,
   };
 };

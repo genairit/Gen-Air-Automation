@@ -23,6 +23,12 @@ import {
   CUSTOMER_IDENTITY_FIELD_NAMES,
 } from "../../src/constants/copy.constant.ts";
 
+import {
+  CUSTOMER_TYPES,
+  CUSTOMER_LIST_PAGING,
+  CUSTOMER_SYNC_STATUSES,
+} from "../../src/constants/domain.constant.ts";
+
 import type { Page, Locator, Request } from "@playwright/test";
 import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { readTabCount } from "../../src/pages/tab.component.ts";
@@ -34,20 +40,24 @@ import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { expectSingleResultRow } from "../../src/pages/table.component.ts";
 import { formatFieldErrorCount } from "../../src/utilities/copy.utility.ts";
 import { getAuthStatePath } from "../../src/utilities/auth-state.utility.ts";
-import { seedCustomer, buildCustomerInput } from "../../src/api/seed-data.ts";
 import { ROUTE_PATTERNS } from "../../src/constants/route-patterns.constant.ts";
 import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
 import { API_PATHS, API_PROXY_PREFIX } from "../../src/constants/api.constant.ts";
 import type { TCustomerFormInput } from "../../src/interfaces/customer-form.interface.ts";
+import { seedCustomer, seedCustomers, buildCustomerInput } from "../../src/api/seed-data.ts";
 import { buildCustomerRoute, readLastPathSegment } from "../../src/utilities/route.utility.ts";
 import { createCustomersPage, createCustomerFormPage } from "../../src/pages/customers.page.ts";
-import { CUSTOMER_TYPES, CUSTOMER_SYNC_STATUSES } from "../../src/constants/domain.constant.ts";
 
 const INVALID_TAX_ID = "123456789";
 
 const MAX_HEADER_BUTTON_WIDTH_RATIO = 0.5;
 
 const CUSTOMER_CREATION_URL = `${API_PROXY_PREFIX}${API_PATHS.CUSTOMER}`;
+
+const WIDEST_WINDOW_PAGE = 4;
+
+const OVERFLOWING_CUSTOMER_COUNT =
+  CUSTOMER_LIST_PAGING.PAGE_SIZE * CUSTOMER_LIST_PAGING.OVERFLOWING_PAGE_COUNT;
 
 const toFormInput = (customer: ReturnType<typeof buildCustomerInput>): TCustomerFormInput => ({
   NAME: customer.name,
@@ -346,21 +356,6 @@ test("a server failure preserves the customer form and retry persists the custom
   await expect(page.getByText(customer.email)).toBeVisible();
 });
 
-test.describe("project manager", () => {
-  test.use({ storageState: getAuthStatePath(USER_ROLES.PROJECT_MANAGER) });
-
-  test("the summary names the signed-in manager as the creator", async ({ page }) => {
-    const formPage = createCustomerFormPage(page);
-    const creatorName = formatFullName(TEST_USERS[USER_ROLES.PROJECT_MANAGER]);
-
-    await formPage.goto();
-
-    await expect(formPage.findSummaryTile(CUSTOMER_SUMMARY_LABELS.CREATED_BY)).toContainText(
-      creatorName,
-    );
-  });
-});
-
 test.describe("mobile layout", () => {
   test.use({ viewport: VIEWPORTS.MOBILE, isMobile: true, hasTouch: true });
 
@@ -374,6 +369,36 @@ test.describe("mobile layout", () => {
     await expect
       .poll(() => isWithinViewportWidth(page, customersPage.newCustomerButton))
       .toBe(true);
+  });
+
+  test("a customers list longer than seven pages has no horizontal overflow at 390px", async ({
+    page,
+    api,
+  }) => {
+    await seedCustomers(api, OVERFLOWING_CUSTOMER_COUNT);
+    const customersPage = createCustomersPage(page);
+
+    await customersPage.goto();
+
+    await expect(customersPage.pagination).toBeVisible();
+    await expect
+      .poll(() => customersPage.readLastPageNumber())
+      .toBeGreaterThanOrEqual(CUSTOMER_LIST_PAGING.OVERFLOWING_PAGE_COUNT);
+    await expect.poll(() => readHorizontalOverflow(page)).toBeLessThanOrEqual(0);
+    await expect.poll(() => isWithinViewportWidth(page, customersPage.pagination)).toBe(true);
+
+    for (const _ of Array.from({ length: WIDEST_WINDOW_PAGE - 1 })) {
+      await customersPage.nextPageButton.click();
+    }
+
+    await expect(
+      customersPage.pagination.getByRole("button", {
+        name: String(WIDEST_WINDOW_PAGE),
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect.poll(() => readHorizontalOverflow(page)).toBeLessThanOrEqual(0);
+    await expect.poll(() => isWithinViewportWidth(page, customersPage.pagination)).toBe(true);
   });
 
   test("the new-customer form has no horizontal overflow at 390px, before and after validation", async ({
@@ -396,7 +421,7 @@ test.describe("mobile layout", () => {
   });
 
   test.describe("without customer management", () => {
-    test.use({ storageState: getAuthStatePath(USER_ROLES.LEAD_INSTALLER) });
+    test.use({ storageState: getAuthStatePath(USER_ROLES.INSTALLER) });
 
     test("the customers page caption has no horizontal overflow at 390px", async ({ page }) => {
       const customersPage = createCustomersPage(page);

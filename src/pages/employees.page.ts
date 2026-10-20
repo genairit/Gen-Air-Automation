@@ -24,6 +24,7 @@ export const createEmployeesPage = (page: Page) => {
   const form = findMainContent(page);
   const searchBox = page.getByPlaceholder(EMPLOYEES_COPY.SEARCH_PLACEHOLDER);
   const addButton = page.getByRole("button", { name: EMPLOYEES_COPY.ADD_EMPLOYEE });
+  const rolePicker = findFieldContainer(form, EMPLOYEES_COPY.ROLE_LABEL).getByRole("combobox");
 
   const goto = () => page.goto(ROUTES.EMPLOYEES);
 
@@ -35,16 +36,28 @@ export const createEmployeesPage = (page: Page) => {
     await form.getByPlaceholder(EMPLOYEES_COPY.NAME_PLACEHOLDER).fill(input.name);
     await form.getByPlaceholder(EMPLOYEES_COPY.EMAIL_PLACEHOLDER).fill(input.email);
     await form.getByPlaceholder(EMPLOYEES_COPY.PHONE_PLACEHOLDER).fill(input.phone);
-    await selectOption(
-      page,
-      findFieldContainer(form, EMPLOYEES_COPY.ROLE_LABEL).getByRole("combobox"),
-      USER_ROLE_LABELS[input.role],
-    );
+    await selectOption(page, rolePicker, USER_ROLE_LABELS[input.role]);
     await addButton.click();
+  };
+
+  const openRoleOptions = async () => {
+    await rolePicker.click();
+
+    return page.getByRole("option");
   };
 
   const deleteEmployee = (text: string) =>
     findRow(text).getByRole("button", { name: EMPLOYEES_COPY.DELETE_EMPLOYEE }).click();
 
-  return { searchBox, addButton, goto, findRow, roleTab, addEmployee, deleteEmployee };
+  return {
+    searchBox,
+    addButton,
+    rolePicker,
+    goto,
+    findRow,
+    roleTab,
+    addEmployee,
+    deleteEmployee,
+    openRoleOptions,
+  };
 };

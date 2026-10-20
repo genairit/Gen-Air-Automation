@@ -1,6 +1,10 @@
 export const API_PROXY_PREFIX = "/api";
 
 export const API_SEGMENTS = {
+  STAGE: "stage",
+  CLAIM: "claim",
+  STATUS: "status",
+  URGENCY: "urgency",
   APARTMENTS: "apartments",
 } as const;
 
@@ -11,6 +15,7 @@ export const API_PATHS = {
   LOGIN: "/auth/login",
   CUSTOMER: "/customer",
   PROJECT_TYPE: "/project-type",
+  PROJECT_MEMBERS: "/project-member/by-project",
   PROJECT_DRIVE: "/project-drive",
   PROJECT_STAGE: "/project-stage",
   USER_ROLE_COUNTS: "/user/role-counts",
