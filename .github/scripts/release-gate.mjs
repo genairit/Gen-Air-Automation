@@ -5,10 +5,9 @@ const REPOSITORIES = {
 };
 const STATUS_CONTEXT = "Backend compatibility";
 const COMMIT_STATES = { PENDING: "pending", SUCCESS: "success", FAILURE: "failure" };
-const RELEASE_BRANCHES = { DEV: "dev", TEST: "test", MAIN: "main" };
+const RELEASE_BRANCHES = { DEV: "dev", TEST: "test" };
 const PROMOTIONS = {
   [RELEASE_BRANCHES.TEST]: RELEASE_BRANCHES.DEV,
-  [RELEASE_BRANCHES.MAIN]: RELEASE_BRANCHES.TEST,
 };
 const RELEASE_TARGETS = Object.keys(PROMOTIONS);
 
@@ -32,9 +31,7 @@ export const validatePullRequest = context => {
   const isSameRepository =
     request.head.repo?.full_name === `${REPOSITORIES.owner}/${REPOSITORIES.frontend}`;
   if (!isSameRepository || isWrongSource) {
-    throw new Error(
-      "Automatic gates allow only dev → test and test → main within Gen-Air-Frontend.",
-    );
+    throw new Error("Automatic gates allow only dev → test within Gen-Air-Frontend.");
   }
 
   return { request, target };
