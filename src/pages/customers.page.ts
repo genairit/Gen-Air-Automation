@@ -30,8 +30,11 @@ export const createCustomersPage = (page: Page) => {
     name: CUSTOMERS_COPY.NEW_CUSTOMER,
   });
   const newCustomerIcon = newCustomerButton.getByTestId(ADD_ICON_TEST_ID);
-  const nextPageButton = main.getByRole("button", { name: CUSTOMERS_COPY.NEXT_PAGE, exact: true });
-  const pagination = main.getByRole("navigation").filter({ has: nextPageButton });
+  const nextPageName = { name: CUSTOMERS_COPY.NEXT_PAGE, exact: true };
+  const pagination = main
+    .getByRole("navigation")
+    .filter({ has: page.getByRole("button", nextPageName) });
+  const nextPageButton = pagination.getByRole("button", nextPageName);
 
   const goto = () => page.goto(ROUTES.CUSTOMERS);
 
