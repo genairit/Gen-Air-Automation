@@ -12,15 +12,38 @@ import type {
   ISession,
   ICustomer,
   ITaskCounts,
+  ITaskRecord,
+  IUserRecord,
   IStageCounts,
   IProjectType,
   IProjectStage,
+  IProjectMember,
   ICustomerRecord,
 } from "../interfaces/entities.interface.ts";
 
 export const isTask = createStringFieldsGuard<ITask>(["id", "title"]);
 
 export const isUser = createStringFieldsGuard<IUser>(["id", "email", "firstName", "lastName"]);
+
+export const isUserRecord = createStringFieldsGuard<IUserRecord>([
+  "id",
+  "role",
+  "email",
+  "firstName",
+  "lastName",
+]);
+
+export const isTaskRecord = (value: unknown): value is ITaskRecord => {
+  const hasTaskFields = isTask(value);
+  const assigneeId = isRecord(value) ? value.assigneeId : null;
+  const hasNullableAssignee = assigneeId === null || typeof assigneeId === "string";
+
+  return hasTaskFields && hasNullableAssignee;
+};
+
+export const isProjectMemberList = createArrayGuard(
+  createStringFieldsGuard<IProjectMember>(["role", "userId"]),
+);
 
 export const isProject = createStringFieldsGuard<IProject>(["id", "name", "code"]);
 

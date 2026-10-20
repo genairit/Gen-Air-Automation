@@ -14,6 +14,11 @@ export const CUSTOMER_TYPES = {
   PRIVATE_CLIENT: "private_client",
 } as const;
 
+export const CUSTOMER_LIST_PAGING = {
+  PAGE_SIZE: 7,
+  OVERFLOWING_PAGE_COUNT: 8,
+} as const;
+
 export const PAYMENT_TERMS = {
   MILESTONES_NET_60: "milestones_net_60",
 } as const;

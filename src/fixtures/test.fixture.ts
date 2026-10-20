@@ -9,6 +9,7 @@ import { createGenAirApi, loginThroughApi, type TGenAirApi } from "../api/gen-ai
 interface IGenAirFixtures {
   api: TGenAirApi;
   openPageAs: (credentials: ICredentials) => Promise<Page>;
+  apiAs: (credentials: ICredentials) => Promise<TGenAirApi>;
 }
 
 export const test = base.extend<IGenAirFixtures>({
@@ -20,6 +21,18 @@ export const test = base.extend<IGenAirFixtures>({
       const session = await loginThroughApi(request, TEST_USERS[USER_ROLES.SYSTEM_ADMIN]);
 
       await use(createGenAirApi(request, session));
+    } finally {
+      await request.dispose();
+    }
+  },
+  apiAs: async ({ playwright }, use) => {
+    const request = await playwright.request.newContext({ baseURL: URLS.BACKEND });
+
+    const apiAs = async (credentials: ICredentials) =>
+      createGenAirApi(request, await loginThroughApi(request, credentials));
+
+    try {
+      await use(apiAs);
     } finally {
       await request.dispose();
     }

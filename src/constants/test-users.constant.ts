@@ -29,12 +29,28 @@ export const TEST_USERS: Record<UserRoleType, ITestUser> = {
     role: USER_ROLES.SECRETARY,
     email: buildTestEmail("secretary"),
   },
-  [USER_ROLES.LEAD_INSTALLER]: {
+  [USER_ROLES.INSTALLER]: {
     lastName: "שטח",
     firstName: "מתקין",
     phone: "0521000004",
     password: TEST_PASSWORD,
-    role: USER_ROLES.LEAD_INSTALLER,
+    role: USER_ROLES.INSTALLER,
     email: buildTestEmail("installer"),
+  },
+  [USER_ROLES.ENGINEER]: {
+    lastName: "הנדסה",
+    firstName: "מהנדסת",
+    phone: "0521000005",
+    password: TEST_PASSWORD,
+    role: USER_ROLES.ENGINEER,
+    email: buildTestEmail("engineer"),
+  },
+  [USER_ROLES.FINANCE]: {
+    lastName: "כספים",
+    firstName: "חשב",
+    phone: "0521000006",
+    password: TEST_PASSWORD,
+    role: USER_ROLES.FINANCE,
+    email: buildTestEmail("finance"),
   },
 };

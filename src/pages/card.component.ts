@@ -8,3 +8,9 @@ const buildExactPattern = (text: string) => new RegExp(`^${escapeRegex(text)}$`)
 
 export const findCardByTitle = (scope: Page | Locator, title: string): Locator =>
   scope.locator("b", { hasText: buildExactPattern(title) }).locator(CARD_XPATH);
+
+// A form section is the nearest ancestor of its bold title that holds an input, skipping read-only tiles.
+const FORM_SECTION_XPATH = "xpath=ancestor::div[.//input][1]";
+
+export const findFormSectionByTitle = (scope: Page | Locator, title: string): Locator =>
+  scope.locator("b", { hasText: buildExactPattern(title) }).locator(FORM_SECTION_XPATH);

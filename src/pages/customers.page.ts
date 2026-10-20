@@ -30,21 +30,36 @@ export const createCustomersPage = (page: Page) => {
     name: CUSTOMERS_COPY.NEW_CUSTOMER,
   });
   const newCustomerIcon = newCustomerButton.getByTestId(ADD_ICON_TEST_ID);
+  const nextPageName = { name: CUSTOMERS_COPY.NEXT_PAGE, exact: true };
+  const pagination = main
+    .getByRole("navigation")
+    .filter({ has: page.getByRole("button", nextPageName) });
+  const nextPageButton = pagination.getByRole("button", nextPageName);
 
   const goto = () => page.goto(ROUTES.CUSTOMERS);
 
   const findRow = (text: string) => findTableRow(page, text);
+
+  const readLastPageNumber = async () => {
+    const labels = await pagination.getByRole("button").allInnerTexts();
+    const pageNumbers = labels.map(Number).filter(Number.isInteger);
+
+    return Math.max(...pageNumbers);
+  };
 
   return {
     main,
     heading,
     searchBox,
     pendingTab,
+    pagination,
+    nextPageButton,
     newCustomerIcon,
     newCustomerButton,
     managersOnlyCaption,
     goto,
     findRow,
+    readLastPageNumber,
   };
 };
 
