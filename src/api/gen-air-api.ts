@@ -93,9 +93,10 @@ export const createGenAirApi = (request: APIRequestContext, session: ISession) =
     return stage;
   };
 
-  const countProjectsInStage = async (stageName: string): Promise<number> => {
+  const countProjectsInStage = async (stageName: string, search = ""): Promise<number> => {
     const stage = await findProjectStage(stageName);
-    const counts = await get(API_PATHS.PROJECT_STAGE_COUNTS, isStageCounts);
+    const query = new URLSearchParams({ search });
+    const counts = await get(`${API_PATHS.PROJECT_STAGE_COUNTS}?${query}`, isStageCounts);
 
     return counts.byStage[stage.id] ?? 0;
   };
