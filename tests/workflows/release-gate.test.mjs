@@ -58,16 +58,14 @@ const createHarness = (context = createContext()) => {
   return { github, core, context, statuses, outputs, errors, backend, request, reruns };
 };
 
-for (const [source, target] of [
-  ["dev", "test"],
-  ["test", "main"],
-]) {
+for (const [source, target] of [["dev", "test"]]) {
   test(`accepts ${source} → ${target}`, () => {
     assert.equal(validatePullRequest(createContext(source, target)).target, target);
   });
 }
 
 for (const [source, target] of [
+  ["test", "main"],
   ["feature", "dev"],
   ["dev", "main"],
   ["feature", "main"],
@@ -184,7 +182,7 @@ test("backend push invalidates frontend result before rerunning its gate", async
 });
 
 test("unsupported paths and forks are not refreshed", async () => {
-  const harness = createRefreshHarness("main");
+  const harness = createRefreshHarness();
   harness.request.head.ref = "feature";
   await refreshFrontendGates(harness);
   assert.equal(harness.statuses.length, 0);
@@ -229,13 +227,14 @@ test("actual workflows only start the suite from frontend release PRs", () => {
   );
   assert.deepEqual(Object.keys(automation.on), ["workflow_call"]);
   assert.deepEqual(Object.keys(frontend.on), ["pull_request"]);
-  assert.deepEqual(frontend.on.pull_request.branches, ["test", "main"]);
+  assert.deepEqual(frontend.on.pull_request.branches, ["test"]);
   assert.deepEqual(Object.keys(backend.on), ["push"]);
-  assert.deepEqual(backend.on.push.branches, ["test", "main"]);
+  assert.deepEqual(backend.on.push.branches, ["test"]);
   assert.ok(automation.jobs.playwright.if.includes("github.event_name == 'pull_request'"));
   assert.ok(
     automation.jobs.playwright.if.includes("github.repository == 'genairit/Gen-Air-Frontend'"),
   );
+  assert.ok(automation.jobs.playwright.if.includes("github.base_ref == 'test'"));
   assert.equal(Object.keys(backend.jobs).length, 1);
   assert.equal(
     backend.jobs.refresh.steps.some(step => step.run?.includes("playwright")),
@@ -243,10 +242,7 @@ test("actual workflows only start the suite from frontend release PRs", () => {
   );
 });
 
-for (const [source, target] of [
-  ["dev", "test"],
-  ["test", "main"],
-]) {
+for (const [source, target] of [["dev", "test"]]) {
   test(`resolves backend ${target} for ${source} → ${target}`, async () => {
     const harness = createHarness(createContext(source, target));
     const resolvedRefs = [];
@@ -290,9 +286,17 @@ test("backend dev cannot refresh a feature → dev gate", async () => {
   assert.equal(harness.reruns.length, 0);
 });
 
-test("backend main refreshes only the frontend test → main promotion", async () => {
+test("backend main cannot refresh or invalidate frontend production promotions", async () => {
   const harness = createRefreshHarness("main");
-  await refreshFrontendGates(harness);
-  assert.equal(harness.statuses[0].state, "pending");
-  assert.equal(harness.reruns.length, 1);
+  await assert.rejects(refreshFrontendGates(harness), /Unsupported/);
+  assert.equal(harness.statuses.length, 0);
+  assert.equal(harness.reruns.length, 0);
+});
+
+test("test → main cannot prepare, run or publish backend compatibility", async () => {
+  const harness = createHarness(createContext("test", "main"));
+  await assert.rejects(prepare(harness), /Unsupported automatic release target/);
+  await assert.rejects(finish(harness), /Unsupported automatic release target/);
+  assert.equal(harness.statuses.length, 0);
+  assert.deepEqual(harness.outputs, {});
 });
