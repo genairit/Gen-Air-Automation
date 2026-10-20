@@ -15,7 +15,7 @@ permissions:
 jobs:
   playwright:
     name: Playwright
-    if: ${{ github.repository == 'genairit/Gen-Air-Frontend' && github.event_name == 'pull_request' }}
+    if: ${{ github.repository == 'genairit/Gen-Air-Frontend' && github.event_name == 'pull_request' && github.base_ref == 'test' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:

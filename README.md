@@ -1,8 +1,9 @@
 # Gen-Air-Automation
 
-End-to-end Playwright suite for Gen-Air-Frontend and Gen-Air-Backend. The QA agent runs targeted
-feature tests and the full suite before feature PRs. GitHub Actions runs the full suite only for
-frontend `dev` → `test` and `test` → `main`; feature → `dev` has no duplicate GitHub run.
+End-to-end Playwright suite for Gen-Air-Frontend and Gen-Air-Backend. Feature → dev requires
+code review, relevant unit checks and targeted QA that maintains coverage for new features.
+The full Playwright suite runs only for frontend dev → test. Test → main runs no automated QA,
+smoke checks or backend compatibility gate. Normal application deployment is unchanged.
 
 ## Run it locally
 
@@ -59,7 +60,6 @@ only `workflow_call`; there are no Automation PR, push, schedule, or manual-disp
 | Frontend PR | Backend revision               |
 | ----------- | ------------------------------ |
 | dev → test  | latest test, resolved to a SHA |
-| test → main | latest main, resolved to a SHA |
 
 The promotion candidate merge commit is tested, including its destination branch. Unsupported
 promotion directions and fork callers fail before installing dependencies or running Playwright.
@@ -68,7 +68,7 @@ contract fails the integration suite; merge the backend dependency and rerun the
 The summary records immutable frontend, backend and Automation revisions. Existing coverage,
 isolated seeded Postgres, faked integrations and report/trace retention remain in use.
 
-Backend test/main pushes run a lightweight notifier, which marks eligible open frontend PRs pending
+Backend test pushes run a lightweight notifier, which marks eligible open frontend PRs pending
 and reruns their latest completed merge-gate run. It never checks out the apps or runs Playwright.
 If the gate is already active, it fails freshness verification and requires an explicit rerun.
 The suite also checks backend/head/base freshness before publishing success. GitHub events are
@@ -138,15 +138,15 @@ GEN_AIR_HOSTED_URL=https://gen-air-frontend-development.up.railway.app npm run t
 The development QA agent owns tests in this repository and reads application branches without
 editing them. Its existing canonical instructions live in Spec-Development-Component
 `agents/qa-agent.md`; app repositories install Claude, Codex and Copilot copies. After clean code
-review, QA maintains feature coverage, runs targeted tests and then the full existing suite against
+review, QA maintains feature coverage, runs targeted tests and relevant unit checks against
 exact feature revisions, and returns PASSED/FAILED before feature PR publication. Failures return
 to development or QA according to ownership; application fixes require another clean review.
 
 For frontend feature → dev, use a developer-prepared isolated candidate with current frontend dev
 and latest backend dev after backend dependencies merge. Recheck candidate/base, backend and
 Automation revisions before feature merge; changed revisions require renewed QA. GitHub does not
-run this feature suite again. Release promotions instead use the automatic dev → test / test → main
-frontend gate, without an additional duplicate feature-QA run.
+run this feature suite again. Dev → test uses the automatic full-suite frontend gate, without an additional QA-agent run.
+Test → main has no automated QA/compatibility gate and backend main does not refresh checks.
 When coverage changes, update both frontend workflow pins to the reviewed Automation test commit.
 
 Set up adjacent checkouts at the exact backend and frontend feature commits (or set
@@ -156,12 +156,10 @@ do not reuse an unidentified running stack. Create a unique temporary evidence d
 ```bash
 export GEN_AIR_ARTIFACTS_DIR="$(mktemp -d /tmp/gen-air-qa.XXXXXX)"
 npx playwright test tests/customers/customers.spec.ts
-export GEN_AIR_ARTIFACTS_DIR="$(mktemp -d /tmp/gen-air-qa.XXXXXX)"
-npx playwright test
 npm run report -- "$GEN_AIR_ARTIFACTS_DIR/html"
 ```
 
-Use separate directories for failure, targeted, and regression evidence so reruns preserve the
+Use separate directories for each failure and targeted rerun so reruns preserve the
 original failure. Authentication state and the disposable database also live in that directory;
 keep those private. Only publish sanitized `html`, `test-results`, and `results.json` artifacts.
 When the variable is omitted, paths default to an OS-temp directory namespaced by checkout.
@@ -174,6 +172,9 @@ PR into `dev`. Before a feature PR exists, link its real branch compare URL and 
 later. New test changes require clean code review; unchanged coverage can reference its tested
 commit with an explicit no-PR justification.
 
-Automatic GitHub runs belong only to frontend dev → test and test → main PRs, including reruns.
-There is no Automation PR/push/manual-dispatch suite, no backend-PR suite and no feature → dev suite
-in GitHub. QA-owned targeted/full local runs before feature PRs remain part of development.
+Automatic full-suite GitHub runs belong only to frontend dev → test PRs, including freshness
+reruns after backend test advances. There is no Automation PR/push/manual-dispatch suite, backend-PR
+suite, feature → dev suite or test → main gate. Before feature PRs, QA owns targeted tests and
+relevant unit checks; it never adds a full run to feature verification. Use explicit spec paths or
+filters and record the executed scope. The full-suite local command above is for reproducing the
+dev → test integration gate, not a feature requirement.
