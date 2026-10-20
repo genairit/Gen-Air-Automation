@@ -7,6 +7,7 @@ import { buildProjectRoute } from "../utilities/route.utility.ts";
 import { buildPrefixPattern } from "../utilities/regex.utility.ts";
 
 export const createProjectPage = (page: Page) => {
+  const driveCard = page.getByRole("region", { name: PROJECT_PAGE_COPY.FOLDERS_TITLE });
   const uploadInput = page.locator("input[type=file]");
   const editButton = page.getByRole("button", { name: PROJECT_PAGE_COPY.EDIT });
   const newTaskButton = page.getByRole("button", { name: PROJECT_PAGE_COPY.NEW_TASK });
@@ -26,6 +27,7 @@ export const createProjectPage = (page: Page) => {
   const statusTab = (statusName: string) => findCountedTab(page, statusName);
 
   return {
+    driveCard,
     timeline,
     editButton,
     uploadInput,

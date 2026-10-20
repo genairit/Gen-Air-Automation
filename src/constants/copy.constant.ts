@@ -161,6 +161,14 @@ export const PROJECT_PAGE_COPY = {
 } as const;
 
 export const DRIVE_COPY = {
+  SUBTITLE: "לחיצה על שם הקובץ פותחת אותו ב-Google Drive",
+  OPEN_FOLDER: "פתח תיקייה ב-Drive",
+  PREPARE_FOLDER: "צור תיקיית פרויקט",
+  PREPARING_FOLDER: "מכין את תיקיית הפרויקט…",
+  MISSING_TITLE: "תיקיית הפרויקט עדיין לא נוצרה",
+  READ_ONLY: "פנו למנהל הפרויקט כדי ליצור את התיקייה.",
+  AUTHENTICATION_FAILED: "החיבור ל-Google Drive אינו מוגדר כראוי. פנו למנהל המערכת.",
+  PROVISION_FAILED: "לא ניתן ליצור את התיקייה כרגע. בדקו את החיבור ל-Google Drive ונסו שוב.",
   RETRY: "נסה שוב",
   EMPTY_FOLDER: "התיקייה ריקה",
   FOLDER_HAS_FILES: "יש קבצים בתיקייה",
