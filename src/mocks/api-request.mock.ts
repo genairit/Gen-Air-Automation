@@ -9,6 +9,11 @@ interface IApiRequestInterception {
   release: () => Promise<void>;
 }
 
+interface IHeldFailingApiRequests {
+  fail: () => Promise<void>;
+  restore: () => Promise<void>;
+}
+
 const matchApiPath =
   (apiPath: string) =>
   (url: URL): boolean =>
@@ -52,11 +57,6 @@ export const holdApiRequests = async (
 
   return { release };
 };
-
-interface IHeldFailingApiRequests {
-  fail: () => Promise<void>;
-  restore: () => Promise<void>;
-}
 
 // Playwright runs the most recently registered route first, so the hold is registered after the failure.
 export const holdThenFailApiRequests = async (

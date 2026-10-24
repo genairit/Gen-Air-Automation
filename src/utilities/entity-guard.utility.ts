@@ -51,17 +51,19 @@ const isNullableCustomerReference = createNullableGuard(
 const isTaskParentProject = (value: unknown): value is ITaskParentProject =>
   isRecord(value) && typeof value.id === "string" && isNullableCustomerReference(value.customer);
 
+const isNullableTaskParentProject = createNullableGuard(isTaskParentProject);
+
 const isTaskProject = (value: unknown): value is ITaskProject =>
-  isRecord(value) &&
-  isTaskParentProject(value) &&
-  createNullableGuard(isTaskParentProject)(value.parentProject);
+  isRecord(value) && isTaskParentProject(value) && isNullableTaskParentProject(value.parentProject);
+
+const isNullableTaskProject = createNullableGuard(isTaskProject);
 
 const hasNullableTaskStrings = (value: unknown): boolean =>
   isRecord(value) && NULLABLE_TASK_STRINGS.every(field => isNullableString(value[field]));
 
 const hasNullableTaskLinks = (value: unknown): boolean =>
   isRecord(value) &&
-  createNullableGuard(isTaskProject)(value.project) &&
+  isNullableTaskProject(value.project) &&
   isNullableCustomerReference(value.customer);
 
 export const isTaskRecord = (value: unknown): value is ITaskRecord =>

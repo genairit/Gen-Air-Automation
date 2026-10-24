@@ -62,18 +62,17 @@ test("a customer task stores only its customer and a project task only its proje
   const customerTask = await seedTask(api, { link: linkToCustomer(customer) });
   const projectTask = await seedTask(api, { link: linkToProject(project) });
 
-  expect(await api.getTask(customerTask.id)).toMatchObject({
+  const storedCustomerTask = await api.getTask(customerTask.id);
+  const storedProjectTask = await api.getTask(projectTask.id);
+
+  expect(storedCustomerTask).toMatchObject({
     projectId: null,
     customerId: customer.id,
-  });
-  expect(await api.getTask(customerTask.id)).toMatchObject({
     customer: { id: customer.id, name: customer.name },
   });
-  expect(await api.getTask(projectTask.id)).toMatchObject({
+  expect(storedProjectTask).toMatchObject({
     customerId: null,
     projectId: project.id,
-  });
-  expect(await api.getTask(projectTask.id)).toMatchObject({
     project: { id: project.id, customer: { id: customer.id, name: customer.name } },
   });
 });
@@ -84,8 +83,9 @@ test("an apartment task reads its customer through the building", async ({ api }
   const apartment = await seedApartment(api, building);
   const task = await seedTask(api, { link: linkToProject(apartment) });
 
-  expect(await api.getTask(task.id)).toMatchObject({ customerId: null, projectId: apartment.id });
   expect(await api.getTask(task.id)).toMatchObject({
+    customerId: null,
+    projectId: apartment.id,
     project: {
       id: apartment.id,
       parentProject: { id: building.id, customer: { id: customer.id, name: customer.name } },
