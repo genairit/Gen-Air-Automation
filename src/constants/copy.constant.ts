@@ -1,5 +1,10 @@
+import { TASK_LINK_KINDS, type TaskLinkKindType } from "./domain.constant.ts";
+
 const SHARED_COPY = {
+  DETAIL_SEPARATOR: "·",
+  INFO_ONLY: "מידע בלבד",
   ADD_APARTMENT: "הוסף דירה",
+  PROJECT_CUSTOMER: "לקוח הפרויקט",
   PERSON_NAME_PLACEHOLDER: "ישראל ישראלי",
   MOBILE_PHONE_PLACEHOLDER: "052-1234567",
   TASK_DESCRIPTION_PLACEHOLDER: "פרט מה צריך לעשות, מה כבר ידוע ומה מצופה כתוצאה",
@@ -200,14 +205,58 @@ export const TASK_COPY = {
   CONFIRM_URGENT: "סמן כדחופה",
   DESCRIPTION_PLACEHOLDER: SHARED_COPY.TASK_DESCRIPTION_PLACEHOLDER,
   SEARCH_PLACEHOLDER: "חיפוש במשימות שלי לפי משימה, פרויקט או לקוח...",
+  PROJECT_CUSTOMER: [
+    SHARED_COPY.PROJECT_CUSTOMER,
+    SHARED_COPY.DETAIL_SEPARATOR,
+    SHARED_COPY.INFO_ONLY,
+  ].join(" "),
 } as const;
 
 export const TASK_FORM_COPY = {
   SAVE: "שמור משימה",
   DUE_DATE: "תאריך יעד",
   ASSIGNEE_PLACEHOLDER: "בחר...",
-  CUSTOMER_PLACEHOLDER: "בחר לקוח...",
-  PROJECT_SEARCH_PLACEHOLDER: "חיפוש פרויקט לפי שם או מזהה...",
   TITLE_PLACEHOLDER: "לדוגמה: הכנת הצעת מחיר ליחידות VRF",
   DESCRIPTION_PLACEHOLDER: SHARED_COPY.TASK_DESCRIPTION_PLACEHOLDER,
 } as const;
+
+export const TASK_LINK_COPY = {
+  UNDO: "בטל",
+  DISMISS: "סגור",
+  RETRY: "נסה שוב",
+  INFO_ONLY: SHARED_COPY.INFO_ONLY,
+  DETAIL_SEPARATOR: SHARED_COPY.DETAIL_SEPARATOR,
+  KIND_GROUP: "המשימה קשורה ל...",
+  NEW_CUSTOMER: "צור לקוח חדש",
+  PROJECT_CUSTOMER: `${SHARED_COPY.PROJECT_CUSTOMER}:`,
+  PROJECT_CUSTOMER_NOTE: "לא נשמר כשיוך נוסף למשימה",
+  NO_KIND: "בחר לקוח או פרויקט כדי לשייך את המשימה",
+  KIND_REQUIRED: "בחר אם המשימה קשורה ללקוח או לפרויקט",
+} as const;
+
+export const TASK_LINK_KIND_COPY = {
+  [TASK_LINK_KINDS.CUSTOMER]: {
+    LABEL: "לקוח",
+    REQUIRED: "בחר לקוח",
+    LINKED_TO: "משויכת ללקוח",
+    REPLACE: "החלף לקוח",
+    LOADING: "טוען לקוחות…",
+    SELECTED_LOADING: "טוען את הלקוח שנבחר…",
+    SELECTED_ERROR: "לא הצלחנו לטעון את הלקוח שנבחר",
+    EMPTY: "לא נמצא לקוח שמתאים לחיפוש",
+    ERROR: "לא הצלחנו לטעון את רשימת הלקוחות",
+    SEARCH_PLACEHOLDER: "חיפוש לקוח לפי שם או מזהה...",
+  },
+  [TASK_LINK_KINDS.PROJECT]: {
+    LABEL: "פרויקט",
+    REQUIRED: "בחר פרויקט",
+    LINKED_TO: "משויכת לפרויקט",
+    REPLACE: "החלף פרויקט",
+    LOADING: "טוען פרויקטים…",
+    SELECTED_LOADING: "טוען את הפרויקט שנבחר…",
+    SELECTED_ERROR: "לא הצלחנו לטעון את הפרויקט שנבחר",
+    EMPTY: "לא נמצא פרויקט שמתאים לחיפוש",
+    ERROR: "לא הצלחנו לטעון את רשימת הפרויקטים",
+    SEARCH_PLACEHOLDER: "חיפוש פרויקט לפי שם או מזהה...",
+  },
+} as const satisfies Record<TaskLinkKindType, Record<string, string>>;

@@ -20,3 +20,8 @@ export const createNestedNumberRecordGuard =
   <T>(field: keyof T & string): TGuard<T> =>
   (value: unknown): value is T =>
     isRecord(value) && isNumberRecord(value[field]);
+
+export const createNullableGuard =
+  <T>(isPresent: TGuard<T>): TGuard<T | null> =>
+  (value: unknown): value is T | null =>
+    value === null || isPresent(value);

@@ -5,6 +5,7 @@ import { findMainContent } from "./layout.component.ts";
 import { APARTMENT_COPY } from "../constants/copy.constant.ts";
 import { buildApartmentRoute } from "../utilities/route.utility.ts";
 import type { IApartmentFormInput } from "../interfaces/apartment.interface.ts";
+import { APARTMENT_DESIGN_COPY } from "../constants/apartment-design.constant.ts";
 
 export const createApartmentFormPage = (page: Page) => {
   const form = findMainContent(page);
@@ -13,8 +14,8 @@ export const createApartmentFormPage = (page: Page) => {
   const fill = async (input: IApartmentFormInput) => {
     await findFieldByTitle(form, APARTMENT_COPY.FLOOR).fill(input.floor);
     await findFieldByTitle(form, APARTMENT_COPY.NUMBER).fill(input.number);
-    await findFieldByTitle(form, APARTMENT_COPY.CONTACT_NAME).fill(input.contactName);
-    await findFieldByTitle(form, APARTMENT_COPY.CONTACT_PHONE).fill(input.contactPhone);
+    await form.getByPlaceholder(APARTMENT_DESIGN_COPY.CUSTOMER_SEARCH).fill(input.customerName);
+    await form.getByRole("option").filter({ hasText: input.customerName }).click();
   };
 
   return { submitButton, fill };

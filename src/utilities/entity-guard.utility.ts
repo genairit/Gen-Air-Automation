@@ -1,6 +1,7 @@
 import {
   isRecord,
   createArrayGuard,
+  createNullableGuard,
   createStringFieldsGuard,
   createNestedNumberRecordGuard,
 } from "./guard.utility.ts";
@@ -11,14 +12,18 @@ import type {
   IProject,
   ISession,
   ICustomer,
+  ITaskPage,
   ITaskCounts,
   ITaskRecord,
   IUserRecord,
+  ITaskProject,
   IStageCounts,
   IProjectType,
   IProjectStage,
   IProjectMember,
   ICustomerRecord,
+  ITaskParentProject,
+  ITaskCustomerReference,
 } from "../interfaces/entities.interface.ts";
 
 export const isTask = createStringFieldsGuard<ITask>(["id", "title"]);
@@ -33,13 +38,39 @@ export const isUserRecord = createStringFieldsGuard<IUserRecord>([
   "lastName",
 ]);
 
-export const isTaskRecord = (value: unknown): value is ITaskRecord => {
-  const hasTaskFields = isTask(value);
-  const assigneeId = isRecord(value) ? value.assigneeId : null;
-  const hasNullableAssignee = assigneeId === null || typeof assigneeId === "string";
+const NULLABLE_TASK_STRINGS = ["projectId", "assigneeId", "customerId", "description"] as const;
 
-  return hasTaskFields && hasNullableAssignee;
-};
+const isNullableString = createNullableGuard(
+  (value: unknown): value is string => typeof value === "string",
+);
+
+const isNullableCustomerReference = createNullableGuard(
+  createStringFieldsGuard<ITaskCustomerReference>(["id", "name"]),
+);
+
+const isTaskParentProject = (value: unknown): value is ITaskParentProject =>
+  isRecord(value) && typeof value.id === "string" && isNullableCustomerReference(value.customer);
+
+const isNullableTaskParentProject = createNullableGuard(isTaskParentProject);
+
+const isTaskProject = (value: unknown): value is ITaskProject =>
+  isRecord(value) && isTaskParentProject(value) && isNullableTaskParentProject(value.parentProject);
+
+const isNullableTaskProject = createNullableGuard(isTaskProject);
+
+const hasNullableTaskStrings = (value: unknown): boolean =>
+  isRecord(value) && NULLABLE_TASK_STRINGS.every(field => isNullableString(value[field]));
+
+const hasNullableTaskLinks = (value: unknown): boolean =>
+  isRecord(value) &&
+  isNullableTaskProject(value.project) &&
+  isNullableCustomerReference(value.customer);
+
+export const isTaskRecord = (value: unknown): value is ITaskRecord =>
+  isTask(value) && hasNullableTaskStrings(value) && hasNullableTaskLinks(value);
+
+export const isTaskPage = (value: unknown): value is ITaskPage =>
+  isRecord(value) && createArrayGuard(isTask)(value.items);
 
 export const isProjectMemberList = createArrayGuard(
   createStringFieldsGuard<IProjectMember>(["role", "userId"]),
