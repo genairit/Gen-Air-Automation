@@ -67,6 +67,13 @@ export const TASK_STATUSES = {
 
 export type TaskStatusType = (typeof TASK_STATUSES)[keyof typeof TASK_STATUSES];
 
+export const TASK_LINK_KINDS = {
+  CUSTOMER: "CUSTOMER",
+  PROJECT: "PROJECT",
+} as const;
+
+export type TaskLinkKindType = (typeof TASK_LINK_KINDS)[keyof typeof TASK_LINK_KINDS];
+
 export const CUSTOMER_SYNC_STATUSES = {
   FAILED: "failed",
   SYNCED: "synced",

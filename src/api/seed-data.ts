@@ -26,10 +26,11 @@ import { TEST_PASSWORD } from "../constants/test-users.constant.ts";
 import type { UserRoleType } from "../constants/user-role.constant.ts";
 import type { ITask, IUser, IProject, ICustomer } from "../interfaces/entities.interface.ts";
 
+export type TTaskLinkInput = { projectId: string } | { customerId: string };
+
 interface ISeedTaskOptions {
-  project: IProject;
-  customer: ICustomer;
   assigneeId?: string;
+  link: TTaskLinkInput;
 }
 
 interface IProjectMemberInput {
@@ -144,13 +145,22 @@ export const seedApartment = (api: TGenAirApi, building: IProject): Promise<IPro
     customerApartment: String(createSequenceNumber()),
   });
 
-export const buildTaskInput = (options: ISeedTaskOptions) => ({
+export const linkToProject = (project: IProject): TTaskLinkInput => ({ projectId: project.id });
+
+export const linkToCustomer = (customer: ICustomer): TTaskLinkInput => ({
+  customerId: customer.id,
+});
+
+export const buildUnlinkedTaskInput = (assigneeId: string | null = null) => ({
+  assigneeId,
   dueDate: SEED_VALUES.DUE_DATE,
-  projectId: options.project.id,
-  customerId: options.customer.id,
-  assigneeId: options.assigneeId ?? null,
   description: SEED_VALUES.TASK_DESCRIPTION,
   title: createUniqueName(SEED_NAME_PREFIXES.TASK),
+});
+
+export const buildTaskInput = (options: ISeedTaskOptions) => ({
+  ...options.link,
+  ...buildUnlinkedTaskInput(options.assigneeId ?? null),
 });
 
 export const seedTask = (api: TGenAirApi, options: ISeedTaskOptions): Promise<ITask> =>
@@ -162,7 +172,8 @@ export const seedTaskScenario = async (
 ): Promise<ITaskScenario> => {
   const customer = await seedCustomer(api);
   const project = await seedStandaloneProject(api, customer);
-  const task = await seedTask(api, { project, customer, ...(assigneeId && { assigneeId }) });
+  const link = linkToProject(project);
+  const task = await seedTask(api, { link, ...(assigneeId && { assigneeId }) });
 
   return { task, project, customer };
 };

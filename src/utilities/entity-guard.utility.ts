@@ -11,6 +11,7 @@ import type {
   IProject,
   ISession,
   ICustomer,
+  ITaskPage,
   ITaskCounts,
   ITaskRecord,
   IUserRecord,
@@ -33,13 +34,19 @@ export const isUserRecord = createStringFieldsGuard<IUserRecord>([
   "lastName",
 ]);
 
-export const isTaskRecord = (value: unknown): value is ITaskRecord => {
-  const hasTaskFields = isTask(value);
-  const assigneeId = isRecord(value) ? value.assigneeId : null;
-  const hasNullableAssignee = assigneeId === null || typeof assigneeId === "string";
+const NULLABLE_TASK_REFERENCES = ["projectId", "assigneeId", "customerId"] as const;
 
-  return hasTaskFields && hasNullableAssignee;
-};
+const isNullableString = (value: unknown): value is string | null =>
+  value === null || typeof value === "string";
+
+const hasNullableTaskReferences = (value: unknown): boolean =>
+  isRecord(value) && NULLABLE_TASK_REFERENCES.every(field => isNullableString(value[field]));
+
+export const isTaskRecord = (value: unknown): value is ITaskRecord =>
+  isTask(value) && hasNullableTaskReferences(value);
+
+export const isTaskPage = (value: unknown): value is ITaskPage =>
+  isRecord(value) && createArrayGuard(isTask)(value.items);
 
 export const isProjectMemberList = createArrayGuard(
   createStringFieldsGuard<IProjectMember>(["role", "userId"]),

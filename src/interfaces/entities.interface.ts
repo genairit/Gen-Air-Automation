@@ -7,7 +7,13 @@ export interface ITask extends IEntityReference {
 }
 
 export interface ITaskRecord extends ITask {
+  projectId: string | null;
   assigneeId: string | null;
+  customerId: string | null;
+}
+
+export interface ITaskPage {
+  items: ITask[];
 }
 
 export interface IProjectMember {

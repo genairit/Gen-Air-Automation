@@ -15,6 +15,7 @@ import {
   isTask,
   isProject,
   isSession,
+  isTaskPage,
   isCustomer,
   isTaskCounts,
   isTaskRecord,
@@ -31,8 +32,16 @@ import type { HttpMethodType } from "../constants/http.constant.ts";
 import type { APIResponse, APIRequestContext } from "@playwright/test";
 import type { UserRoleType } from "../constants/user-role.constant.ts";
 import type { ICredentials } from "../interfaces/test-user.interface.ts";
-import { isNumberRecord, type TGuard } from "../utilities/guard.utility.ts";
+import { isRecord, isNumberRecord, type TGuard } from "../utilities/guard.utility.ts";
 import type { ISession, IProjectType, IProjectStage } from "../interfaces/entities.interface.ts";
+
+type TQueryParameters = Record<string, string>;
+
+const withQuery = (path: string, query: TQueryParameters): string =>
+  `${path}?${new URLSearchParams(query)}`;
+
+const sumCounts = (counts: Record<string, number>): number =>
+  Object.values(counts).reduce((total, count) => total + count, 0);
 
 const readJson = async <T>(response: APIResponse, isExpected: TGuard<T>): Promise<T> => {
   if (!response.ok()) {
@@ -123,9 +132,23 @@ export const createGenAirApi = (request: APIRequestContext, session: ISession) =
     return counts.byStatus[status] ?? 0;
   };
 
+  const countTasks = async (query: TQueryParameters): Promise<number> => {
+    const counts = await get(withQuery(API_PATHS.TASK_COUNTS, query), isTaskCounts);
+
+    return sumCounts(counts.byStatus);
+  };
+
+  const findTaskIds = async (query: TQueryParameters): Promise<string[]> => {
+    const page = await get(withQuery(API_PATHS.TASK, query), isTaskPage);
+
+    return page.items.map(task => task.id);
+  };
+
   return {
     session,
     send,
+    countTasks,
+    findTaskIds,
     readRoleCounts,
     findProjectType,
     findProjectStage,
@@ -134,6 +157,7 @@ export const createGenAirApi = (request: APIRequestContext, session: ISession) =
     countProjectsInStage,
     countCustomersInSyncStatus,
     getTask: (taskId: string) => get(buildTaskPath(taskId), isTaskRecord),
+    getTaskDetails: (taskId: string) => get(buildTaskPath(taskId), isRecord),
     createUser: (user: object) => post(API_PATHS.USER, user, isUserRecord),
     getProjectMembers: (projectId: string) =>
       get(buildProjectMembersPath(projectId), isProjectMemberList),

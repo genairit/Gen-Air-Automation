@@ -1,6 +1,7 @@
 import {
   seedUser,
   seedCustomer,
+  linkToProject,
   buildUserInput,
   buildTaskInput,
   seedTaskScenario,
@@ -88,13 +89,12 @@ for (const role of NON_MEMBER_ROLES) {
 }
 
 test("a task can be created for and reassigned to engineers only", async ({ api }) => {
-  const { task, project, customer } = await seedTaskScenario(api);
+  const { task, project } = await seedTaskScenario(api);
+  const link = linkToProject(project);
   const engineer = await seedUser(api, USER_ROLES.ENGINEER);
   const secretary = await seedUser(api, USER_ROLES.SECRETARY);
   const adminId = api.session.user.id;
-  const engineerTask = await api.createTask(
-    buildTaskInput({ project, customer, assigneeId: engineer.id }),
-  );
+  const engineerTask = await api.createTask(buildTaskInput({ link, assigneeId: engineer.id }));
 
   expect((await api.getTask(engineerTask.id)).assigneeId).toBe(engineer.id);
 
@@ -102,7 +102,7 @@ test("a task can be created for and reassigned to engineers only", async ({ api 
     await api.send(
       HTTP_METHODS.POST,
       API_PATHS.TASK,
-      buildTaskInput({ project, customer, assigneeId: secretary.id }),
+      buildTaskInput({ link, assigneeId: secretary.id }),
     ),
   );
   for (const assigneeId of [secretary.id, adminId]) {

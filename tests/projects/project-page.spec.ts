@@ -3,6 +3,7 @@ import {
   seedBuilding,
   seedCustomer,
   seedApartment,
+  linkToProject,
   seedStandaloneProject,
 } from "../../src/api/seed-data.ts";
 
@@ -21,7 +22,7 @@ test("a standalone project page shows its header, intake, customer, team, tasks 
 }) => {
   const customer = await seedCustomer(api);
   const project = await seedStandaloneProject(api, customer);
-  const task = await seedTask(api, { project, customer });
+  const task = await seedTask(api, { link: linkToProject(project) });
   const projectPage = createProjectPage(page);
 
   await projectPage.goto(project.id);
