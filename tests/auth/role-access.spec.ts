@@ -98,13 +98,20 @@ for (const role of USER_ROLE_VALUES) {
       await expectVisibility(!access.canManageCustomers, customersPage.managersOnlyCaption);
     });
 
-    test("tasks page shows task creation only when allowed", async ({ page }) => {
+    test("task creation belongs on the board with the existing role permission", async ({
+      page,
+    }) => {
+      const boardPage = createBoardPage(page);
       const tasksPage = createTasksPage(page);
 
+      await boardPage.goto();
+
+      await expectEnabled(access.canManageTasks, boardPage.newTaskButton);
       await tasksPage.goto();
 
       await expect(tasksPage.searchBox).toBeVisible();
-      await expectVisibility(access.canManageTasks, tasksPage.newTaskButton);
+      await expect(tasksPage.newTaskButton).toHaveCount(0);
+      await expect(page.getByText(TASKS_COPY.REMOVED_MANAGERS_NOTE)).toHaveCount(0);
     });
 
     test("employees page shows the add-employee form only when allowed", async ({ page }) => {

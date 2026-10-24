@@ -26,6 +26,7 @@ export const NAVIGATION_COPY = {
 } as const;
 
 export const BOARD_COPY = {
+  NEW_TASK: "משימה חדשה",
   NEW_PROJECT: "פרויקט חדש",
   TITLE: "ניהול פרויקטים ומשימות",
   SEARCH_PLACEHOLDER: "חיפוש פרויקטים, מזהה או קבלן...",
@@ -113,6 +114,7 @@ export const CUSTOMER_SUMMARY_VALUES = {
 } as const;
 
 export const TASKS_COPY = {
+  REMOVED_MANAGERS_NOTE: "הקצאת משימות למנהלים בלבד",
   NEW_TASK: "משימה חדשה",
   CREATE_DENIED: "אין הרשאה להקצאת משימות",
 } as const;
