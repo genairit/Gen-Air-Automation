@@ -20,6 +20,9 @@ export const CUSTOMER_LIST_PAGING = {
 } as const;
 
 export const PAYMENT_TERMS = {
+  OTHER: "other",
+  PREPAID: "prepaid",
+  TWELVE_PREPAID_CHECKS: "twelve_prepaid_checks",
   MILESTONES_NET_60: "milestones_net_60",
 } as const;
 
