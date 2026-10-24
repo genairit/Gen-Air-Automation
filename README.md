@@ -116,6 +116,8 @@ tests/            one folder per area of the app
 | Apartments      | `tests/projects/apartments.spec.ts`         | add, details, independent stage, notes, next apartment, open from building                           |
 | Drive           | `tests/projects/drive.spec.ts`              | unavailable banner, folder status and files, upload, blocked file                                    |
 | Tasks           | `tests/tasks/tasks.spec.ts`                 | create, validation, engineer-only pickers, counts, status, urgency, reassign, claim, legacy assignee |
+| Task links      | `tests/tasks/task-link.spec.ts`             | customer or project choice, cleared-link undo, picker and selection states, chips, legacy display    |
+| Task link API   | `tests/tasks/task-link-api.spec.ts`         | exactly-one-link validation, 404s, edit replacement, legacy links, customer filter/search/counts     |
 | Customers       | `tests/customers/customers.spec.ts`         | header button, form layout, validation, create, duplicate, cancel, mobile, pagination overflow       |
 | Employees       | `tests/employees/employees.spec.ts`         | add each of the six roles, role picker, role filters, new employee login, delete, search             |
 | Settings        | `tests/settings/settings.spec.ts`           | fixed statuses, password mismatch, change password                                                   |

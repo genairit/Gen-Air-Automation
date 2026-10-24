@@ -12,6 +12,7 @@ export const ROUTES = {
 } as const;
 
 export const ROUTE_SEGMENTS = {
+  NEW: "new",
   EDIT: "edit",
   APARTMENTS: "apartments",
 } as const;

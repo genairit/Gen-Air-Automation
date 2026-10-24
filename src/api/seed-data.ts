@@ -24,12 +24,24 @@ import type { TGenAirApi } from "./gen-air-api.ts";
 import { FAKE_PLACES } from "../constants/fake-places.constant.ts";
 import { TEST_PASSWORD } from "../constants/test-users.constant.ts";
 import type { UserRoleType } from "../constants/user-role.constant.ts";
+import { linkTaskCustomerBypassingApi } from "../environment/legacy-data.ts";
+import { recreateLegacyApartment } from "../environment/apartment-legacy-data.ts";
 import type { ITask, IUser, IProject, ICustomer } from "../interfaces/entities.interface.ts";
 
-interface ISeedTaskOptions {
+export type TTaskLinkInput = { projectId: string } | { customerId: string };
+
+type TOwnedProjectSeeder = (api: TGenAirApi, owner: ICustomer) => Promise<IProject>;
+
+interface ILegacyTaskScenario {
+  task: ITask;
   project: IProject;
-  customer: ICustomer;
+  storedCustomer: ICustomer;
+  projectCustomer: ICustomer;
+}
+
+interface ISeedTaskOptions {
   assigneeId?: string;
+  link: TTaskLinkInput;
 }
 
 interface IProjectMemberInput {
@@ -136,25 +148,63 @@ export const seedBuilding = (api: TGenAirApi, customer: ICustomer): Promise<IPro
 export const seedStandaloneProject = (api: TGenAirApi, customer: ICustomer): Promise<IProject> =>
   seedProject(api, { customer, projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL });
 
-export const seedApartment = (api: TGenAirApi, building: IProject): Promise<IProject> =>
-  api.createApartment(building.id, {
-    contactPhone: createMobilePhone(),
+export const seedApartment = async (api: TGenAirApi, building: IProject): Promise<IProject> => {
+  const customer = await seedCustomer(api);
+  return api.createApartment(building.id, {
+    customerId: customer.id,
     customerFloor: SEED_VALUES.APARTMENT_FLOOR,
-    contactName: SEED_VALUES.APARTMENT_CONTACT_NAME,
     customerApartment: String(createSequenceNumber()),
   });
+};
 
-export const buildTaskInput = (options: ISeedTaskOptions) => ({
+export const seedLegacyApartment = async (
+  api: TGenAirApi,
+  building: IProject,
+): Promise<IProject> => {
+  const apartment = await seedApartment(api, building);
+  await recreateLegacyApartment(apartment.id);
+  return apartment;
+};
+
+export const linkToProject = (project: IProject): TTaskLinkInput => ({ projectId: project.id });
+
+export const linkToCustomer = (customer: ICustomer): TTaskLinkInput => ({
+  customerId: customer.id,
+});
+
+export const buildUnlinkedTaskInput = (assigneeId: string | null = null) => ({
+  assigneeId,
   dueDate: SEED_VALUES.DUE_DATE,
-  projectId: options.project.id,
-  customerId: options.customer.id,
-  assigneeId: options.assigneeId ?? null,
   description: SEED_VALUES.TASK_DESCRIPTION,
   title: createUniqueName(SEED_NAME_PREFIXES.TASK),
 });
 
+export const buildTaskInput = (options: ISeedTaskOptions) => ({
+  ...options.link,
+  ...buildUnlinkedTaskInput(options.assigneeId ?? null),
+});
+
 export const seedTask = (api: TGenAirApi, options: ISeedTaskOptions): Promise<ITask> =>
   api.createTask(buildTaskInput(options));
+
+export const OWNED_PROJECT_SEEDERS = {
+  "standalone project": seedStandaloneProject,
+  apartment: async (api, owner) => seedLegacyApartment(api, await seedBuilding(api, owner)),
+} as const satisfies Record<string, TOwnedProjectSeeder>;
+
+export const seedLegacyTaskScenario = async (
+  api: TGenAirApi,
+  seedProject: TOwnedProjectSeeder,
+): Promise<ILegacyTaskScenario> => {
+  const projectCustomer = await seedCustomer(api);
+  const storedCustomer = await seedCustomer(api);
+  const project = await seedProject(api, projectCustomer);
+  const task = await seedTask(api, { link: linkToProject(project) });
+
+  await linkTaskCustomerBypassingApi(task.id, storedCustomer.id);
+
+  return { task, project, storedCustomer, projectCustomer };
+};
 
 export const seedTaskScenario = async (
   api: TGenAirApi,
@@ -162,7 +212,8 @@ export const seedTaskScenario = async (
 ): Promise<ITaskScenario> => {
   const customer = await seedCustomer(api);
   const project = await seedStandaloneProject(api, customer);
-  const task = await seedTask(api, { project, customer, ...(assigneeId && { assigneeId }) });
+  const link = linkToProject(project);
+  const task = await seedTask(api, { link, ...(assigneeId && { assigneeId }) });
 
   return { task, project, customer };
 };

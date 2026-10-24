@@ -6,8 +6,29 @@ export interface ITask extends IEntityReference {
   title: string;
 }
 
+export interface ITaskCustomerReference extends IEntityReference {
+  name: string;
+}
+
+export interface ITaskParentProject extends IEntityReference {
+  customer: ITaskCustomerReference | null;
+}
+
+export interface ITaskProject extends ITaskParentProject {
+  parentProject: ITaskParentProject | null;
+}
+
 export interface ITaskRecord extends ITask {
+  projectId: string | null;
   assigneeId: string | null;
+  customerId: string | null;
+  description: string | null;
+  project: ITaskProject | null;
+  customer: ITaskCustomerReference | null;
+}
+
+export interface ITaskPage {
+  items: ITask[];
 }
 
 export interface IProjectMember {

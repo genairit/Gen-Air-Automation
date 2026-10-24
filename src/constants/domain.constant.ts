@@ -20,6 +20,9 @@ export const CUSTOMER_LIST_PAGING = {
 } as const;
 
 export const PAYMENT_TERMS = {
+  OTHER: "other",
+  PREPAID: "prepaid",
+  TWELVE_PREPAID_CHECKS: "twelve_prepaid_checks",
   MILESTONES_NET_60: "milestones_net_60",
 } as const;
 
@@ -66,6 +69,13 @@ export const TASK_STATUSES = {
 } as const;
 
 export type TaskStatusType = (typeof TASK_STATUSES)[keyof typeof TASK_STATUSES];
+
+export const TASK_LINK_KINDS = {
+  CUSTOMER: "CUSTOMER",
+  PROJECT: "PROJECT",
+} as const;
+
+export type TaskLinkKindType = (typeof TASK_LINK_KINDS)[keyof typeof TASK_LINK_KINDS];
 
 export const CUSTOMER_SYNC_STATUSES = {
   FAILED: "failed",
