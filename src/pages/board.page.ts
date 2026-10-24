@@ -6,6 +6,7 @@ import { ROUTES } from "../constants/routes.constant.ts";
 import { BOARD_COPY } from "../constants/copy.constant.ts";
 
 export const createBoardPage = (page: Page) => {
+  const newTaskButton = page.getByRole("button", { name: BOARD_COPY.NEW_TASK, exact: true });
   const searchBox = page.getByPlaceholder(BOARD_COPY.SEARCH_PLACEHOLDER);
   const newProjectButton = page.getByRole("button", { name: BOARD_COPY.NEW_PROJECT });
 
@@ -20,5 +21,14 @@ export const createBoardPage = (page: Page) => {
   const changeStatus = (projectName: string, statusName: string) =>
     selectOption(page, statusPicker(projectName), statusName);
 
-  return { searchBox, newProjectButton, goto, findRow, statusTab, statusPicker, changeStatus };
+  return {
+    searchBox,
+    newTaskButton,
+    newProjectButton,
+    goto,
+    findRow,
+    statusTab,
+    statusPicker,
+    changeStatus,
+  };
 };
