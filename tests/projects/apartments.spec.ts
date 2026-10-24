@@ -2,16 +2,13 @@ import {
   formatStageLabel,
   formatBuildingLink,
   formatApartmentName,
-  formatApartmentHeading,
 } from "../../src/utilities/apartment.utility.ts";
 
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { SEED_VALUES } from "../../src/constants/seed.constant.ts";
 import { createProjectPage } from "../../src/pages/project.page.ts";
 import { buildApartmentRoute } from "../../src/utilities/route.utility.ts";
-import { createMobilePhone } from "../../src/utilities/test-data.utility.ts";
 import { PROJECT_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
-import { ROUTE_PATTERNS } from "../../src/constants/route-patterns.constant.ts";
 import { readTabCount, expectTabSelected } from "../../src/pages/tab.component.ts";
 import { seedBuilding, seedCustomer, seedApartment } from "../../src/api/seed-data.ts";
 import { createApartmentPage, createApartmentFormPage } from "../../src/pages/apartment.page.ts";
@@ -19,7 +16,6 @@ import { createApartmentPage, createApartmentFormPage } from "../../src/pages/ap
 const NEW_APARTMENT = {
   floor: "4",
   number: "17",
-  contactName: "מיכל לוי",
 } as const;
 
 const APARTMENT_NOTE = "הדייר זמין רק בבוקר";
@@ -33,15 +29,11 @@ test("add an apartment to a building and see it listed and counted", async ({ pa
 
   await projectPage.goto(building.id);
   await projectPage.addApartmentButton.click();
-  await formPage.fill({ ...NEW_APARTMENT, contactPhone: createMobilePhone() });
+  const customer = await seedCustomer(api);
+  await formPage.fill({ ...NEW_APARTMENT, customerName: customer.name });
   await formPage.submitButton.click();
 
-  await expect(page).toHaveURL(ROUTE_PATTERNS.APARTMENT);
-  await expect(
-    page.getByRole("heading", { name: formatApartmentHeading(NEW_APARTMENT) }),
-  ).toBeVisible();
-
-  await projectPage.goto(building.id);
+  await expect(page).toHaveURL(new RegExp(`/projects/${building.id}$`));
 
   await expect(
     projectPage.findApartmentRow(formatApartmentName(NEW_APARTMENT.number)),
@@ -62,7 +54,7 @@ test("an apartment page shows its contact and the values inherited from the buil
   await apartmentPage.goto(building.id, apartment.id);
 
   await expect(page.getByText(apartment.code)).toBeVisible();
-  await expect(page.getByText(SEED_VALUES.APARTMENT_CONTACT_NAME)).toBeVisible();
+  await expect(page.getByText(SEED_VALUES.CUSTOMER_CONTACT_NAME)).toBeVisible();
   await expect(page.getByRole("link", { name: formatBuildingLink(building.name) })).toBeVisible();
 });
 

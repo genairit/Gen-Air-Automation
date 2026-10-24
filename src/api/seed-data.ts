@@ -25,6 +25,7 @@ import { FAKE_PLACES } from "../constants/fake-places.constant.ts";
 import { TEST_PASSWORD } from "../constants/test-users.constant.ts";
 import type { UserRoleType } from "../constants/user-role.constant.ts";
 import { linkTaskCustomerBypassingApi } from "../environment/legacy-data.ts";
+import { recreateLegacyApartment } from "../environment/apartment-legacy-data.ts";
 import type { ITask, IUser, IProject, ICustomer } from "../interfaces/entities.interface.ts";
 
 export type TTaskLinkInput = { projectId: string } | { customerId: string };
@@ -138,13 +139,23 @@ export const seedBuilding = (api: TGenAirApi, customer: ICustomer): Promise<IPro
 export const seedStandaloneProject = (api: TGenAirApi, customer: ICustomer): Promise<IProject> =>
   seedProject(api, { customer, projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL });
 
-export const seedApartment = (api: TGenAirApi, building: IProject): Promise<IProject> =>
-  api.createApartment(building.id, {
-    contactPhone: createMobilePhone(),
+export const seedApartment = async (api: TGenAirApi, building: IProject): Promise<IProject> => {
+  const customer = await seedCustomer(api);
+  return api.createApartment(building.id, {
+    customerId: customer.id,
     customerFloor: SEED_VALUES.APARTMENT_FLOOR,
-    contactName: SEED_VALUES.APARTMENT_CONTACT_NAME,
     customerApartment: String(createSequenceNumber()),
   });
+};
+
+export const seedLegacyApartment = async (
+  api: TGenAirApi,
+  building: IProject,
+): Promise<IProject> => {
+  const apartment = await seedApartment(api, building);
+  await recreateLegacyApartment(apartment.id);
+  return apartment;
+};
 
 export const linkToProject = (project: IProject): TTaskLinkInput => ({ projectId: project.id });
 
@@ -171,7 +182,7 @@ type TOwnedProjectSeeder = (api: TGenAirApi, owner: ICustomer) => Promise<IProje
 
 export const OWNED_PROJECT_SEEDERS = {
   "standalone project": seedStandaloneProject,
-  apartment: async (api, owner) => seedApartment(api, await seedBuilding(api, owner)),
+  apartment: async (api, owner) => seedLegacyApartment(api, await seedBuilding(api, owner)),
 } as const satisfies Record<string, TOwnedProjectSeeder>;
 
 interface ILegacyTaskScenario {

@@ -2,9 +2,9 @@ import {
   seedTask,
   seedBuilding,
   seedCustomer,
-  seedApartment,
   linkToProject,
   linkToCustomer,
+  seedLegacyApartment,
   OWNED_PROJECT_SEEDERS,
   seedStandaloneProject,
   seedLegacyTaskScenario,
@@ -119,7 +119,7 @@ const saveAndReadPayload = async (page: Page) => {
 const seedLinkedTasksForEngineer = async (api: TGenAirApi, engineerId: string) => {
   const customer = await seedCustomer(api);
   const project = await seedStandaloneProject(api, customer);
-  const apartment = await seedApartment(api, await seedBuilding(api, customer));
+  const apartment = await seedLegacyApartment(api, await seedBuilding(api, customer));
   const assign = { assigneeId: engineerId };
 
   const customerTask = await seedTask(api, { ...assign, link: linkToCustomer(customer) });
@@ -439,7 +439,7 @@ test("an apartment task page shows the building's customer as information only",
   api,
 }) => {
   const customer = await seedCustomer(api);
-  const apartment = await seedApartment(api, await seedBuilding(api, customer));
+  const apartment = await seedLegacyApartment(api, await seedBuilding(api, customer));
   const task = await seedTask(api, { link: linkToProject(apartment) });
   const taskPage = createTaskPage(page);
 

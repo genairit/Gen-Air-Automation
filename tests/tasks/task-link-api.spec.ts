@@ -2,9 +2,9 @@ import {
   seedTask,
   seedBuilding,
   seedCustomer,
-  seedApartment,
   linkToProject,
   linkToCustomer,
+  seedLegacyApartment,
   seedStandaloneProject,
   OWNED_PROJECT_SEEDERS,
   seedLegacyTaskScenario,
@@ -81,7 +81,7 @@ test("a customer task stores only its customer and a project task only its proje
 test("an apartment task reads its customer through the building", async ({ api }) => {
   const customer = await seedCustomer(api);
   const building = await seedBuilding(api, customer);
-  const apartment = await seedApartment(api, building);
+  const apartment = await seedLegacyApartment(api, building);
   const task = await seedTask(api, { link: linkToProject(apartment) });
 
   expect(await api.getTask(task.id)).toMatchObject({ customerId: null, projectId: apartment.id });
@@ -154,7 +154,7 @@ test("the customer filter, search and counts find project and apartment tasks", 
   const otherCustomer = await seedCustomer(api);
   const project = await seedStandaloneProject(api, customer);
   const building = await seedBuilding(api, customer);
-  const apartment = await seedApartment(api, building);
+  const apartment = await seedLegacyApartment(api, building);
   const customerTask = await seedTask(api, { link: linkToCustomer(customer) });
   const projectTask = await seedTask(api, { link: linkToProject(project) });
   const apartmentTask = await seedTask(api, { link: linkToProject(apartment) });
