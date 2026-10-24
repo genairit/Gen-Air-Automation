@@ -15,6 +15,7 @@ import {
 
 import type { Page, Locator } from "@playwright/test";
 import { ROUTES } from "../../src/constants/routes.constant.ts";
+import { createBoardPage } from "../../src/pages/board.page.ts";
 import { TASK_COPY } from "../../src/constants/copy.constant.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { createProjectPage } from "../../src/pages/project.page.ts";
@@ -76,12 +77,12 @@ test("create a task for an engineer and see it in their tasks and on its project
   const customer = await seedCustomer(api);
   const project = await seedStandaloneProject(api, customer);
   const formPage = createTaskFormPage(page);
-  const tasksPage = createTasksPage(page);
+  const boardPage = createBoardPage(page);
   const projectPage = createProjectPage(page);
   const title = createUniqueName(NEW_TASK.titlePrefix);
 
-  await tasksPage.goto();
-  await tasksPage.newTaskButton.click();
+  await boardPage.goto();
+  await boardPage.newTaskButton.click();
   await formPage.fill({
     title,
     dueDate: NEW_TASK.dueDate,
@@ -97,6 +98,7 @@ test("create a task for an engineer and see it in their tasks and on its project
   await projectPage.goto(project.id);
 
   await expect(page.getByText(title)).toBeVisible();
+  await expect(await findInMyTasks(page, title)).toHaveCount(0);
   await expect(await findInMyTasks(await openPageAs(ENGINEER), title)).toBeVisible();
 });
 
