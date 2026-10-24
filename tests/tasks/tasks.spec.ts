@@ -2,9 +2,16 @@ import {
   seedTask,
   seedUser,
   seedCustomer,
+  linkToProject,
   seedTaskScenario,
   seedStandaloneProject,
 } from "../../src/api/seed-data.ts";
+
+import {
+  TASK_STATUSES,
+  TASK_LINK_KINDS,
+  TASK_STATUS_NAMES,
+} from "../../src/constants/domain.constant.ts";
 
 import type { Page, Locator } from "@playwright/test";
 import { ROUTES } from "../../src/constants/routes.constant.ts";
@@ -21,7 +28,6 @@ import { isTaskUpdateResponse } from "../../src/utilities/response.utility.ts";
 import { ROUTE_PATTERNS } from "../../src/constants/route-patterns.constant.ts";
 import { readTabCount, expectTabSelected } from "../../src/pages/tab.component.ts";
 import { USER_ROLES, USER_ROLE_VALUES } from "../../src/constants/user-role.constant.ts";
-import { TASK_STATUSES, TASK_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
 import { createTaskPage, createTasksPage, createTaskFormPage } from "../../src/pages/tasks.page.ts";
 
 const ENGINEER = TEST_USERS[USER_ROLES.ENGINEER];
@@ -79,8 +85,7 @@ test("create a task for an engineer and see it in their tasks and on its project
   await formPage.fill({
     title,
     dueDate: NEW_TASK.dueDate,
-    projectName: project.name,
-    customerName: customer.name,
+    link: { kind: TASK_LINK_KINDS.PROJECT, name: project.name },
     description: NEW_TASK.description,
     assigneeName: formatFullName(ENGINEER),
   });
@@ -256,7 +261,7 @@ test.describe("as an engineer", () => {
   test("claim an open-pool task and find it in my tasks", async ({ page, api }) => {
     const customer = await seedCustomer(api);
     const project = await seedStandaloneProject(api, customer);
-    const task = await seedTask(api, { project, customer });
+    const task = await seedTask(api, { link: linkToProject(project) });
     const taskPage = createTaskPage(page);
 
     await taskPage.goto(task.id);

@@ -1,6 +1,7 @@
 import {
   seedUser,
   seedCustomer,
+  linkToProject,
   buildTaskInput,
   seedTaskScenario,
   buildCustomerInput,
@@ -91,10 +92,10 @@ const deleteCustomer = async ({ admin, actor }: IPermissionContext) => {
 };
 
 const createTask = async ({ admin, actor }: IPermissionContext) => {
-  const customer = await seedCustomer(admin);
-  const project = await seedStandaloneProject(admin, customer);
+  const project = await seedProjectFor(admin);
+  const link = linkToProject(project);
 
-  return actor.send(HTTP_METHODS.POST, API_PATHS.TASK, buildTaskInput({ project, customer }));
+  return actor.send(HTTP_METHODS.POST, API_PATHS.TASK, buildTaskInput({ link }));
 };
 
 const editTask = async ({ admin, actor }: IPermissionContext) => {
