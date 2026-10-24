@@ -30,6 +30,15 @@ import type { ITask, IUser, IProject, ICustomer } from "../interfaces/entities.i
 
 export type TTaskLinkInput = { projectId: string } | { customerId: string };
 
+type TOwnedProjectSeeder = (api: TGenAirApi, owner: ICustomer) => Promise<IProject>;
+
+interface ILegacyTaskScenario {
+  task: ITask;
+  project: IProject;
+  storedCustomer: ICustomer;
+  projectCustomer: ICustomer;
+}
+
 interface ISeedTaskOptions {
   assigneeId?: string;
   link: TTaskLinkInput;
@@ -178,19 +187,10 @@ export const buildTaskInput = (options: ISeedTaskOptions) => ({
 export const seedTask = (api: TGenAirApi, options: ISeedTaskOptions): Promise<ITask> =>
   api.createTask(buildTaskInput(options));
 
-type TOwnedProjectSeeder = (api: TGenAirApi, owner: ICustomer) => Promise<IProject>;
-
 export const OWNED_PROJECT_SEEDERS = {
   "standalone project": seedStandaloneProject,
   apartment: async (api, owner) => seedLegacyApartment(api, await seedBuilding(api, owner)),
 } as const satisfies Record<string, TOwnedProjectSeeder>;
-
-interface ILegacyTaskScenario {
-  task: ITask;
-  project: IProject;
-  storedCustomer: ICustomer;
-  projectCustomer: ICustomer;
-}
 
 export const seedLegacyTaskScenario = async (
   api: TGenAirApi,
