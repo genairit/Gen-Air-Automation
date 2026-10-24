@@ -17,18 +17,19 @@ import {
   PROJECT_MEMBER_ROLES,
 } from "../../src/constants/user-role.constant.ts";
 
-import type { APIResponse } from "@playwright/test";
+import {
+  expectResponseOk,
+  expectBadRequest,
+} from "../../src/utilities/response-assertion.utility.ts";
+
 import { API_PATHS } from "../../src/constants/api.constant.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
+import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { assignTaskBypassingApi } from "../../src/environment/legacy-data.ts";
-import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
 import { buildTaskPath, buildProjectPath } from "../../src/utilities/api-path.utility.ts";
 
 const RENAMED_TASK_PREFIX = "משימה עם אחראי ותיק";
-
-const expectBadRequest = async (response: APIResponse) =>
-  expect(response.status(), await response.text()).toBe(HTTP_STATUS.BAD_REQUEST);
 
 const sortRoles = (roles: readonly string[]) => [...roles].sort();
 
@@ -127,7 +128,7 @@ test("a task that keeps a legacy non-engineer assignee can still be edited", asy
     assigneeId: legacyAssignee.id,
   });
 
-  expect(titleUpdate.ok(), await titleUpdate.text()).toBe(true);
-  expect(unchangedAssigneeUpdate.ok(), await unchangedAssigneeUpdate.text()).toBe(true);
+  await expectResponseOk(titleUpdate);
+  await expectResponseOk(unchangedAssigneeUpdate);
   expect(await api.getTask(task.id)).toMatchObject({ title, assigneeId: legacyAssignee.id });
 });

@@ -1,7 +1,10 @@
 import { TASK_LINK_KINDS, type TaskLinkKindType } from "./domain.constant.ts";
 
 const SHARED_COPY = {
+  DETAIL_SEPARATOR: "·",
+  INFO_ONLY: "מידע בלבד",
   ADD_APARTMENT: "הוסף דירה",
+  PROJECT_CUSTOMER: "לקוח הפרויקט",
   PERSON_NAME_PLACEHOLDER: "ישראל ישראלי",
   MOBILE_PHONE_PLACEHOLDER: "052-1234567",
   TASK_DESCRIPTION_PLACEHOLDER: "פרט מה צריך לעשות, מה כבר ידוע ומה מצופה כתוצאה",
@@ -202,7 +205,11 @@ export const TASK_COPY = {
   CONFIRM_URGENT: "סמן כדחופה",
   DESCRIPTION_PLACEHOLDER: SHARED_COPY.TASK_DESCRIPTION_PLACEHOLDER,
   SEARCH_PLACEHOLDER: "חיפוש במשימות שלי לפי משימה, פרויקט או לקוח...",
-  PROJECT_CUSTOMER: "לקוח הפרויקט · מידע בלבד",
+  PROJECT_CUSTOMER: [
+    SHARED_COPY.PROJECT_CUSTOMER,
+    SHARED_COPY.DETAIL_SEPARATOR,
+    SHARED_COPY.INFO_ONLY,
+  ].join(" "),
 } as const;
 
 export const TASK_FORM_COPY = {
@@ -217,10 +224,11 @@ export const TASK_LINK_COPY = {
   UNDO: "בטל",
   DISMISS: "סגור",
   RETRY: "נסה שוב",
-  INFO_ONLY: "מידע בלבד",
+  INFO_ONLY: SHARED_COPY.INFO_ONLY,
+  DETAIL_SEPARATOR: SHARED_COPY.DETAIL_SEPARATOR,
   KIND_GROUP: "המשימה קשורה ל...",
   NEW_CUSTOMER: "צור לקוח חדש",
-  PROJECT_CUSTOMER: "לקוח הפרויקט:",
+  PROJECT_CUSTOMER: `${SHARED_COPY.PROJECT_CUSTOMER}:`,
   PROJECT_CUSTOMER_NOTE: "לא נשמר כשיוך נוסף למשימה",
   NO_KIND: "בחר לקוח או פרויקט כדי לשייך את המשימה",
   KIND_REQUIRED: "בחר אם המשימה קשורה ללקוח או לפרויקט",

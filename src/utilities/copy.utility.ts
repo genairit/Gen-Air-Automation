@@ -8,6 +8,12 @@ export const formatClearedLinkNotice = (kind: TaskLinkKindType, name: string): s
   `השיוך הקודם (${TASK_LINK_KIND_COPY[kind].LABEL}: ${name}) נוקה`;
 
 export const formatProjectCustomerNote = (customerName: string): string =>
-  `${TASK_LINK_COPY.PROJECT_CUSTOMER} ${customerName} · ${TASK_LINK_COPY.PROJECT_CUSTOMER_NOTE}`;
+  [
+    TASK_LINK_COPY.PROJECT_CUSTOMER,
+    customerName,
+    TASK_LINK_COPY.DETAIL_SEPARATOR,
+    TASK_LINK_COPY.PROJECT_CUSTOMER_NOTE,
+  ].join(" ");
 
-export const formatProjectCustomerContext = (customerName: string): string => `· ${customerName}`;
+export const formatProjectCustomerContext = (customerName: string): string =>
+  [TASK_LINK_COPY.DETAIL_SEPARATOR, customerName].join(" ");

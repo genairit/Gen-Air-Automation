@@ -32,7 +32,7 @@ import type { HttpMethodType } from "../constants/http.constant.ts";
 import type { APIResponse, APIRequestContext } from "@playwright/test";
 import type { UserRoleType } from "../constants/user-role.constant.ts";
 import type { ICredentials } from "../interfaces/test-user.interface.ts";
-import { isRecord, isNumberRecord, type TGuard } from "../utilities/guard.utility.ts";
+import { isNumberRecord, type TGuard } from "../utilities/guard.utility.ts";
 import type { ISession, IProjectType, IProjectStage } from "../interfaces/entities.interface.ts";
 
 type TQueryParameters = Record<string, string>;
@@ -157,7 +157,6 @@ export const createGenAirApi = (request: APIRequestContext, session: ISession) =
     countProjectsInStage,
     countCustomersInSyncStatus,
     getTask: (taskId: string) => get(buildTaskPath(taskId), isTaskRecord),
-    getTaskDetails: (taskId: string) => get(buildTaskPath(taskId), isRecord),
     createUser: (user: object) => post(API_PATHS.USER, user, isUserRecord),
     getProjectMembers: (projectId: string) =>
       get(buildProjectMembersPath(projectId), isProjectMemberList),

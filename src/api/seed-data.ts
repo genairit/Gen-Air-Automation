@@ -24,6 +24,7 @@ import type { TGenAirApi } from "./gen-air-api.ts";
 import { FAKE_PLACES } from "../constants/fake-places.constant.ts";
 import { TEST_PASSWORD } from "../constants/test-users.constant.ts";
 import type { UserRoleType } from "../constants/user-role.constant.ts";
+import { linkTaskCustomerBypassingApi } from "../environment/legacy-data.ts";
 import type { ITask, IUser, IProject, ICustomer } from "../interfaces/entities.interface.ts";
 
 export type TTaskLinkInput = { projectId: string } | { customerId: string };
@@ -165,6 +166,34 @@ export const buildTaskInput = (options: ISeedTaskOptions) => ({
 
 export const seedTask = (api: TGenAirApi, options: ISeedTaskOptions): Promise<ITask> =>
   api.createTask(buildTaskInput(options));
+
+type TOwnedProjectSeeder = (api: TGenAirApi, owner: ICustomer) => Promise<IProject>;
+
+export const OWNED_PROJECT_SEEDERS = {
+  "standalone project": seedStandaloneProject,
+  apartment: async (api, owner) => seedApartment(api, await seedBuilding(api, owner)),
+} as const satisfies Record<string, TOwnedProjectSeeder>;
+
+interface ILegacyTaskScenario {
+  task: ITask;
+  project: IProject;
+  storedCustomer: ICustomer;
+  projectCustomer: ICustomer;
+}
+
+export const seedLegacyTaskScenario = async (
+  api: TGenAirApi,
+  seedProject: TOwnedProjectSeeder,
+): Promise<ILegacyTaskScenario> => {
+  const projectCustomer = await seedCustomer(api);
+  const storedCustomer = await seedCustomer(api);
+  const project = await seedProject(api, projectCustomer);
+  const task = await seedTask(api, { link: linkToProject(project) });
+
+  await linkTaskCustomerBypassingApi(task.id, storedCustomer.id);
+
+  return { task, project, storedCustomer, projectCustomer };
+};
 
 export const seedTaskScenario = async (
   api: TGenAirApi,

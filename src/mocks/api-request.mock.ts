@@ -52,3 +52,19 @@ export const holdApiRequests = async (
 
   return { release };
 };
+
+interface IHeldFailingApiRequests {
+  fail: () => Promise<void>;
+  restore: () => Promise<void>;
+}
+
+// Playwright runs the most recently registered route first, so the hold is registered after the failure.
+export const holdThenFailApiRequests = async (
+  page: Page,
+  apiPath: string,
+): Promise<IHeldFailingApiRequests> => {
+  const failing = await failApiRequests(page, apiPath);
+  const pending = await holdApiRequests(page, apiPath);
+
+  return { fail: pending.release, restore: failing.release };
+};

@@ -5,7 +5,9 @@ import {
   seedApartment,
   linkToProject,
   linkToCustomer,
+  OWNED_PROJECT_SEEDERS,
   seedStandaloneProject,
+  seedLegacyTaskScenario,
 } from "../../src/api/seed-data.ts";
 
 import {
@@ -22,6 +24,12 @@ import {
   formatProjectCustomerNote,
   formatProjectCustomerContext,
 } from "../../src/utilities/copy.utility.ts";
+
+import {
+  failApiRequests,
+  holdApiRequests,
+  holdThenFailApiRequests,
+} from "../../src/mocks/api-request.mock.ts";
 
 import {
   buildTaskRoute,
@@ -53,8 +61,6 @@ import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { getAuthStatePath } from "../../src/utilities/auth-state.utility.ts";
 import { isTaskCreationRequest } from "../../src/utilities/response.utility.ts";
 import { ROUTE_PATTERNS } from "../../src/constants/route-patterns.constant.ts";
-import { linkTaskCustomerBypassingApi } from "../../src/environment/legacy-data.ts";
-import { failApiRequests, holdApiRequests } from "../../src/mocks/api-request.mock.ts";
 import { buildProjectPath, buildCustomerPath } from "../../src/utilities/api-path.utility.ts";
 import { TASK_LINK_KINDS, type TaskLinkKindType } from "../../src/constants/domain.constant.ts";
 
@@ -340,20 +346,19 @@ for (const kind of Object.values(TASK_LINK_KINDS)) {
     const formPage = createTaskFormPage(page);
     const copy = TASK_LINK_KIND_COPY[kind];
     const linkTarget = await LINK_TARGET_SEEDERS[kind](api);
-    const failingDetail = await failApiRequests(page, linkTarget.detailPath);
-    const pendingDetail = await holdApiRequests(page, linkTarget.detailPath);
+    const detailRequests = await holdThenFailApiRequests(page, linkTarget.detailPath);
 
     await formPage.goto();
     await formPage.chooseLink({ kind, name: linkTarget.name });
 
     await expect(formPage.form.getByText(copy.SELECTED_LOADING)).toBeVisible();
 
-    await pendingDetail.release();
+    await detailRequests.fail();
 
     await expect(formPage.form.getByText(copy.SELECTED_ERROR)).toBeVisible();
     await expect(formPage.replaceLinkButton(kind)).toBeVisible();
 
-    await failingDetail.release();
+    await detailRequests.restore();
     await formPage.form.getByRole("button", { name: TASK_LINK_COPY.RETRY }).click();
 
     await expect(formPage.form.getByText(copy.SELECTED_ERROR)).toHaveCount(0);
@@ -391,17 +396,13 @@ for (const kind of Object.values(TASK_LINK_KINDS)) {
   });
 }
 
-test("an empty customer search offers to create a new customer", async ({ page }) => {
+test("a customer search with no matches offers to create a new customer", async ({ page }) => {
   const formPage = createTaskFormPage(page);
-  const missingCustomer = {
-    kind: TASK_LINK_KINDS.CUSTOMER,
-    name: createUniqueName(MISSING_SEARCH_PREFIX),
-  };
 
   await formPage.goto();
   await formPage.linkKindRadio(TASK_LINK_KINDS.CUSTOMER).click();
+  await formPage.linkSearch(TASK_LINK_KINDS.CUSTOMER).fill(createUniqueName(MISSING_SEARCH_PREFIX));
 
-  await expect(await formPage.searchLink(missingCustomer)).toHaveCount(0);
   await expect(formPage.form.getByText(TASK_LINK_KIND_COPY.CUSTOMER.EMPTY)).toBeVisible();
 
   await formPage.form.getByRole("button", { name: TASK_LINK_COPY.NEW_CUSTOMER }).click();
@@ -448,35 +449,36 @@ test("an apartment task page shows the building's customer as information only",
   await expect(taskPage.projectCustomerLink).toHaveText(customer.name);
 });
 
-test("a legacy apartment task with both links shows as a project task of the building's customer", async ({
-  page,
-  api,
-}) => {
-  const buildingCustomer = await seedCustomer(api);
-  const storedCustomer = await seedCustomer(api);
-  const apartment = await seedApartment(api, await seedBuilding(api, buildingCustomer));
-  const task = await seedTask(api, { link: linkToProject(apartment) });
-  const taskPage = createTaskPage(page);
-  const description = createUniqueName(LEGACY_DESCRIPTION_PREFIX);
+for (const [projectKind, seedProject] of Object.entries(OWNED_PROJECT_SEEDERS)) {
+  test(`a legacy ${projectKind} task with both links shows as a project task of its project's customer`, async ({
+    page,
+    api,
+  }) => {
+    const { task, project, storedCustomer, projectCustomer } = await seedLegacyTaskScenario(
+      api,
+      seedProject,
+    );
+    const taskPage = createTaskPage(page);
+    const description = createUniqueName(LEGACY_DESCRIPTION_PREFIX);
 
-  await linkTaskCustomerBypassingApi(task.id, storedCustomer.id);
-  await taskPage.goto(task.id);
+    await taskPage.goto(task.id);
 
-  await expect(taskPage.linkedToTile(TASK_LINK_KINDS.PROJECT)).toHaveText(
-    buildLinkedToTilePattern(TASK_LINK_KINDS.PROJECT, apartment.name),
-  );
-  await expect(taskPage.projectCustomerLink).toHaveText(buildingCustomer.name);
+    await expect(taskPage.linkedToTile(TASK_LINK_KINDS.PROJECT)).toHaveText(
+      buildLinkedToTilePattern(TASK_LINK_KINDS.PROJECT, project.name),
+    );
+    await expect(taskPage.projectCustomerLink).toHaveText(projectCustomer.name);
 
-  await taskPage.descriptionInput.fill(description);
-  await taskPage.saveDescriptionButton.click();
+    await taskPage.descriptionInput.fill(description);
+    await taskPage.saveDescriptionButton.click();
 
-  await expect(taskPage.descriptionInput).toHaveValue(description);
-  await expect.poll(async () => (await api.getTaskDetails(task.id)).description).toBe(description);
-  expect(await api.getTask(task.id)).toMatchObject({
-    projectId: apartment.id,
-    customerId: storedCustomer.id,
+    await expect(taskPage.descriptionInput).toHaveValue(description);
+    await expect.poll(async () => (await api.getTask(task.id)).description).toBe(description);
+    expect(await api.getTask(task.id)).toMatchObject({
+      projectId: project.id,
+      customerId: storedCustomer.id,
+    });
   });
-});
+}
 
 test.describe("as an engineer", () => {
   test.use({ storageState: getAuthStatePath(USER_ROLES.ENGINEER) });
