@@ -67,8 +67,8 @@ export interface ICustomerRecord extends ICustomer {
 }
 
 export interface ISession {
-  user: IUser;
   accessToken: string;
+  user: IAuthorizedUser;
 }
 
 export interface IProjectStage extends IEntityReference {
@@ -83,4 +83,9 @@ export interface IStageCounts {
 
 export interface ITaskCounts {
   byStatus: TCountsByKey;
+}
+
+export interface IAuthorizedUser extends IUser {
+  role: string;
+  permissions: string[];
 }
