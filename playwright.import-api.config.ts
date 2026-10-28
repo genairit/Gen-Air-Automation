@@ -4,7 +4,13 @@ import { STACK_TIMEOUTS, AUTOMATION_DIRECTORIES } from "./src/constants/environm
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: ["**/apartment-import-api.spec.ts", "**/customer-contacts-api.spec.ts"],
+  testMatch: [
+    "**/apartment-import-api.spec.ts",
+    "**/customer-contacts-api.spec.ts",
+    "**/import-permissions-api.spec.ts",
+    "**/feature-permissions-api.spec.ts",
+    "**/feature-permissions-migration.spec.ts",
+  ],
   outputDir: AUTOMATION_DIRECTORIES.RESULTS,
   reporter: REPORTERS,
   workers: 1,

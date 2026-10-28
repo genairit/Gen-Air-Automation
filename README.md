@@ -100,28 +100,29 @@ tests/            one folder per area of the app
 
 ## Coverage
 
-| Area            | Spec                                        | Flows                                                                                                |
-| --------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Auth            | `tests/auth/login.spec.ts`                  | login, invalid login, disabled submit, session guard, logout                                         |
-| Roles           | `tests/auth/role-access.spec.ts`            | what each of the six roles sees and can use, denied project, task and customer routes                |
-| Role API        | `tests/auth/role-api-permissions.spec.ts`   | every role against every guarded project, customer and task action (2xx or 403)                      |
-| Role rules      | `tests/auth/role-contract.spec.ts`          | six roles, retired `lead_installer`, member-slot roles, engineer-only task assignees                 |
-| Role migration  | `tests/auth/role-migration.spec.ts`         | new roles, `lead_installer` rename, system-admin member slots removed                                |
-| Board           | `tests/projects/board.spec.ts`              | status counts, search, buildings without apartments, status change, mobile                           |
-| Projects        | `tests/projects/project-form.spec.ts`       | create with verified address, validation, edit, delete, four member slots, drafts                    |
-| Project drafts  | `tests/projects/project-form-draft.spec.ts` | pending address verification, draft restore/privacy/discard, success cleanup, edit isolation         |
-| Project page    | `tests/projects/project-page.spec.ts`       | standalone and building views, edit entry, not found                                                 |
-| Priority fields | `tests/projects/priority-fields.spec.ts`    | renamed API fields, preserved sync date and nullable unsynced caption                                |
-| Migration       | `tests/projects/priority-migration.spec.ts` | populated/null preservation, staged read compatibility, final types and column cleanup               |
-| Apartments      | `tests/projects/apartments.spec.ts`         | add, details, independent stage, notes, next apartment, open from building                           |
-| Drive           | `tests/projects/drive.spec.ts`              | unavailable banner, folder status and files, upload, blocked file                                    |
-| Tasks           | `tests/tasks/tasks.spec.ts`                 | create, validation, engineer-only pickers, counts, status, urgency, reassign, claim, legacy assignee |
-| Task links      | `tests/tasks/task-link.spec.ts`             | customer or project choice, cleared-link undo, picker and selection states, chips, legacy display    |
-| Task link API   | `tests/tasks/task-link-api.spec.ts`         | exactly-one-link validation, 404s, edit replacement, legacy links, customer filter/search/counts     |
-| Customers       | `tests/customers/customers.spec.ts`         | header button, form layout, validation, create, duplicate, cancel, mobile, pagination overflow       |
-| Employees       | `tests/employees/employees.spec.ts`         | add each of the six roles, role picker, role filters, new employee login, delete, search             |
-| Settings        | `tests/settings/settings.spec.ts`           | fixed statuses, password mismatch, change password                                                   |
-| Hosted          | `tests/hosted/deployment.spec.ts`           | HTTPS, client-route fallback, missing assets, `/api` proxy, auth rejection                           |
+| Area            | Spec                                        | Flows                                                                                                                                                                |
+| --------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth            | `tests/auth/login.spec.ts`                  | login, invalid login, disabled submit, session guard, logout                                                                                                         |
+| Feature grants  | `tests/auth/feature-permissions-*.spec.ts`  | migration/data preservation and private tables, six-role grant parity, live grants without re-login, independent actions, session revocation/restore/account changes |
+| Roles           | `tests/auth/role-access.spec.ts`            | what each of the six roles sees and can use, denied project, task and customer routes                                                                                |
+| Role API        | `tests/auth/role-api-permissions.spec.ts`   | every role against every guarded project, customer and task action (2xx or 403)                                                                                      |
+| Role rules      | `tests/auth/role-contract.spec.ts`          | six roles, retired `lead_installer`, member-slot roles, engineer-only task assignees                                                                                 |
+| Role migration  | `tests/auth/role-migration.spec.ts`         | new roles, `lead_installer` rename, system-admin member slots removed                                                                                                |
+| Board           | `tests/projects/board.spec.ts`              | status counts, search, buildings without apartments, status change, mobile                                                                                           |
+| Projects        | `tests/projects/project-form.spec.ts`       | create with verified address, validation, edit, delete, four member slots, drafts                                                                                    |
+| Project drafts  | `tests/projects/project-form-draft.spec.ts` | pending address verification, draft restore/privacy/discard, success cleanup, edit isolation                                                                         |
+| Project page    | `tests/projects/project-page.spec.ts`       | standalone and building views, edit entry, not found                                                                                                                 |
+| Priority fields | `tests/projects/priority-fields.spec.ts`    | renamed API fields, preserved sync date and nullable unsynced caption                                                                                                |
+| Migration       | `tests/projects/priority-migration.spec.ts` | populated/null preservation, staged read compatibility, final types and column cleanup                                                                               |
+| Apartments      | `tests/projects/apartments.spec.ts`         | add, details, independent stage, notes, next apartment, open from building                                                                                           |
+| Drive           | `tests/projects/drive.spec.ts`              | unavailable banner, folder status and files, upload, blocked file                                                                                                    |
+| Tasks           | `tests/tasks/tasks.spec.ts`                 | create, validation, engineer-only pickers, counts, status, urgency, reassign, claim, legacy assignee                                                                 |
+| Task links      | `tests/tasks/task-link.spec.ts`             | customer or project choice, cleared-link undo, picker and selection states, chips, legacy display                                                                    |
+| Task link API   | `tests/tasks/task-link-api.spec.ts`         | exactly-one-link validation, 404s, edit replacement, legacy links, customer filter/search/counts                                                                     |
+| Customers       | `tests/customers/customers.spec.ts`         | header button, form layout, validation, create, duplicate, cancel, mobile, pagination overflow                                                                       |
+| Employees       | `tests/employees/employees.spec.ts`         | add each of the six roles, role picker, role filters, new employee login, delete, search                                                                             |
+| Settings        | `tests/settings/settings.spec.ts`           | fixed statuses, password mismatch, change password                                                                                                                   |
+| Hosted          | `tests/hosted/deployment.spec.ts`           | HTTPS, client-route fallback, missing assets, `/api` proxy, auth rejection                                                                                           |
 
 Every new page or flow in the app gets a spec here as part of the same task.
 
