@@ -21,6 +21,7 @@ import type {
   IProjectType,
   IProjectStage,
   IProjectMember,
+  IAuthorizedUser,
   ICustomerRecord,
   ITaskParentProject,
   ITaskCustomerReference,
@@ -99,7 +100,7 @@ export const isCustomerRecord = createStringFieldsGuard<ICustomerRecord>([
 ]);
 
 export const isSession = (value: unknown): value is ISession =>
-  isRecord(value) && typeof value.accessToken === "string" && isUser(value.user);
+  isRecord(value) && typeof value.accessToken === "string" && isAuthorizedUser(value.user);
 
 export const isProjectStageList = createArrayGuard(
   createStringFieldsGuard<IProjectStage>(["id", "name"]),
@@ -108,3 +109,10 @@ export const isProjectStageList = createArrayGuard(
 export const isStageCounts = createNestedNumberRecordGuard<IStageCounts>("byStage");
 
 export const isTaskCounts = createNestedNumberRecordGuard<ITaskCounts>("byStatus");
+
+export const isAuthorizedUser = (value: unknown): value is IAuthorizedUser =>
+  isUser(value) &&
+  isRecord(value) &&
+  typeof value.role === "string" &&
+  Array.isArray(value.permissions) &&
+  value.permissions.every(key => typeof key === "string");
