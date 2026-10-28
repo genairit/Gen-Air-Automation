@@ -146,6 +146,9 @@ export const createGenAirApi = (request: APIRequestContext, session: ISession) =
 
   return {
     session,
+    download: (path: string) => request.get(path, { headers }),
+    upload: (path: string, file: { name: string; mimeType: string; buffer: Buffer }) =>
+      request.post(path, { headers, multipart: { file } }),
     send,
     countTasks,
     findTaskIds,

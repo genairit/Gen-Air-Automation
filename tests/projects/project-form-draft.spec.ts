@@ -1,6 +1,5 @@
 import {
   PAYMENT_TERMS,
-  CONTACT_ROLES,
   PROJECT_TYPE_NAMES,
   PAYMENT_TERMS_LABELS,
 } from "../../src/constants/domain.constant.ts";
@@ -12,14 +11,12 @@ import { URLS } from "../../src/constants/environment.constant.ts";
 import { createDeferred } from "../../src/utilities/deferred.utility.ts";
 import { PROJECT_FORM_COPY } from "../../src/constants/copy.constant.ts";
 import { FAKE_PLACES } from "../../src/constants/fake-places.constant.ts";
+import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { LOCAL_STORAGE_KEYS } from "../../src/constants/storage.constant.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { buildEditProjectRoute } from "../../src/utilities/route.utility.ts";
 import { ROUTE_PATTERNS } from "../../src/constants/route-patterns.constant.ts";
 import { seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts";
-import { createUniqueName, createMobilePhone } from "../../src/utilities/test-data.utility.ts";
-
-const CONTACT_NAME = "יוסי לוי";
 
 const readDraft = async (page: Page, userId: string): Promise<string | null> =>
   page.evaluate(
@@ -35,7 +32,6 @@ test("pending address verification preserves later form changes and successful c
   const customer = await seedCustomer(api);
   const form = createProjectFormPage(page);
   const name = createUniqueName("פרויקט עם אימות מושהה");
-  const phone = createMobilePhone();
   const verification = createDeferred();
   const intercepted = createDeferred();
 
@@ -51,21 +47,18 @@ test("pending address verification preserves later form changes and successful c
       name,
       place: FAKE_PLACES[1],
       customerName: customer.name,
-      contactPhone: phone,
-      contactName: CONTACT_NAME,
-      contactRole: CONTACT_ROLES.ENGINEER,
       projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL,
       paymentTermsLabel: PAYMENT_TERMS_LABELS.MILESTONES_NET_60,
     });
     await intercepted.promise;
     await expect(form.addressVerified).toHaveCount(0);
-    await expect(form.contactNameInput).toHaveValue(CONTACT_NAME);
-    await expect(form.contactPhoneInput).toHaveValue(phone);
+    await expect(form.contactNameInput).toHaveCount(0);
+    await expect(form.contactPhoneInput).toHaveCount(0);
 
     verification.resolve();
     await expect(form.addressVerified).toBeVisible();
-    await expect(form.contactNameInput).toHaveValue(CONTACT_NAME);
-    await expect(form.contactPhoneInput).toHaveValue(phone);
+    await expect(form.contactNameInput).toHaveCount(0);
+    await expect(form.contactPhoneInput).toHaveCount(0);
     await expect(
       page.getByRole("radio", { name: PAYMENT_TERMS_LABELS.MILESTONES_NET_60 }),
     ).toBeChecked();
@@ -80,9 +73,9 @@ test("pending address verification preserves later form changes and successful c
     expect(response.ok()).toBe(true);
     expect(await response.json()).toMatchObject({
       name,
-      contactName: CONTACT_NAME,
-      contactPhone: phone,
-      contactRole: CONTACT_ROLES.ENGINEER,
+      contactName: null,
+      contactPhone: null,
+      contactRole: null,
       customerId: customer.id,
       paymentTerms: PAYMENT_TERMS.MILESTONES_NET_60,
     });
@@ -101,16 +94,12 @@ test("draft reload restores allowed values, omits private details and discard re
   const customer = await seedCustomer(api);
   const form = createProjectFormPage(page);
   const name = createUniqueName("טיוטה מקומית");
-  const phone = createMobilePhone();
 
   await form.goto();
   await form.fill({
     name,
     place: FAKE_PLACES[1],
     customerName: customer.name,
-    contactPhone: phone,
-    contactName: CONTACT_NAME,
-    contactRole: CONTACT_ROLES.ENGINEER,
     projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL,
     paymentTermsLabel: PAYMENT_TERMS_LABELS.MILESTONES_NET_60,
   });
@@ -121,8 +110,8 @@ test("draft reload restores allowed values, omits private details and discard re
   expect(JSON.parse(draft ?? "null")).toMatchObject({
     values: { name, typeId: projectType.id, terms: PAYMENT_TERMS.MILESTONES_NET_60 },
   });
-  expect(draft).not.toContain(CONTACT_NAME);
-  expect(draft).not.toContain(phone);
+  expect(draft).not.toContain(customer.contactName);
+  expect(draft).not.toContain(customer.taxId);
   expect(draft).not.toContain(customer.name);
   expect(draft).not.toContain(FAKE_PLACES[1].placeId);
 
@@ -132,8 +121,8 @@ test("draft reload restores allowed values, omits private details and discard re
   await expect(
     page.getByRole("radio", { name: PAYMENT_TERMS_LABELS.MILESTONES_NET_60 }),
   ).toBeChecked();
-  await expect(form.contactNameInput).toHaveValue("");
-  await expect(form.contactPhoneInput).toHaveValue("");
+  await expect(form.contactNameInput).toHaveCount(0);
+  await expect(form.contactPhoneInput).toHaveCount(0);
   await expect(form.addressInput).toHaveValue("");
   await expect(form.customerSearch).toHaveValue("");
 

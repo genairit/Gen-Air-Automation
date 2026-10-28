@@ -45,6 +45,8 @@ export const URLS = {
 
 // Throwaway credentials for the ephemeral local database and test-only token signing; they protect nothing.
 export const TEST_DATABASE = {
+  FLAGS: ["-c", "unix_socket_directories="],
+  INIT_FLAGS: ["--encoding=UTF8"],
   NAME: "gen_air_e2e",
   USER: "gen_air",
   PASSWORD: "gen_air",

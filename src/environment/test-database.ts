@@ -28,7 +28,8 @@ const createServer = () =>
     user: TEST_DATABASE.USER,
     password: TEST_DATABASE.PASSWORD,
     databaseDir: AUTOMATION_DIRECTORIES.DATABASE,
-    postgresFlags: ["-k", AUTOMATION_DIRECTORIES.DATABASE],
+    postgresFlags: [...TEST_DATABASE.FLAGS],
+    initdbFlags: [...TEST_DATABASE.INIT_FLAGS],
     onLog: () => {},
   });
 
