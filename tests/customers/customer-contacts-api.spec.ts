@@ -1,10 +1,72 @@
+import { join } from "node:path";
+import { randomUUID } from "node:crypto";
+import { readdir, readFile } from "node:fs/promises";
 import { seedCustomer } from "../../src/api/seed-data.ts";
 import { isRecord } from "../../src/utilities/guard.utility.ts";
 import { test, expect } from "../../src/fixtures/api.fixture.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
+import { APP_DIRECTORIES } from "../../src/constants/environment.constant.ts";
 import { contactsPath } from "../../src/utilities/apartment-import.utility.ts";
+import { createTestDatabaseClient } from "../../src/environment/test-database-client.ts";
+
+const CONTACT_MIGRATION = "2026-10-28-add-customer-contacts.sql";
+const MIGRATIONS_DIRECTORY = join(APP_DIRECTORIES.BACKEND, "migrations");
+
+test("contact migration starts empty despite existing customer and project contact data", async () => {
+  const name = `qa_contacts_${randomUUID().replaceAll("-", "")}`;
+  const owner = createTestDatabaseClient();
+  const database = createTestDatabaseClient(name);
+  await owner.connect();
+  await owner.query(`CREATE DATABASE ${name}`);
+  await database.connect();
+  try {
+    const files = (await readdir(MIGRATIONS_DIRECTORY))
+      .filter(file => file.endsWith(".sql") && file < CONTACT_MIGRATION)
+      .sort();
+    for (const file of files) {
+      await database.query(await readFile(join(MIGRATIONS_DIRECTORY, file), "utf8"));
+    }
+    await database.query(`INSERT INTO users(first_name,last_name,email,phone,role,password_hash)
+      VALUES('QA','Migration','qa-contacts@example.test','0501234567','system_admin','not-a-login')`);
+    await database.query(`INSERT INTO customers(customer_type,name,tax_id,address,contact_name,phone,email,created_by_id)
+      SELECT 'company','Existing customer','123456789','Existing address','Old customer contact',
+        '0501234567','old-customer@example.test',id FROM users`);
+    await database.query(`INSERT INTO projects(code,name,project_type_id,created_by_id,customer_id,
+      customer_name,customer_phone,customer_email,contact_name,contact_phone,contact_role)
+      SELECT 'GA-00055','Existing project',project_types.id,users.id,customers.id,
+        'Old apartment customer','0521234567','old-apartment@example.test','Old site contact','0531234567','Site manager'
+      FROM project_types CROSS JOIN users CROSS JOIN customers LIMIT 1`);
+    expect((await database.query("SELECT contact_name FROM customers")).rows).toEqual([
+      { contact_name: "Old customer contact" },
+    ]);
+    expect((await database.query("SELECT contact_name FROM projects")).rows).toEqual([
+      { contact_name: "Old site contact" },
+    ]);
+    await database.query(await readFile(join(MIGRATIONS_DIRECTORY, CONTACT_MIGRATION), "utf8"));
+    expect((await database.query("SELECT * FROM customer_contacts")).rows).toEqual([]);
+    const columns = await database.query<{ column_name: string }>(
+      "SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='customer_contacts' ORDER BY column_name",
+    );
+    expect(columns.rows.map(row => row.column_name)).toEqual([
+      "created_at",
+      "created_by_id",
+      "customer_id",
+      "deleted_at",
+      "email",
+      "id",
+      "name",
+      "phone",
+      "role",
+      "updated_at",
+    ]);
+  } finally {
+    await database.end();
+    await owner.query(`DROP DATABASE ${name} WITH (FORCE)`);
+    await owner.end();
+  }
+});
 
 test("contact creation accepts name-only, exact duplicate reuses ID and another customer cannot edit it", async ({
   api,
@@ -20,6 +82,18 @@ test("contact creation accepts name-only, exact duplicate reuses ID and another 
     throw new Error("Unexpected contact response");
   }
   expect(contact).toMatchObject({ phone: null, email: null, role: null });
+  expect(Object.keys(contact).sort()).toEqual([
+    "createdAt",
+    "createdById",
+    "customerId",
+    "deletedAt",
+    "email",
+    "id",
+    "name",
+    "phone",
+    "role",
+    "updatedAt",
+  ]);
   const second = await api.send(HTTP_METHODS.POST, contactsPath(customer.id), {
     name: contact.name,
   });
