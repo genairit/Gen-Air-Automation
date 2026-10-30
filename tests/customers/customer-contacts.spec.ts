@@ -43,7 +43,7 @@ test("new project selects existing customer contacts instead of capturing duplic
   await form.goto();
   await form.customerSearch.fill(customer.name);
   await page.getByRole("option").filter({ hasText: customer.name }).click();
-  await expect(page.getByText("אנשי הקשר של הלקוח", { exact: true })).toBeVisible();
+  await expect(page.getByText("אנשי קשר · מתוך כרטיס הלקוח", { exact: true })).toBeVisible();
   await expect(page.getByText(contactName, { exact: true })).toBeVisible();
   await expect(form.contactNameInput).toHaveCount(0);
   await expect(form.contactPhoneInput).toHaveCount(0);
