@@ -10,7 +10,6 @@ import {
 import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { TIME_UNITS } from "../../src/constants/time.constant.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
-import { HTTP_STATUS } from "../../src/constants/http.constant.ts";
 import { TASK_TYPES } from "../../src/constants/domain.constant.ts";
 import { createProjectPage } from "../../src/pages/project.page.ts";
 import { VIEWPORTS } from "../../src/constants/viewport.constant.ts";
@@ -21,6 +20,7 @@ import { TASK_LINK_KINDS } from "../../src/constants/domain.constant.ts";
 import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { getAuthStatePath } from "../../src/utilities/auth-state.utility.ts";
 import { isTaskCreationRequest } from "../../src/utilities/response.utility.ts";
+import { HTTP_STATUS, HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { TASK_FORM_COPY, TASK_LINK_KIND_COPY } from "../../src/constants/copy.constant.ts";
 import { createTaskFormPage, createTaskPage, createTasksPage } from "../../src/pages/tasks.page.ts";
 
@@ -194,6 +194,14 @@ test.describe("personal tasks preserve legacy metadata and type badges", () => {
         assigneeId: engineer.session.user.id,
       });
       const legacy = await seedLegacyCustomerTask(api, customer, engineer.session.user.id);
+      const automaticTasks = await api.getProjectTasks(project.id);
+      for (const automatic of automaticTasks.items.filter(
+        task => task.taskType !== TASK_TYPES.GENERAL,
+      )) {
+        expect(
+          (await engineer.send(HTTP_METHODS.PATCH, `/task/${automatic.id}/claim`)).status(),
+        ).toBe(HTTP_STATUS.OK);
+      }
       const tasks = createTasksPage(page);
       await tasks.goto();
       await tasks.searchBox.fill(customer.name);
@@ -201,8 +209,12 @@ test.describe("personal tasks preserve legacy metadata and type badges", () => {
         await expect(page.getByText(title, { exact: true })).toBeVisible();
       }
       await expect(page.getByText("כללי", { exact: true }).first()).toBeVisible();
+      await expect(page.getByText("הצעת מחיר", { exact: true }).first()).toBeVisible();
+      await expect(page.getByText("תכנון", { exact: true }).first()).toBeVisible();
+      await expect(page.getByText("ללא תאריך יעד", { exact: false }).first()).toBeVisible();
       await expect(tasks.newTaskButton).toHaveCount(0);
-      await expect(page.getByText(project.name, { exact: true })).toBeVisible();
+      await expect(page.getByText(project.name, { exact: true })).toHaveCount(3);
+      await expect(page.getByText(project.name, { exact: true }).first()).toBeVisible();
     });
   }
 });
