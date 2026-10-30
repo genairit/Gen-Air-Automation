@@ -24,20 +24,29 @@ test("selecting XLSX immediately imports and finish refreshes the building", asy
   await page.getByRole("button", { name: APARTMENT_IMPORT.OPEN, exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText("אין שלב תצוגה מקדימה", { exact: false })).toBeVisible();
+  await expect(dialog).toHaveCSS("border-radius", "28px");
+  const fileInput = dialog.locator('input[type="file"]');
+  await expect(fileInput.locator("..")).toHaveCSS("border-style", "dashed");
+  await expect(fileInput.locator("..")).toHaveCSS("border-radius", "24px");
+  const chooserEvent = page.waitForEvent("filechooser");
+  await fileInput.click();
   const row = buildImportRow(buildCustomerInput(), "17");
-  await dialog.locator('input[type="file"]').setInputFiles({
+  await (
+    await chooserEvent
+  ).setFiles({
     name: APARTMENT_IMPORT.FILE_NAME,
     mimeType: APARTMENT_IMPORT.MIME_TYPE,
     buffer: await makeImportWorkbook([row, row]),
   });
   await expect(dialog.getByText("1 מתוך 2 שורות נקלטו", { exact: true })).toBeVisible();
+  await expect(dialog.getByRole("status")).toHaveCSS("background-color", "rgb(255, 246, 224)");
   await expect(
     dialog.getByText("דירות קיימות לא עודכנו ולא נמחקו.", { exact: false }),
   ).toBeVisible();
   const download = page.waitForEvent("download");
   await dialog.getByRole("button", { name: "הורד דוח שגיאות (.xlsx)", exact: true }).click();
   expect((await download).suggestedFilename()).toBe("apartments-errors.xlsx");
-  await dialog.getByRole("button", { name: "סיום ורענון הדירות", exact: true }).click();
+  await dialog.getByRole("button", { name: APARTMENT_IMPORT.FINISH, exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(project.findApartmentRow("דירה 17")).toBeVisible();
 });
@@ -125,11 +134,12 @@ test("official template, requiredness help, visible processing and100 real rows 
   await expect(
     dialog.getByText("הייבוא הושלם בהצלחה — 100 מתוך 100 שורות נקלטו", { exact: true }),
   ).toBeVisible();
+  await expect(dialog.getByRole("status")).toHaveCSS("background-color", "rgb(225, 237, 250)");
   await dialog.screenshot({ path: testInfo.outputPath("import-success.png") });
   const apartments = await readBuildingApartments(api, building.id);
   expect(apartments).toHaveLength(100);
 
-  await dialog.getByRole("button", { name: "סיום ורענון הדירות", exact: true }).click();
+  await dialog.getByRole("button", { name: APARTMENT_IMPORT.FINISH, exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(
     page.getByRole("row").filter({ has: page.getByText("דירה 1", { exact: true }) }),
@@ -173,6 +183,7 @@ test("client rejects unsupported file and real partial results show conflict lab
   await expect(dialog.getByText("סוג קובץ לא נתמך", { exact: false })).toBeVisible();
   expect(uploads).toEqual([]);
   await expect(dialog.getByRole("button", { name: "נסה קובץ אחר", exact: true })).toBeVisible();
+  await dialog.getByRole("button", { name: "נסה קובץ אחר", exact: true }).click();
 
   const valid = buildImportRow(buildCustomerInput(), "21");
   const conflict = buildImportRow(existingInput, "22");
@@ -212,7 +223,9 @@ test("client rejects unsupported file and real partial results show conflict lab
   expect(await api.getCustomer(existing.id)).toEqual(existing);
   expect(await readBuildingApartments(api, building.id)).toHaveLength(1);
   await dialog.getByRole("button", { name: "העלה קובץ מתוקן", exact: true }).click();
-  await expect(dialog.getByText("גרור לכאן קובץ אקסל", { exact: true })).toBeVisible();
+  await expect(
+    dialog.getByText("גרור לכאן את קובץ האקסל או לחץ לבחירה", { exact: true }),
+  ).toBeVisible();
 });
 
 test("engineering user sees customer contacts read-only and cannot open apartment import", async ({
