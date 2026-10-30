@@ -40,6 +40,8 @@ test("selecting XLSX immediately imports and finish refreshes the building", asy
   });
   await expect(dialog.getByText("1 מתוך 2 שורות נקלטו", { exact: true })).toBeVisible();
   await expect(dialog.getByRole("status")).toHaveCSS("background-color", "rgb(255, 246, 224)");
+  await expect(dialog.getByRole("status")).toHaveCSS("direction", "rtl");
+  await expect(dialog.getByRole("status").locator("b")).toHaveCSS("text-align", /^(start|right)$/);
   await expect(
     dialog.getByText("דירות קיימות לא עודכנו ולא נמחקו.", { exact: false }),
   ).toBeVisible();
@@ -54,7 +56,7 @@ test("selecting XLSX immediately imports and finish refreshes the building", asy
 test("invalid template displays actionable error and retry without a preview step", async ({
   page,
   api,
-}) => {
+}, testInfo) => {
   const building = await seedBuilding(api, await seedCustomer(api));
   await createProjectPage(page).goto(building.id);
   await page.getByRole("button", { name: APARTMENT_IMPORT.OPEN, exact: true }).click();
@@ -73,7 +75,12 @@ test("invalid template displays actionable error and retry without a preview ste
   await expect(dialog.getByText("Invalid apartment import template", { exact: false })).toHaveCount(
     0,
   );
-  await expect(dialog.getByRole("button", { name: "נסה קובץ אחר", exact: true })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "העלה קובץ אחר", exact: true })).toBeVisible();
+  await dialog.screenshot({ path: testInfo.outputPath("import-template-error.png") });
+  await dialog.getByRole("button", { name: "העלה קובץ אחר", exact: true }).click();
+  await expect(
+    dialog.getByText("גרור לכאן את קובץ האקסל או לחץ לבחירה", { exact: true }),
+  ).toBeVisible();
 });
 
 test("official template, requiredness help, visible processing and100 real rows refresh without updates", async ({
