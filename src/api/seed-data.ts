@@ -5,7 +5,6 @@ import {
 } from "../constants/seed.constant.ts";
 
 import {
-  CONTACT_ROLES,
   PAYMENT_TERMS,
   CUSTOMER_TYPES,
   PROJECT_TYPE_NAMES,
@@ -114,12 +113,9 @@ export const seedCustomers = async (api: TGenAirApi, count: number): Promise<ICu
 export const buildProjectInput = (options: IProjectInputOptions) => ({
   members: options.members ?? [],
   projectTypeId: options.projectTypeId,
-  contactPhone: createMobilePhone(),
   customerId: options.customer.id,
   addressPlaceId: FAKE_PLACES[0].placeId,
-  contactRole: CONTACT_ROLES.PROJECT_MANAGER,
   paymentTerms: PAYMENT_TERMS.MILESTONES_NET_60,
-  contactName: SEED_VALUES.PROJECT_CONTACT_NAME,
   name: createUniqueName(SEED_NAME_PREFIXES.PROJECT),
 });
 

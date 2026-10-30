@@ -8,7 +8,7 @@ import {
 } from "../../src/api/seed-data.ts";
 
 import { API_PATHS } from "../../src/constants/api.constant.ts";
-import { test, expect } from "../../src/fixtures/test.fixture.ts";
+import { test, expect } from "../../src/fixtures/api.fixture.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";

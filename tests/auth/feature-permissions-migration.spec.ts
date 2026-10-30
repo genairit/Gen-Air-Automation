@@ -6,7 +6,7 @@ import {
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
-import { test, expect } from "../../src/fixtures/test.fixture.ts";
+import { test, expect } from "../../src/fixtures/api.fixture.ts";
 import { USER_ROLE_VALUES } from "../../src/constants/user-role.constant.ts";
 import { APP_DIRECTORIES } from "../../src/constants/environment.constant.ts";
 import { createTestDatabaseClient } from "../../src/environment/test-database-client.ts";

@@ -181,3 +181,9 @@ suite, feature → dev suite or test → main gate. Before feature PRs, QA owns 
 relevant unit checks; it never adds a full run to feature verification. Use explicit spec paths or
 filters and record the executed scope. The full-suite local command above is for reproducing the
 dev → test integration gate, not a feature requirement.
+
+### Targeted apartment import and contacts API checks
+
+With the disposable local stack running, run `npx playwright test --config playwright.import-api.config.ts` for API-only import and customer-contact checks. This configuration uses explicit API login and does not launch a browser or run browser authentication setup. The four feature browser tests remain in the standard configuration and require a permitted browser environment.
+
+The embedded test database explicitly uses UTF-8 regardless of the host locale, and TCP loopback without Unix-domain sockets. A clean locale-less environment otherwise initialized PostgreSQL 17 as `SQL_ASCII`: `SHOW server_encoding` returned `SQL_ASCII` and `length('אמ')` returned 4, causing the existing two-initial Hebrew project-code constraint to reject valid fixture names. Explicit `--encoding=UTF8` fixes the test infrastructure rather than weakening application constraints or replacing Hebrew fixtures.
