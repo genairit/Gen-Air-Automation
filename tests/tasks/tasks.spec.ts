@@ -253,7 +253,13 @@ test.describe("as an engineer", () => {
     const tasksPage = createTasksPage(page);
 
     await tasksPage.goto();
+    const filteredTasks = page.waitForResponse(response => {
+      const url = new URL(response.url());
+      return url.pathname === "/api/task/my-tasks" && url.searchParams.get("search") === task.title;
+    });
     await tasksPage.searchBox.fill(task.title);
+    await filteredTasks;
+    await expectSingleResultRow(page);
     await tasksPage.changeStatus(task.title, TASK_STATUS_NAMES.IN_REVIEW);
     await tasksPage.tab(TASK_STATUS_NAMES.IN_REVIEW).click();
 
