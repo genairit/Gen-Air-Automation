@@ -5,6 +5,11 @@ import {
 } from "../constants/seed.constant.ts";
 
 import {
+  insertLegacyCustomerTask,
+  linkTaskCustomerBypassingApi,
+} from "../environment/legacy-data.ts";
+
+import {
   PAYMENT_TERMS,
   CUSTOMER_TYPES,
   PROJECT_TYPE_NAMES,
@@ -23,11 +28,10 @@ import type { TGenAirApi } from "./gen-air-api.ts";
 import { FAKE_PLACES } from "../constants/fake-places.constant.ts";
 import { TEST_PASSWORD } from "../constants/test-users.constant.ts";
 import type { UserRoleType } from "../constants/user-role.constant.ts";
-import { linkTaskCustomerBypassingApi } from "../environment/legacy-data.ts";
 import { recreateLegacyApartment } from "../environment/apartment-legacy-data.ts";
 import type { ITask, IUser, IProject, ICustomer } from "../interfaces/entities.interface.ts";
 
-export type TTaskLinkInput = { projectId: string } | { customerId: string };
+export type TTaskLinkInput = { projectId: string };
 
 type TOwnedProjectSeeder = (api: TGenAirApi, owner: ICustomer) => Promise<IProject>;
 
@@ -164,10 +168,6 @@ export const seedLegacyApartment = async (
 
 export const linkToProject = (project: IProject): TTaskLinkInput => ({ projectId: project.id });
 
-export const linkToCustomer = (customer: ICustomer): TTaskLinkInput => ({
-  customerId: customer.id,
-});
-
 export const buildUnlinkedTaskInput = (assigneeId: string | null = null) => ({
   assigneeId,
   dueDate: SEED_VALUES.DUE_DATE,
@@ -212,4 +212,19 @@ export const seedTaskScenario = async (
   const task = await seedTask(api, { link, ...(assigneeId && { assigneeId }) });
 
   return { task, project, customer };
+};
+
+export const seedLegacyCustomerTask = async (
+  api: TGenAirApi,
+  customer: ICustomer,
+  assigneeId: string | null = null,
+): Promise<ITask> => {
+  const title = createUniqueName(SEED_NAME_PREFIXES.TASK);
+  const id = await insertLegacyCustomerTask({
+    title,
+    customerId: customer.id,
+    createdById: api.session.user.id,
+    assigneeId,
+  });
+  return { id, title };
 };

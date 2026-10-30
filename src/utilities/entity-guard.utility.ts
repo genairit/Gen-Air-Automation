@@ -21,11 +21,16 @@ import type {
   IProjectType,
   IProjectStage,
   IProjectMember,
+  IProjectRecord,
   IAuthorizedUser,
   ICustomerRecord,
+  ITaskTransition,
+  IDetailedTaskPage,
   ITaskParentProject,
   ITaskCustomerReference,
 } from "../interfaces/entities.interface.ts";
+
+import { TASK_TYPES, TASK_STATUSES } from "../constants/domain.constant.ts";
 
 export const isTask = createStringFieldsGuard<ITask>(["id", "title"]);
 
@@ -39,7 +44,13 @@ export const isUserRecord = createStringFieldsGuard<IUserRecord>([
   "lastName",
 ]);
 
-const NULLABLE_TASK_STRINGS = ["projectId", "assigneeId", "customerId", "description"] as const;
+const NULLABLE_TASK_STRINGS = [
+  "projectId",
+  "assigneeId",
+  "customerId",
+  "description",
+  "dueDate",
+] as const;
 
 const isNullableString = createNullableGuard(
   (value: unknown): value is string => typeof value === "string",
@@ -68,7 +79,13 @@ const hasNullableTaskLinks = (value: unknown): boolean =>
   isNullableCustomerReference(value.customer);
 
 export const isTaskRecord = (value: unknown): value is ITaskRecord =>
-  isTask(value) && hasNullableTaskStrings(value) && hasNullableTaskLinks(value);
+  isTask(value) &&
+  isRecord(value) &&
+  hasNullableTaskStrings(value) &&
+  hasNullableTaskLinks(value) &&
+  Object.values(TASK_TYPES).some(type => type === value.taskType) &&
+  Object.values(TASK_STATUSES).some(status => status === value.status) &&
+  typeof value.isUrgent === "boolean";
 
 export const isTaskPage = (value: unknown): value is ITaskPage =>
   isRecord(value) && createArrayGuard(isTask)(value.items);
@@ -116,3 +133,13 @@ export const isAuthorizedUser = (value: unknown): value is IAuthorizedUser =>
   typeof value.role === "string" &&
   Array.isArray(value.permissions) &&
   value.permissions.every(key => typeof key === "string");
+
+export const isDetailedTaskPage = (value: unknown): value is IDetailedTaskPage =>
+  isRecord(value) && createArrayGuard(isTaskRecord)(value.items);
+export const isTaskTransition = (value: unknown): value is ITaskTransition =>
+  isRecord(value) && isNullableString(value.fromStatus) && typeof value.toStatus === "string";
+export const isTaskTransitionList = createArrayGuard(isTaskTransition);
+export const isProjectRecord = (value: unknown): value is IProjectRecord =>
+  isProject(value) &&
+  isRecord(value) &&
+  createStringFieldsGuard<IProjectStage>(["id", "name"])(value.stage);

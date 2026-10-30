@@ -110,14 +110,13 @@ export const createTaskFormPage = (page: Page) => {
   };
 
   const chooseLink = async (link: ITaskLinkChoice) => {
-    await linkKindRadio(link.kind).click();
     await (await searchLink(link)).click();
   };
 
   const fillDetails = async (input: ITaskDetailsInput) => {
     await selectOption(page, assigneePicker, input.assigneeName);
     await form.getByPlaceholder(TASK_FORM_COPY.TITLE_PLACEHOLDER).fill(input.title);
-    await findFieldContainer(form, TASK_FORM_COPY.DUE_DATE).locator("input").fill(input.dueDate);
+    await form.locator('input[type="date"]').fill(input.dueDate);
     await form.getByPlaceholder(TASK_FORM_COPY.DESCRIPTION_PLACEHOLDER).fill(input.description);
   };
 
