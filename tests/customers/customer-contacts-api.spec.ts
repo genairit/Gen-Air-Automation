@@ -44,8 +44,32 @@ test("contact migration starts empty despite existing customer and project conta
     expect((await database.query("SELECT contact_name FROM projects")).rows).toEqual([
       { contact_name: "Old site contact" },
     ]);
+    await database.query("CREATE ROLE anon NOLOGIN");
+    await database.query("CREATE ROLE authenticated NOLOGIN");
     await database.query(await readFile(join(MIGRATIONS_DIRECTORY, CONTACT_MIGRATION), "utf8"));
     expect((await database.query("SELECT * FROM customer_contacts")).rows).toEqual([]);
+    expect(
+      (
+        await database.query(
+          "SELECT relrowsecurity FROM pg_class WHERE oid='public.customer_contacts'::regclass",
+        )
+      ).rows,
+    ).toEqual([{ relrowsecurity: true }]);
+    for (const role of ["anon", "authenticated"]) {
+      const privileges = await database.query(
+        "SELECT has_table_privilege($1,'public.customer_contacts','SELECT') AS can_read, has_table_privilege($1,'public.customer_contacts','INSERT') AS can_write",
+        [role],
+      );
+      expect(privileges.rows).toEqual([{ can_read: false, can_write: false }]);
+      await database.query(`SET ROLE ${role}`);
+      await expect(database.query("SELECT * FROM customer_contacts")).rejects.toThrow(
+        /permission denied/,
+      );
+      await expect(database.query("DELETE FROM customer_contacts")).rejects.toThrow(
+        /permission denied/,
+      );
+      await database.query("RESET ROLE");
+    }
     const columns = await database.query<{ column_name: string }>(
       "SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='customer_contacts' ORDER BY column_name",
     );
@@ -64,6 +88,8 @@ test("contact migration starts empty despite existing customer and project conta
   } finally {
     await database.end();
     await owner.query(`DROP DATABASE ${name} WITH (FORCE)`);
+    await owner.query("DROP ROLE IF EXISTS anon");
+    await owner.query("DROP ROLE IF EXISTS authenticated");
     await owner.end();
   }
 });

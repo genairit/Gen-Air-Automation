@@ -17,7 +17,9 @@ test("manage contact only under customer and show it on linked project without a
   await page.goto(`/customers/${customer.id}`);
   await page.getByRole("button", { name: "הוספת איש קשר", exact: true }).click();
   await expect(page.getByRole("button", { name: "שמירה", exact: true })).toBeDisabled();
-  await findFieldByTitle(page, "שם").fill(name);
+  const save = page.getByRole("button", { name: "שמירה", exact: true });
+  const editor = save.locator("xpath=ancestor::div[.//input][1]");
+  await findFieldByTitle(editor, "שם").fill(name);
   await page.getByRole("button", { name: "שמירה", exact: true }).click();
   await expect(page.getByText(name, { exact: true })).toBeVisible();
   await page.reload();
