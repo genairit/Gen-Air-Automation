@@ -1,9 +1,14 @@
+import {
+  createUniqueName,
+  createMobilePhone,
+  createUniqueEmail,
+} from "../../src/utilities/test-data.utility.ts";
+
 import { API_PATHS } from "../../src/constants/api.constant.ts";
 import { buildCustomerInput } from "../../src/api/seed-data.ts";
 import { isRecord } from "../../src/utilities/guard.utility.ts";
 import { test, expect } from "../../src/fixtures/api.fixture.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
-import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { contactsPath } from "../../src/utilities/apartment-import.utility.ts";
 import { CUSTOMER_SYNC_STATUSES } from "../../src/constants/domain.constant.ts";
 import { archiveCustomerContacts } from "../../src/environment/contact-layout-data.ts";
@@ -52,4 +57,83 @@ test("customer list pages include active contacts without duplicating or skippin
     items: [{ id: empty.id, contacts: [] }],
     nextCursor: null,
   });
+});
+
+test("customer search reads current contacts and ignores retired scalar contact values", async ({
+  api,
+}) => {
+  const retiredName = createUniqueName("איש קשר היסטורי לחיפוש");
+  const retiredPhone = createMobilePhone();
+  const retiredEmail = createUniqueEmail("retired.contact");
+  const customer = await api.createCustomer({
+    ...buildCustomerInput(),
+    contactName: retiredName,
+    phone: retiredPhone,
+    email: retiredEmail,
+  });
+  const contactsResponse = await api.send(HTTP_METHODS.GET, contactsPath(customer.id));
+  expect(contactsResponse.ok()).toBe(true);
+  const contacts: unknown = await contactsResponse.json();
+  if (!Array.isArray(contacts) || !isRecord(contacts[0]) || typeof contacts[0].id !== "string") {
+    throw new Error("Customer creation must expose the initial contact");
+  }
+  const currentName = createUniqueName("Updated %_ contact");
+  await api.createCustomer({
+    ...buildCustomerInput(),
+    contactName: currentName.replace("%_", "wildcard"),
+  });
+  const currentPhone = createMobilePhone();
+  const currentEmail = createUniqueEmail("current.contact");
+  const updated = await api.send(
+    HTTP_METHODS.PATCH,
+    `${contactsPath(customer.id)}/${contacts[0].id}`,
+    {
+      name: currentName,
+      phone: currentPhone,
+      email: currentEmail,
+    },
+  );
+  expect(updated.ok()).toBe(true);
+  const otherName = createUniqueName("איש קשר אחר");
+  const other = await api.send(HTTP_METHODS.POST, contactsPath(customer.id), { name: otherName });
+  expect(other.ok()).toBe(true);
+  for (const search of [
+    currentName,
+    currentPhone,
+    currentEmail.toUpperCase(),
+    customer.name,
+    customer.taxId,
+  ]) {
+    const response = await api.send(
+      HTTP_METHODS.GET,
+      `${API_PATHS.CUSTOMER}?${new URLSearchParams({ search })}`,
+    );
+    expect(response.ok()).toBe(true);
+    expect(await response.json()).toMatchObject({
+      items: [
+        {
+          id: customer.id,
+          contacts: [
+            expect.objectContaining({ name: currentName }),
+            expect.objectContaining({ name: otherName }),
+          ],
+        },
+      ],
+    });
+  }
+  for (const search of [retiredName, retiredPhone, retiredEmail]) {
+    const response = await api.send(
+      HTTP_METHODS.GET,
+      `${API_PATHS.CUSTOMER}?${new URLSearchParams({ search })}`,
+    );
+    expect(response.ok()).toBe(true);
+    expect(await response.json()).toMatchObject({ items: [], nextCursor: null });
+  }
+  await archiveCustomerContacts(customer.id);
+  const archived = await api.send(
+    HTTP_METHODS.GET,
+    `${API_PATHS.CUSTOMER}?${new URLSearchParams({ search: currentName })}`,
+  );
+  expect(archived.ok()).toBe(true);
+  expect(await archived.json()).toMatchObject({ items: [], nextCursor: null });
 });

@@ -5,6 +5,12 @@ import {
   seedStandaloneProject,
 } from "../../src/api/seed-data.ts";
 
+import {
+  createUniqueName,
+  createUniqueEmail,
+  createSequenceNumber,
+} from "../../src/utilities/test-data.utility.ts";
+
 import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { isRecord } from "../../src/utilities/guard.utility.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
@@ -13,7 +19,6 @@ import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
 import { FAKE_PLACES } from "../../src/constants/fake-places.constant.ts";
-import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { contactsPath } from "../../src/utilities/apartment-import.utility.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
@@ -93,27 +98,41 @@ test("customer identity and compact contact editor keep valid international text
   const save = page.getByRole("button", { name: "שמירה", exact: true });
   const editor = save.locator("xpath=ancestor::div[.//input][1]");
   const name = createUniqueName("Alex");
+  const phone = `03-${String(createSequenceNumber()).padStart(7, "0")}`;
+  const email = createUniqueEmail("alex.contact");
   await findFieldByTitle(editor, "שם").fill(name);
-  await findFieldByTitle(editor, "טלפון").fill("03-1234567");
-  await findFieldByTitle(editor, "דוא״ל").fill("alex@example.test");
+  await findFieldByTitle(editor, "טלפון").fill(phone);
+  await findFieldByTitle(editor, "דוא״ל").fill(email);
   await findFieldByTitle(editor, "תפקיד").fill("Project manager");
   await expect(editor.getByText("יש להכניס תווים בעברית בלבד", { exact: true })).toHaveCount(0);
   await expect(save).toBeEnabled();
   await save.click();
   await expect(save).toHaveCount(0);
   const row = page.getByText(name, { exact: true }).locator("xpath=ancestor::div[.//button][1]");
-  await expect(row.getByRole("link", { name: "03-1234567", exact: true })).toHaveAttribute(
+  await expect(row.getByRole("link", { name: phone, exact: true })).toHaveAttribute(
     "href",
-    "tel:03-1234567",
+    `tel:${phone}`,
   );
   await expect(row.getByText("Project manager", { exact: true })).toBeVisible();
-  await expect(row.getByText("alex@example.test", { exact: true })).toBeVisible();
+  await expect(row.getByText(email, { exact: true })).toBeVisible();
   await page.screenshot({
     path: test.info().outputPath("customer-contact-layout.png"),
     fullPage: true,
   });
   await page.goto(ROUTES.CUSTOMERS);
   const search = page.getByPlaceholder("חיפוש לפי שם, ח.פ, איש קשר, טלפון או מזהה Priority...");
+  for (const token of [name, phone, email]) {
+    const matchingResponse = page.waitForResponse(response => {
+      const url = new URL(response.url());
+      return (
+        url.pathname === `${API_PROXY_PREFIX}${API_PATHS.CUSTOMER}` &&
+        url.searchParams.get("search") === token
+      );
+    });
+    await search.fill(token);
+    expect((await matchingResponse).ok()).toBe(true);
+    await expect(page.getByRole("row").filter({ hasText: customer.name })).toBeVisible();
+  }
   await search.fill(customer.name);
   await expect(
     page
@@ -121,6 +140,19 @@ test("customer identity and compact contact editor keep valid international text
       .filter({ hasText: customer.name })
       .getByText(`${customer.contactName} (+1)`, { exact: true }),
   ).toBeVisible();
+  const form = createProjectFormPage(page);
+  await form.goto();
+  const matchingPickerResponse = page.waitForResponse(response => {
+    const url = new URL(response.url());
+    return (
+      url.pathname === `${API_PROXY_PREFIX}${API_PATHS.CUSTOMER}` &&
+      url.searchParams.get("search") === name
+    );
+  });
+  await form.customerSearch.fill(name);
+  expect((await matchingPickerResponse).ok()).toBe(true);
+  await page.getByRole("option").filter({ hasText: customer.name }).click();
+  await expect(page.getByText(name, { exact: true })).toBeVisible();
 });
 
 test("apartment contact preview loads real customer contacts and handles an endpoint error with retry", async ({
