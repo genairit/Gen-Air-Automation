@@ -226,8 +226,14 @@ for (const [kind, seedProject] of Object.entries(OWNED_PROJECT_SEEDERS)) {
       customerId: storedCustomer.id,
       description: "תיאור מעודכן",
     });
-    expect(await api.findTaskIds({ customerId: projectCustomer.id })).toContain(task.id);
-    expect(await api.findTaskIds({ customerId: storedCustomer.id })).not.toContain(task.id);
+    const resolvedIds = await api.findTaskIds({ customerId: projectCustomer.id });
+    const searchIds = await api.findTaskIds({ search: projectCustomer.name });
+    expect(resolvedIds).toContain(task.id);
+    expect(searchIds.sort()).toEqual([...resolvedIds].sort());
+    expect(await api.countTasks({ customerId: projectCustomer.id })).toBe(resolvedIds.length);
+    expect(await api.countTasks({ search: projectCustomer.name })).toBe(resolvedIds.length);
+    expect(await api.findTaskIds({ customerId: storedCustomer.id })).toEqual([]);
+    expect(await api.countTasks({ customerId: storedCustomer.id })).toBe(0);
   });
 }
 
@@ -246,7 +252,10 @@ test("legacy customer-only tasks stay usable General records without relinking",
     customerId: customer.id,
     description: "תיעוד ישן",
   });
-  expect(await api.findTaskIds({ customerId: customer.id })).toContain(task.id);
+  expect(await api.findTaskIds({ customerId: customer.id })).toEqual([task.id]);
+  expect(await api.findTaskIds({ search: customer.name })).toEqual([task.id]);
+  expect(await api.countTasks({ customerId: customer.id })).toBe(1);
+  expect(await api.countTasks({ search: customer.name })).toBe(1);
 });
 
 test("engineer cannot manually create tasks and claiming protected task preserves null date", async ({
