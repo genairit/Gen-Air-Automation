@@ -21,10 +21,13 @@ import {
   isTaskRecord,
   isUserRecord,
   isStageCounts,
+  isProjectRecord,
   isCustomerRecord,
   isProjectTypeList,
+  isDetailedTaskPage,
   isProjectStageList,
   isProjectMemberList,
+  isTaskTransitionList,
 } from "../utilities/entity-guard.utility.ts";
 
 import { API_PATHS } from "../constants/api.constant.ts";
@@ -159,6 +162,10 @@ export const createGenAirApi = (request: APIRequestContext, session: ISession) =
     countMyTasksInStatus,
     countProjectsInStage,
     countCustomersInSyncStatus,
+    getProject: (projectId: string) => get(`/project/${projectId}`, isProjectRecord),
+    getProjectTasks: (projectId: string) => get(`/task?projectId=${projectId}`, isDetailedTaskPage),
+    getTaskTransitions: (taskId: string) =>
+      get(`${buildTaskPath(taskId)}/transitions`, isTaskTransitionList),
     getTask: (taskId: string) => get(buildTaskPath(taskId), isTaskRecord),
     createUser: (user: object) => post(API_PATHS.USER, user, isUserRecord),
     getProjectMembers: (projectId: string) =>

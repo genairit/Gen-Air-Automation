@@ -39,7 +39,7 @@ test("add an apartment to a building and see it listed and counted", async ({ pa
     projectPage.findApartmentRow(formatApartmentName(NEW_APARTMENT.number)),
   ).toBeVisible();
   await expect
-    .poll(() => readTabCount(projectPage.statusTab(PROJECT_STATUS_NAMES.PENDING)))
+    .poll(() => readTabCount(projectPage.statusTab(PROJECT_STATUS_NAMES.DRAFT)))
     .toBe(SINGLE_APARTMENT_COUNT);
 });
 
@@ -74,7 +74,7 @@ test("change an apartment stage independently of its building", async ({ page, a
   await expect
     .poll(() => readTabCount(projectPage.statusTab(PROJECT_STATUS_NAMES.IN_PROGRESS)))
     .toBe(SINGLE_APARTMENT_COUNT);
-  await expect(page.getByText(formatStageLabel(PROJECT_STATUS_NAMES.PENDING))).toBeVisible();
+  await expect(page.getByText(formatStageLabel(PROJECT_STATUS_NAMES.DRAFT))).toBeVisible();
 });
 
 test("save notes on an apartment", async ({ page, api }) => {

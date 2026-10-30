@@ -1,10 +1,11 @@
 import {
   seedUser,
   seedCustomer,
+  linkToProject,
   buildUserInput,
   buildTaskInput,
-  linkToCustomer,
   seedTaskScenario,
+  seedStandaloneProject,
 } from "../../src/api/seed-data.ts";
 
 import { API_PATHS } from "../../src/constants/api.constant.ts";
@@ -101,7 +102,8 @@ test("task content grant cannot assign on create/update or change urgency", asyn
   const customer = await seedCustomer(api);
   const engineer = await seedUser(api, USER_ROLES.ENGINEER);
   const { task } = await seedTaskScenario(api);
-  const input = buildTaskInput({ link: linkToCustomer(customer) });
+  const project = await seedStandaloneProject(api, customer);
+  const input = buildTaskInput({ link: linkToProject(project) });
   await withRolePermissions(
     ADMIN,
     [PERMISSIONS.TASKS_CREATE, PERMISSIONS.TASKS_UPDATE, PERMISSIONS.TASKS_READ],
@@ -212,10 +214,11 @@ test("personal task queries cannot substitute another assignee even with broad f
   const actor = await apiAs(TEST_USERS[USER_ROLES.ENGINEER]);
   const other = await seedUser(api, USER_ROLES.ENGINEER);
   const customer = await seedCustomer(api);
+  const project = await seedStandaloneProject(api, customer);
   const own = await api.createTask(
-    buildTaskInput({ link: linkToCustomer(customer), assigneeId: actor.session.user.id }),
+    buildTaskInput({ link: linkToProject(project), assigneeId: actor.session.user.id }),
   );
-  await api.createTask(buildTaskInput({ link: linkToCustomer(customer), assigneeId: other.id }));
+  await api.createTask(buildTaskInput({ link: linkToProject(project), assigneeId: other.id }));
   const response = await actor.send(HTTP_METHODS.GET, `/task/my-tasks?assigneeId=${other.id}`);
   expect(response.status()).toBe(200);
   const result = await response.json();

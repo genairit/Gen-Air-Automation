@@ -218,7 +218,7 @@ export const TASK_FORM_COPY = {
   SAVE: "שמור משימה",
   DUE_DATE: "תאריך יעד",
   ASSIGNEE_PLACEHOLDER: "בחר...",
-  TITLE_PLACEHOLDER: "לדוגמה: הכנת הצעת מחיר ליחידות VRF",
+  TITLE_PLACEHOLDER: "לדוגמה: תיאום ביקור באתר",
   DESCRIPTION_PLACEHOLDER: SHARED_COPY.TASK_DESCRIPTION_PLACEHOLDER,
 } as const;
 

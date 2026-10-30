@@ -1,168 +1,271 @@
 import {
-  seedTask,
-  seedBuilding,
   seedCustomer,
-  linkToProject,
-  linkToCustomer,
-  seedLegacyApartment,
+  seedBuilding,
+  seedApartment,
+  buildCustomerInput,
   seedStandaloneProject,
   OWNED_PROJECT_SEEDERS,
+  seedLegacyCustomerTask,
   seedLegacyTaskScenario,
   buildUnlinkedTaskInput,
 } from "../../src/api/seed-data.ts";
 
-import {
-  expectNotFound,
-  expectResponseOk,
-  expectBadRequest,
-} from "../../src/utilities/response-assertion.utility.ts";
-
-import type { APIResponse } from "@playwright/test";
-import { API_PATHS } from "../../src/constants/api.constant.ts";
-import { test, expect } from "../../src/fixtures/test.fixture.ts";
-import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
+import { test, expect } from "../../src/fixtures/api.fixture.ts";
+import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { buildTaskPath } from "../../src/utilities/api-path.utility.ts";
-import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
+import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
+import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
+import { buildImportRow } from "../../src/utilities/apartment-import.utility.ts";
+import { TASK_TYPES, TASK_STATUSES } from "../../src/constants/domain.constant.ts";
+import { uploadApartments, readBuildingApartments } from "../../src/api/apartment-import.api.ts";
 
-const LINK_REQUIRED_MESSAGE = "A task must be linked to exactly one of a project or a customer";
-
-const MISSING_ENTITY_ID = "00000000-0000-4000-8000-000000000000";
-
-const MALFORMED_ENTITY_ID = "not-a-uuid";
-
-const RENAMED_TASK_PREFIX = "משימה ששמה שונה";
-
-const expectLinkRejected = async (response: APIResponse) => {
-  await expectBadRequest(response);
-  expect(await response.text()).toContain(LINK_REQUIRED_MESSAGE);
+const expectPair = async (
+  api: Parameters<typeof seedCustomer>[0],
+  project: { id: string; name: string },
+) => {
+  expect((await api.getProject(project.id)).stage.name).toBe("טיוטה");
+  const tasks = (await api.getProjectTasks(project.id)).items;
+  expect(tasks).toHaveLength(2);
+  expect(tasks.map(task => task.taskType).sort()).toEqual([
+    TASK_TYPES.PLANNING,
+    TASK_TYPES.QUOTATION,
+  ]);
+  for (const task of tasks) {
+    const label = task.taskType === TASK_TYPES.QUOTATION ? "הצעת מחיר" : "תכנון";
+    expect(task).toMatchObject({
+      title: `${label} — ${project.name}`,
+      status: TASK_STATUSES.NOT_STARTED,
+      assigneeId: null,
+      dueDate: null,
+      customerId: null,
+    });
+    expect(task.isUrgent).toBe(false);
+    expect(task.description).toBe(
+      task.taskType === TASK_TYPES.QUOTATION
+        ? `הכנת הצעת מחיר עבור הפרויקט ${project.name}: ריכוז דרישות הלקוח והפריטים הנדרשים, קביעת כמויות ומחירים ובדיקת תנאי התשלום, לצורך הכנת הצעה מסודרת ללקוח.`
+        : `הכנת תכנון עבור הפרויקט ${project.name}: בחינת דרישות הפרויקט והתוכניות הזמינות, גיבוש פתרון המיזוג ותיאום הפרטים הנדרשים להכנת תוכנית לביצוע.`,
+    );
+    const history = await api.getTaskTransitions(task.id);
+    expect(history).toEqual([
+      expect.objectContaining({ fromStatus: null, toStatus: TASK_STATUSES.NOT_STARTED }),
+    ]);
+  }
+  return tasks;
 };
 
-const sortIds = (ids: string[]) => [...ids].sort();
-
-test("creating a task requires exactly one existing project or customer", async ({ api }) => {
-  const customer = await seedCustomer(api);
-  const project = await seedStandaloneProject(api, customer);
-  const createTask = (link: object) =>
-    api.send(HTTP_METHODS.POST, API_PATHS.TASK, { ...buildUnlinkedTaskInput(), ...link });
-
-  await expectLinkRejected(await createTask({ projectId: project.id, customerId: customer.id }));
-  await expectLinkRejected(await createTask({}));
-  await expectLinkRejected(await createTask({ projectId: null, customerId: null }));
-  await expectNotFound(await createTask({ projectId: MISSING_ENTITY_ID }));
-  await expectNotFound(await createTask({ customerId: MISSING_ENTITY_ID }));
-  await expectBadRequest(await createTask({ projectId: MALFORMED_ENTITY_ID }));
-  await expectBadRequest(await createTask({ customerId: MALFORMED_ENTITY_ID }));
-});
-
-test("a customer task stores only its customer and a project task only its project", async ({
+test("normal projects and manually created apartments start Draft with the exact mandatory pair and histories", async ({
   api,
 }) => {
   const customer = await seedCustomer(api);
-  const project = await seedStandaloneProject(api, customer);
-  const customerTask = await seedTask(api, { link: linkToCustomer(customer) });
-  const projectTask = await seedTask(api, { link: linkToProject(project) });
-
-  const storedCustomerTask = await api.getTask(customerTask.id);
-  const storedProjectTask = await api.getTask(projectTask.id);
-
-  expect(storedCustomerTask).toMatchObject({
-    projectId: null,
-    customerId: customer.id,
-    customer: { id: customer.id, name: customer.name },
-  });
-  expect(storedProjectTask).toMatchObject({
-    customerId: null,
-    projectId: project.id,
-    project: { id: project.id, customer: { id: customer.id, name: customer.name } },
-  });
-});
-
-test("an apartment task reads its customer through the building", async ({ api }) => {
-  const customer = await seedCustomer(api);
+  await expectPair(api, await seedStandaloneProject(api, customer));
   const building = await seedBuilding(api, customer);
-  const apartment = await seedLegacyApartment(api, building);
-  const task = await seedTask(api, { link: linkToProject(apartment) });
-
-  expect(await api.getTask(task.id)).toMatchObject({
-    customerId: null,
-    projectId: apartment.id,
-    project: {
-      id: apartment.id,
-      parentProject: { id: building.id, customer: { id: customer.id, name: customer.name } },
-    },
-  });
+  await expectPair(api, building);
+  await expectPair(api, await seedApartment(api, building));
 });
 
-test("editing a task link replaces it, clears the other side and keeps it when omitted", async ({
+test("Excel apartments initialize the pair exactly once and duplicate import retains IDs", async ({
+  api,
+}) => {
+  const building = await seedBuilding(api, await seedCustomer(api));
+  const row = buildImportRow(buildCustomerInput());
+  expect((await uploadApartments(api, building.id, [row])).counts.created).toBe(1);
+  const apartments = await readBuildingApartments(api, building.id);
+  const apartment = apartments[0];
+  const project = await api.getProject(apartment.id);
+  const tasks = await expectPair(api, project);
+  expect((await uploadApartments(api, building.id, [row])).counts.existing).toBe(1);
+  expect(await api.getProjectTasks(apartment.id).then(page => page.items)).toEqual(tasks);
+});
+
+test("manual creation requires a valid project, rejects customer links/protected or unknown types and invalid supplied dates", async ({
   api,
 }) => {
   const customer = await seedCustomer(api);
   const project = await seedStandaloneProject(api, customer);
-  const task = await seedTask(api, { link: linkToProject(project) });
-  const editTask = (changes: object) =>
-    api.send(HTTP_METHODS.PATCH, buildTaskPath(task.id), changes);
-
-  await expectResponseOk(await editTask(linkToCustomer(customer)));
-  expect(await api.getTask(task.id)).toMatchObject({ projectId: null, customerId: customer.id });
-
-  await expectResponseOk(await editTask(linkToProject(project)));
-  expect(await api.getTask(task.id)).toMatchObject({ customerId: null, projectId: project.id });
-
-  await expectLinkRejected(await editTask({ projectId: project.id, customerId: customer.id }));
-  await expectLinkRejected(await editTask({ projectId: null }));
-  await expectLinkRejected(await editTask({ customerId: null }));
-  await expectNotFound(await editTask({ customerId: MISSING_ENTITY_ID }));
-  await expectNotFound(await editTask({ projectId: MISSING_ENTITY_ID }));
-  await expectBadRequest(await editTask({ projectId: MALFORMED_ENTITY_ID }));
-
-  const title = createUniqueName(RENAMED_TASK_PREFIX);
-
-  await expectResponseOk(await editTask({ title }));
-  expect(await api.getTask(task.id)).toMatchObject({
-    title,
-    customerId: null,
-    projectId: project.id,
-  });
+  const input = { ...buildUnlinkedTaskInput(), projectId: project.id };
+  for (const overrides of [
+    { projectId: null },
+    { projectId: "bad" },
+    { customerId: customer.id },
+    { taskType: TASK_TYPES.QUOTATION },
+    { taskType: TASK_TYPES.PLANNING },
+    { taskType: "unknown" },
+    { dueDate: "2020-01-01" },
+  ]) {
+    expect((await api.send(HTTP_METHODS.POST, "/task", { ...input, ...overrides })).status()).toBe(
+      HTTP_STATUS.BAD_REQUEST,
+    );
+  }
+  expect(
+    (
+      await api.send(HTTP_METHODS.POST, "/task", {
+        ...input,
+        projectId: "00000000-0000-4000-8000-000000000000",
+      })
+    ).status(),
+  ).toBe(HTTP_STATUS.NOT_FOUND);
+  expect(
+    (
+      await api.send(HTTP_METHODS.POST, "/task", {
+        ...buildUnlinkedTaskInput(),
+        customerId: customer.id,
+      })
+    ).status(),
+  ).toBe(HTTP_STATUS.BAD_REQUEST);
+  expect(await api.getProjectTasks(project.id).then(page => page.items)).toHaveLength(2);
 });
 
-for (const [projectKind, seedProject] of Object.entries(OWNED_PROJECT_SEEDERS)) {
-  test(`a legacy ${projectKind} task keeps both links and is found by its project's customer`, async ({
+test("protected tasks cannot be deleted, converted, relinked or duplicated; completion/resume retains IDs/history", async ({
+  api,
+}) => {
+  const project = await seedStandaloneProject(api, await seedCustomer(api));
+  const other = await seedStandaloneProject(api, await seedCustomer(api));
+  const tasks = await expectPair(api, project);
+  for (const task of tasks) {
+    expect((await api.send(HTTP_METHODS.DELETE, buildTaskPath(task.id))).status()).toBe(
+      HTTP_STATUS.CONFLICT,
+    );
+    expect(
+      (
+        await api.send(HTTP_METHODS.PATCH, buildTaskPath(task.id), { taskType: TASK_TYPES.GENERAL })
+      ).status(),
+    ).toBe(HTTP_STATUS.BAD_REQUEST);
+    expect(
+      (
+        await api.send(HTTP_METHODS.PATCH, buildTaskPath(task.id), { projectId: other.id })
+      ).status(),
+    ).toBe(HTTP_STATUS.CONFLICT);
+    expect(
+      (
+        await api.send(HTTP_METHODS.PATCH, buildTaskPath(task.id), { taskType: task.taskType })
+      ).status(),
+    ).toBe(HTTP_STATUS.OK);
+    for (const status of [TASK_STATUSES.PROPOSAL_SENT, TASK_STATUSES.IN_PROGRESS]) {
+      expect(
+        (
+          await api.send(HTTP_METHODS.PATCH, `${buildTaskPath(task.id)}/status`, { status })
+        ).status(),
+      ).toBe(HTTP_STATUS.OK);
+    }
+    const history = await api.getTaskTransitions(task.id);
+    expect(history).toHaveLength(3);
+    expect(
+      (
+        await api.send(HTTP_METHODS.POST, "/task", {
+          ...buildUnlinkedTaskInput(),
+          projectId: project.id,
+          taskType: task.taskType,
+        })
+      ).status(),
+    ).toBe(HTTP_STATUS.BAD_REQUEST);
+    expect(await api.getTask(task.id)).toMatchObject({ id: task.id, projectId: project.id });
+  }
+  expect(await api.getProjectTasks(project.id).then(page => page.items)).toHaveLength(2);
+});
+
+test("General duplicates/delete/relink remain allowed; optional dates clear and assignment invents no date", async ({
+  api,
+  apiAs,
+}) => {
+  const customer = await seedCustomer(api);
+  const project = await seedStandaloneProject(api, customer);
+  const other = await seedStandaloneProject(api, customer);
+  const input = {
+    title: "משימה כללית",
+    description: "תיאום",
+    projectId: project.id,
+    taskType: TASK_TYPES.GENERAL,
+  };
+  const first = await api.createTask(input);
+  const second = await api.createTask(input);
+  expect(first.id).not.toBe(second.id);
+  const engineer = await apiAs(TEST_USERS[USER_ROLES.ENGINEER]);
+  expect(
+    (
+      await api.send(HTTP_METHODS.PATCH, buildTaskPath(first.id), {
+        assigneeId: engineer.session.user.id,
+        projectId: other.id,
+      })
+    ).status(),
+  ).toBe(HTTP_STATUS.OK);
+  expect(await api.getTask(first.id)).toMatchObject({ dueDate: null, projectId: other.id });
+  expect(
+    (
+      await api.send(HTTP_METHODS.PATCH, buildTaskPath(first.id), { dueDate: "2030-01-01" })
+    ).status(),
+  ).toBe(HTTP_STATUS.OK);
+  expect(
+    (await api.send(HTTP_METHODS.PATCH, buildTaskPath(first.id), { dueDate: null })).status(),
+  ).toBe(HTTP_STATUS.OK);
+  expect((await api.getTask(first.id)).dueDate).toBeNull();
+  expect(
+    (
+      await api.send(HTTP_METHODS.PATCH, buildTaskPath(first.id), { taskType: TASK_TYPES.PLANNING })
+    ).status(),
+  ).toBe(HTTP_STATUS.BAD_REQUEST);
+  expect((await api.send(HTTP_METHODS.DELETE, buildTaskPath(second.id))).status()).toBe(
+    HTTP_STATUS.NO_CONTENT,
+  );
+});
+
+for (const [kind, seedProject] of Object.entries(OWNED_PROJECT_SEEDERS)) {
+  test(`legacy dual-link ${kind} retains metadata on update and resolves project customer`, async ({
     api,
   }) => {
     const { task, project, storedCustomer, projectCustomer } = await seedLegacyTaskScenario(
       api,
       seedProject,
     );
-    const title = createUniqueName(RENAMED_TASK_PREFIX);
-
-    await expectResponseOk(await api.send(HTTP_METHODS.PATCH, buildTaskPath(task.id), { title }));
+    expect(
+      (
+        await api.send(HTTP_METHODS.PATCH, buildTaskPath(task.id), { description: "תיאור מעודכן" })
+      ).status(),
+    ).toBe(HTTP_STATUS.OK);
     expect(await api.getTask(task.id)).toMatchObject({
-      title,
       projectId: project.id,
       customerId: storedCustomer.id,
+      description: "תיאור מעודכן",
     });
-
-    expect(await api.findTaskIds({ customerId: projectCustomer.id })).toEqual([task.id]);
-    expect(await api.countTasks({ customerId: projectCustomer.id })).toBe(1);
-    expect(await api.findTaskIds({ customerId: storedCustomer.id })).toEqual([]);
-    expect(await api.countTasks({ customerId: storedCustomer.id })).toBe(0);
+    expect(await api.findTaskIds({ customerId: projectCustomer.id })).toContain(task.id);
+    expect(await api.findTaskIds({ customerId: storedCustomer.id })).not.toContain(task.id);
   });
 }
 
-test("the customer filter, search and counts find project and apartment tasks", async ({ api }) => {
+test("legacy customer-only tasks stay usable General records without relinking", async ({
+  api,
+}) => {
   const customer = await seedCustomer(api);
-  const otherCustomer = await seedCustomer(api);
-  const project = await seedStandaloneProject(api, customer);
-  const building = await seedBuilding(api, customer);
-  const apartment = await seedLegacyApartment(api, building);
-  const customerTask = await seedTask(api, { link: linkToCustomer(customer) });
-  const projectTask = await seedTask(api, { link: linkToProject(project) });
-  const apartmentTask = await seedTask(api, { link: linkToProject(apartment) });
-  const linkedTaskIds = sortIds([customerTask.id, projectTask.id, apartmentTask.id]);
+  const task = await seedLegacyCustomerTask(api, customer);
+  expect(
+    (
+      await api.send(HTTP_METHODS.PATCH, buildTaskPath(task.id), { description: "תיעוד ישן" })
+    ).status(),
+  ).toBe(HTTP_STATUS.OK);
+  expect(await api.getTask(task.id)).toMatchObject({
+    projectId: null,
+    customerId: customer.id,
+    description: "תיעוד ישן",
+  });
+  expect(await api.findTaskIds({ customerId: customer.id })).toContain(task.id);
+});
 
-  await seedTask(api, { link: linkToCustomer(otherCustomer) });
-
-  expect(sortIds(await api.findTaskIds({ customerId: customer.id }))).toEqual(linkedTaskIds);
-  expect(sortIds(await api.findTaskIds({ search: customer.name }))).toEqual(linkedTaskIds);
-  expect(await api.countTasks({ customerId: customer.id })).toBe(linkedTaskIds.length);
+test("engineer cannot manually create tasks and claiming protected task preserves null date", async ({
+  api,
+  apiAs,
+}) => {
+  const project = await seedStandaloneProject(api, await seedCustomer(api));
+  const engineer = await apiAs(TEST_USERS[USER_ROLES.ENGINEER]);
+  expect(
+    (
+      await engineer.send(HTTP_METHODS.POST, "/task", {
+        ...buildUnlinkedTaskInput(),
+        projectId: project.id,
+      })
+    ).status(),
+  ).toBe(HTTP_STATUS.FORBIDDEN);
+  const tasks = await api.getProjectTasks(project.id).then(page => page.items);
+  expect(
+    (await engineer.send(HTTP_METHODS.PATCH, `${buildTaskPath(tasks[0].id)}/claim`)).status(),
+  ).toBe(HTTP_STATUS.OK);
+  expect((await api.getTask(tasks[0].id)).dueDate).toBeNull();
 });

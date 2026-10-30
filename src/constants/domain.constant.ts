@@ -36,6 +36,7 @@ export const CONTACT_ROLES = {
 } as const;
 
 export const PROJECT_STATUS_NAMES = {
+  DRAFT: "טיוטה",
   DONE: "הסתיים",
   ON_HOLD: "להמתין",
   PENDING: "ממתין",
@@ -85,3 +86,10 @@ export const CUSTOMER_SYNC_STATUSES = {
 
 export type CustomerSyncStatusType =
   (typeof CUSTOMER_SYNC_STATUSES)[keyof typeof CUSTOMER_SYNC_STATUSES];
+
+export const TASK_TYPES = {
+  GENERAL: "general",
+  PLANNING: "planning",
+  QUOTATION: "quotation",
+} as const;
+export type TaskType = (typeof TASK_TYPES)[keyof typeof TASK_TYPES];
