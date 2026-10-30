@@ -50,5 +50,13 @@ test("invalid template displays actionable error and retry without a preview ste
     buffer: await makeImportWorkbook([], [...APARTMENT_IMPORT.HEADERS].reverse()),
   });
   await expect(dialog.getByText("INVALID_TEMPLATE", { exact: false })).toBeVisible();
+  await expect(
+    dialog.getByText("מבנה הקובץ אינו תואם. יש להשתמש בתבנית הרשמית ללא שינוי שמות העמודות.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(dialog.getByText("Invalid apartment import template", { exact: false })).toHaveCount(
+    0,
+  );
   await expect(dialog.getByRole("button", { name: "נסה קובץ אחר", exact: true })).toBeVisible();
 });

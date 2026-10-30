@@ -6,6 +6,7 @@ import {
   readImportWorkbook,
 } from "../../src/utilities/apartment-import.utility.ts";
 
+import { isRecord } from "../../src/utilities/guard.utility.ts";
 import { test, expect } from "../../src/fixtures/api.fixture.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
@@ -129,7 +130,9 @@ test("structural invalid template creates nothing", async ({ api }) => {
     ),
   });
   expect(response.status()).toBe(422);
-  expect(await response.json()).toMatchObject({ code: "INVALID_TEMPLATE" });
+  const error: unknown = await response.json();
+  expect(error).toMatchObject({ code: "INVALID_TEMPLATE" });
+  expect(JSON.stringify(error)).not.toMatch(/[\u0590-\u05ff]/);
   expect(await readBuildingApartments(api, building.id)).toEqual([]);
 });
 
@@ -207,3 +210,72 @@ for (const role of USER_ROLE_VALUES.filter(role => role !== USER_ROLES.SYSTEM_AD
     expect(await readBuildingApartments(api, building.id)).toEqual([]);
   });
 }
+
+test("customer mismatch reasons identify every conflicting field without echoing personal values", async ({
+  api,
+}) => {
+  const building = await seedBuilding(api, await seedCustomer(api));
+  const customer = buildCustomerInput();
+  await api.createCustomer(customer);
+  const wrong = buildImportRow(customer);
+  wrong[3] = "Different customer name";
+  wrong[4] = "0531234567";
+  wrong[5] = "different-private@example.test";
+  wrong[12] = "Different private address";
+  const result = await uploadApartments(api, building.id, [wrong]);
+  expect(result.counts).toEqual({ created: 0, existing: 0, duplicate: 0, error: 1 });
+  const reasons = result.rows
+    .map(row => {
+      if (!isRecord(row) || typeof row.reason !== "string") {
+        throw new Error("Expected import row reason");
+      }
+
+      return row.reason;
+    })
+    .join(" ");
+  for (const label of ["שם לקוח", "כתובת לקוח", "טלפון לקוח", "דוא״ל לקוח"]) {
+    expect(reasons).toContain(`${label}: אינו תואם ללקוח הקיים`);
+  }
+  for (const value of [
+    customer.taxId,
+    customer.name,
+    customer.address,
+    customer.phone,
+    customer.email,
+    wrong[3],
+    wrong[4],
+    wrong[5],
+    wrong[12],
+  ]) {
+    expect(reasons).not.toContain(value);
+  }
+  expect(await readBuildingApartments(api, building.id)).toEqual([]);
+  const report = await readImportWorkbook(Buffer.from(result.reportBase64 ?? "", "base64"));
+  expect(report.getWorksheet(APARTMENT_IMPORT.SHEET)?.getRow(2).getCell(14).value).toBe(reasons);
+});
+
+test("repeated file declarations report all mismatched field labels without exposing values", async ({
+  api,
+}) => {
+  const building = await seedBuilding(api, await seedCustomer(api));
+  const customer = buildCustomerInput();
+  const first = buildImportRow(customer);
+  first[9] = "-1";
+  const second = buildImportRow(
+    { ...customer, name: "Conflicting file customer", email: "conflict-private@example.test" },
+    "2",
+  );
+  const result = await uploadApartments(api, building.id, [first, second]);
+  expect(result.counts.error).toBe(2);
+  const conflict = result.rows.find(row => isRecord(row) && row.rowNumber === 3);
+  if (!isRecord(conflict) || typeof conflict.reason !== "string") {
+    throw new Error("Expected declaration conflict reason");
+  }
+
+  expect(conflict.reason).toContain("שם לקוח: אינו תואם להצהרה קודמת בקובץ");
+  expect(conflict.reason).toContain("דוא״ל לקוח: אינו תואם להצהרה קודמת בקובץ");
+  expect(conflict.reason).not.toContain(customer.taxId);
+  expect(conflict.reason).not.toContain(second[3]);
+  expect(conflict.reason).not.toContain(second[5]);
+  expect(await readBuildingApartments(api, building.id)).toEqual([]);
+});

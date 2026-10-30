@@ -102,6 +102,11 @@ test("contact creation accepts name-only, exact duplicate reuses ID and another 
     name: "שינוי אסור",
   });
   expect(wrongOwner.status()).toBe(404);
+  expect(await wrongOwner.json()).toMatchObject({
+    statusCode: 404,
+    code: "CUSTOMER_CONTACT_NOT_FOUND",
+    message: "Contact was not found for this customer",
+  });
   const updated = await api.send(HTTP_METHODS.PATCH, `${contactsPath(customer.id)}/${contact.id}`, {
     name: "שם מעודכן",
     role: "תכנון",
@@ -136,4 +141,47 @@ test("non-admin can read contacts but cannot create or edit them", async ({ api,
   ).toBe(403);
   const after = await api.send(HTTP_METHODS.GET, contactsPath(customer.id));
   expect(await after.json()).toEqual(original);
+});
+
+test("contact errors retain stable codes and English messages through the HTTP filter", async ({
+  api,
+}) => {
+  const missingCustomer = await api.send(HTTP_METHODS.GET, contactsPath(randomUUID()));
+  expect(missingCustomer.status()).toBe(404);
+  expect(await missingCustomer.json()).toMatchObject({
+    statusCode: 404,
+    code: "CUSTOMER_NOT_FOUND",
+    message: "Customer was not found",
+  });
+  const customer = await seedCustomer(api);
+  const invalid = await api.send(HTTP_METHODS.POST, contactsPath(customer.id), { name: "" });
+  expect(invalid.status()).toBe(400);
+  expect(await invalid.text()).not.toMatch(/[\u0590-\u05ff]/);
+  const first = await api.send(HTTP_METHODS.POST, contactsPath(customer.id), {
+    name: "Contact one",
+  });
+  const second = await api.send(HTTP_METHODS.POST, contactsPath(customer.id), {
+    name: "Contact two",
+  });
+  expect(first.status()).toBe(201);
+  expect(second.status()).toBe(201);
+  const contact: unknown = await second.json();
+  if (!isRecord(contact) || typeof contact.id !== "string") {
+    throw new Error("Unexpected contact response");
+  }
+  const duplicate = await api.send(
+    HTTP_METHODS.PATCH,
+    `${contactsPath(customer.id)}/${contact.id}`,
+    { name: "Contact one" },
+  );
+  expect(duplicate.status()).toBe(409);
+  expect(await duplicate.json()).toMatchObject({
+    statusCode: 409,
+    code: "DUPLICATE_CUSTOMER_CONTACT",
+    message: "An identical contact already exists for this customer",
+  });
+  const unchanged = await api.send(HTTP_METHODS.GET, contactsPath(customer.id));
+  expect(await unchanged.json()).toEqual(
+    expect.arrayContaining([expect.objectContaining({ id: contact.id, name: "Contact two" })]),
+  );
 });
