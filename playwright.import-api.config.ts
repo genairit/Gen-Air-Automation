@@ -7,6 +7,7 @@ export default defineConfig({
   testMatch: [
     "**/apartment-import-api.spec.ts",
     "**/customer-contacts-api.spec.ts",
+    "**/customer-contact-list-api.spec.ts",
     "**/import-permissions-api.spec.ts",
     "**/feature-permissions-api.spec.ts",
     "**/feature-permissions-migration.spec.ts",
