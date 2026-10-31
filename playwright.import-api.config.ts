@@ -9,6 +9,7 @@ export default defineConfig({
     "**/customer-contacts-api.spec.ts",
     "**/customer-contact-list-api.spec.ts",
     "**/customer-projects-api.spec.ts",
+    "**/project-constraints-api.spec.ts",
     "**/import-permissions-api.spec.ts",
     "**/feature-permissions-api.spec.ts",
     "**/feature-permissions-migration.spec.ts",

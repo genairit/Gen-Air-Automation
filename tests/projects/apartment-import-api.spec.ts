@@ -11,6 +11,7 @@ import { test, expect } from "../../src/fixtures/api.fixture.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { APARTMENT_IMPORT } from "../../src/constants/apartment-import.constant.ts";
+import { scopedApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { USER_ROLES, USER_ROLE_VALUES } from "../../src/constants/user-role.constant.ts";
 import { seedBuilding, seedCustomer, buildCustomerInput } from "../../src/api/seed-data.ts";
 import { uploadApartments, readBuildingApartments } from "../../src/api/apartment-import.api.ts";
@@ -32,15 +33,15 @@ test("partial import persists two customer-owned contacts, exact credit and add-
 }) => {
   const building = await seedBuilding(api, await seedCustomer(api));
   const customer = buildCustomerInput();
-  const row = buildImportRow(customer, "003א");
-  const invalid = buildImportRow(buildCustomerInput(), "4");
+  const row = buildImportRow(customer, scopedApartmentNumber("003א"));
+  const invalid = buildImportRow(buildCustomerInput(), scopedApartmentNumber("4"));
   invalid[9] = "-1";
   const result = await uploadApartments(api, building.id, [row, row, invalid]);
   expect(result.counts).toEqual({ created: 1, existing: 0, duplicate: 1, error: 1 });
   const apartments = await readBuildingApartments(api, building.id);
   expect(apartments).toHaveLength(1);
   expect(apartments[0]).toMatchObject({
-    customerApartment: "003א",
+    customerApartment: scopedApartmentNumber("003א"),
     apartmentOwnership: "buyer",
     apartmentCredit: "120.50",
   });
@@ -96,7 +97,10 @@ test("existing taxID mismatch and repeated file identity conflicts create no apa
   const newCustomer = buildCustomerInput();
   const first = buildImportRow(newCustomer);
   first[9] = "-1";
-  const second = buildImportRow({ ...newCustomer, name: "פרטים שונים" }, "2");
+  const second = buildImportRow(
+    { ...newCustomer, name: "פרטים שונים" },
+    scopedApartmentNumber("2"),
+  );
   expect((await uploadApartments(api, building.id, [first, second])).counts.error).toBe(2);
   const lookup = await api.send(HTTP_METHODS.GET, `/customer?search=${newCustomer.taxId}`);
   expect(await lookup.json()).toMatchObject({ items: [] });
@@ -161,8 +165,10 @@ test("concurrent imports in different buildings reuse one new customer and conta
   const secondBuilding = await seedBuilding(api, owner);
   const customer = buildCustomerInput();
   const results = await Promise.all([
-    uploadApartments(api, firstBuilding.id, [buildImportRow(customer, "1")]),
-    uploadApartments(api, secondBuilding.id, [buildImportRow(customer, "2")]),
+    uploadApartments(api, firstBuilding.id, [buildImportRow(customer, scopedApartmentNumber("1"))]),
+    uploadApartments(api, secondBuilding.id, [
+      buildImportRow(customer, scopedApartmentNumber("2")),
+    ]),
   ]);
   for (const result of results) {
     expect(result.counts).toEqual({ created: 1, existing: 0, duplicate: 0, error: 0 });
@@ -172,8 +178,8 @@ test("concurrent imports in different buildings reuse one new customer and conta
   expect(first).toHaveLength(1);
   expect(second).toHaveLength(1);
   expect(first[0].customerId).toBe(second[0].customerId);
-  expect(first[0].customerApartment).toBe("1");
-  expect(second[0].customerApartment).toBe("2");
+  expect(first[0].customerApartment).toBe(scopedApartmentNumber("1"));
+  expect(second[0].customerApartment).toBe(scopedApartmentNumber("2"));
   const lookup = await api.send(HTTP_METHODS.GET, `/customer?search=${customer.taxId}`);
   expect(await lookup.json()).toMatchObject({
     items: [expect.objectContaining({ id: first[0].customerId, taxId: customer.taxId })],
@@ -186,7 +192,7 @@ test("100rows persist without customer or contact duplication", async ({ api }) 
   const building = await seedBuilding(api, await seedCustomer(api));
   const customer = buildCustomerInput();
   const rows = Array.from({ length: 100 }, (_, index) =>
-    buildImportRow(customer, String(index + 1)),
+    buildImportRow(customer, scopedApartmentNumber(String(index + 1))),
   );
   const result = await uploadApartments(api, building.id, rows);
   expect(result.counts).toEqual({ created: 100, existing: 0, duplicate: 0, error: 0 });

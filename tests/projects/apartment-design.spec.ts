@@ -32,6 +32,7 @@ import { expectResponseOk } from "../../src/utilities/response-assertion.utility
 import { createApartmentDesignPage } from "../../src/pages/apartment-design.page.ts";
 import { LEGACY_APARTMENT } from "../../src/constants/apartment-backend.constant.ts";
 import type { IProject, ICustomer } from "../../src/interfaces/entities.interface.ts";
+import { scopedApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { buildApartmentRoute, buildProjectRoute } from "../../src/utilities/route.utility.ts";
 import { CUSTOMER_SYNC_STATUSES, PAYMENT_TERMS } from "../../src/constants/domain.constant.ts";
 
@@ -62,7 +63,7 @@ const createApartment = (
   api.createApartment(building.id, {
     customerId: customer.id,
     customerFloor: 7,
-    customerApartment: DATA.NUMBER,
+    customerApartment: scopedApartmentNumber(DATA.NUMBER),
     ...changes,
   });
 const findCreated = async (api: TGenAirApi, building: IProject, customer: ICustomer) => {
@@ -107,7 +108,7 @@ test("apartment creation matches required fields, validation count and customer-
   await form.pickCustomer(customer.name);
   await form.submit.click();
   await expect(page.getByText(/מספר דירה בפורמט 24 או 24א/)).toBeVisible();
-  await form.fillUnit(DATA.NUMBER);
+  await form.fillUnit(scopedApartmentNumber(DATA.NUMBER));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: testInfo.outputPath("add-apartment-mobile.png"), fullPage: true });
   await form.submit.click();
@@ -115,7 +116,7 @@ test("apartment creation matches required fields, validation count and customer-
   const created = await findCreated(api, building, customer);
   expect(created).toMatchObject({
     customerId: customer.id,
-    customerApartment: DATA.NUMBER,
+    customerApartment: scopedApartmentNumber(DATA.NUMBER),
     customerFloor: 7,
     hasOwnTeam: false,
     contactName: customer.contactName,
@@ -191,10 +192,12 @@ test("duplicate apartment number keeps the form and displays the building-specif
   await createApartment(api, building, customer);
   const form = createApartmentDesignPage(page);
   await form.gotoCreate(building.id);
-  await form.fillUnit(DATA.NUMBER);
+  await form.fillUnit(scopedApartmentNumber(DATA.NUMBER));
   await form.pickCustomer(customer.name);
   await form.submit.click();
-  await expect(page.getByText(new RegExp(`דירה ${DATA.NUMBER} כבר קיימת בבניין`))).toBeVisible();
+  await expect(
+    page.getByText(new RegExp(`דירה ${scopedApartmentNumber(DATA.NUMBER)} כבר קיימת בבניין`)),
+  ).toBeVisible();
   await expect(form.submit).toBeEnabled();
 });
 
@@ -224,7 +227,7 @@ test("creation copies building team, supports an empty own team, and resets befo
   ).toBeVisible();
   await team.getByRole("button", { name: COPY.OVERRIDE, exact: true }).click();
   await team.getByRole("button", { name: new RegExp(COPY.REMOVE_MEMBER) }).click();
-  await form.fillUnit(DATA.NUMBER);
+  await form.fillUnit(scopedApartmentNumber(DATA.NUMBER));
   await form.pickCustomer(customer.name);
   await form.submit.click();
   await expect(page).toHaveURL(new RegExp(`${buildProjectRoute(building.id)}$`));
@@ -244,7 +247,7 @@ test("creation adds an apartment-only team member and persists its assignment", 
   await form.gotoCreate(building.id);
   await form.draftTeam().getByRole("button", { name: COPY.OVERRIDE, exact: true }).click();
   await form.selectMember(engineer.firstName);
-  await form.fillUnit(DATA.NUMBER);
+  await form.fillUnit(scopedApartmentNumber(DATA.NUMBER));
   await form.pickCustomer(customer.name);
   await form.submit.click();
   await expect(page).toHaveURL(new RegExp(`${buildProjectRoute(building.id)}$`));
@@ -261,7 +264,7 @@ test("creation validates custom payment notes, persists an override and can retu
   const { building, customer } = await scenario(api);
   const form = createApartmentDesignPage(page);
   await form.gotoCreate(building.id);
-  await form.fillUnit(DATA.NUMBER);
+  await form.fillUnit(scopedApartmentNumber(DATA.NUMBER));
   await form.pickCustomer(customer.name);
   await page.getByRole("button", { name: COPY.OVERRIDE, exact: true }).last().click();
   await page.getByPlaceholder("בחר תנאי תשלום…").click();

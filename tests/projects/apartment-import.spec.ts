@@ -12,6 +12,7 @@ import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { readBuildingApartments } from "../../src/api/apartment-import.api.ts";
 import { APARTMENT_IMPORT } from "../../src/constants/apartment-import.constant.ts";
+import { scopedApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { seedBuilding, seedCustomer, buildCustomerInput } from "../../src/api/seed-data.ts";
 
 test("selecting XLSX immediately imports and finish refreshes the building", async ({
@@ -30,7 +31,7 @@ test("selecting XLSX immediately imports and finish refreshes the building", asy
   await expect(fileInput.locator("..")).toHaveCSS("border-radius", "24px");
   const chooserEvent = page.waitForEvent("filechooser");
   await fileInput.click();
-  const row = buildImportRow(buildCustomerInput(), "17");
+  const row = buildImportRow(buildCustomerInput(), scopedApartmentNumber("17"));
   await (
     await chooserEvent
   ).setFiles({
@@ -50,7 +51,7 @@ test("selecting XLSX immediately imports and finish refreshes the building", asy
   expect((await download).suggestedFilename()).toBe("apartments-errors.xlsx");
   await dialog.getByRole("button", { name: APARTMENT_IMPORT.FINISH, exact: true }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(project.findApartmentRow("דירה 17")).toBeVisible();
+  await expect(project.findApartmentRow(`דירה ${scopedApartmentNumber("17")}`)).toBeVisible();
 });
 
 test("invalid template displays actionable error and retry without a preview step", async ({
@@ -114,7 +115,7 @@ test("official template, requiredness help, visible processing and100 real rows 
 
   const customer = buildCustomerInput();
   const rows = Array.from({ length: 100 }, (_, index) =>
-    buildImportRow(customer, String(index + 1)),
+    buildImportRow(customer, scopedApartmentNumber(String(index + 1))),
   );
   const release = { response: () => {} };
   const processing = new Promise<void>(resolve => {
@@ -149,12 +150,14 @@ test("official template, requiredness help, visible processing and100 real rows 
   await dialog.getByRole("button", { name: APARTMENT_IMPORT.FINISH, exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(
-    page.getByRole("row").filter({ has: page.getByText("דירה 1", { exact: true }) }),
+    page
+      .getByRole("row")
+      .filter({ has: page.getByText(`דירה ${scopedApartmentNumber("1")}`, { exact: true }) }),
   ).toBeVisible();
   await page.unroute(`**/project/${building.id}/apartments/import`);
   await page.getByRole("button", { name: APARTMENT_IMPORT.OPEN, exact: true }).click();
   await expect(dialog.getByText("לבניין כבר יש 100 דירות", { exact: false })).toBeVisible();
-  const changed = buildImportRow(customer, "1");
+  const changed = buildImportRow(customer, scopedApartmentNumber("1"));
   changed[9] = "999.99";
   await dialog.locator('input[type="file"]').setInputFiles({
     name: APARTMENT_IMPORT.FILE_NAME,
@@ -192,11 +195,11 @@ test("client rejects unsupported file and real partial results show conflict lab
   await expect(dialog.getByRole("button", { name: "נסה קובץ אחר", exact: true })).toBeVisible();
   await dialog.getByRole("button", { name: "נסה קובץ אחר", exact: true }).click();
 
-  const valid = buildImportRow(buildCustomerInput(), "21");
-  const conflict = buildImportRow(existingInput, "22");
+  const valid = buildImportRow(buildCustomerInput(), scopedApartmentNumber("21"));
+  const conflict = buildImportRow(existingInput, scopedApartmentNumber("22"));
   conflict[3] = "שם שונה";
   conflict[4] = "0529999999";
-  const invalid = buildImportRow(buildCustomerInput(), "23");
+  const invalid = buildImportRow(buildCustomerInput(), scopedApartmentNumber("23"));
   invalid[5] = "not-an-email";
   await dialog.locator('input[type="file"]').setInputFiles({
     name: APARTMENT_IMPORT.FILE_NAME,

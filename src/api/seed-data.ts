@@ -21,13 +21,13 @@ import {
   createMobilePhone,
   createUniqueEmail,
   createCompanyNumber,
-  createSequenceNumber,
 } from "../utilities/test-data.utility.ts";
 
 import type { TGenAirApi } from "./gen-air-api.ts";
 import { FAKE_PLACES } from "../constants/fake-places.constant.ts";
 import { TEST_PASSWORD } from "../constants/test-users.constant.ts";
 import type { UserRoleType } from "../constants/user-role.constant.ts";
+import { createApartmentNumber } from "../utilities/apartment-fixture.utility.ts";
 import { recreateLegacyApartment } from "../environment/apartment-legacy-data.ts";
 import type { ITask, IUser, IProject, ICustomer } from "../interfaces/entities.interface.ts";
 
@@ -153,7 +153,7 @@ export const seedApartment = async (api: TGenAirApi, building: IProject): Promis
   return api.createApartment(building.id, {
     customerId: customer.id,
     customerFloor: SEED_VALUES.APARTMENT_FLOOR,
-    customerApartment: String(createSequenceNumber()),
+    customerApartment: createApartmentNumber(),
   });
 };
 

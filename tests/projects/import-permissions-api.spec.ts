@@ -13,6 +13,7 @@ import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 import { APARTMENT_IMPORT } from "../../src/constants/apartment-import.constant.ts";
+import { scopedApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { seedBuilding, seedCustomer, buildCustomerInput } from "../../src/api/seed-data.ts";
 import { uploadApartments, readBuildingApartments } from "../../src/api/apartment-import.api.ts";
 
@@ -62,7 +63,7 @@ test("same non-admin token imports with all grants and loses access when a grant
 }) => {
   const building = await seedBuilding(api, await seedCustomer(api));
   const actor = await apiAs(TEST_USERS[USER_ROLES.FINANCE]);
-  const first = buildImportRow(buildCustomerInput(), "1");
+  const first = buildImportRow(buildCustomerInput(), scopedApartmentNumber("1"));
   await withRolePermissions(USER_ROLES.FINANCE, IMPORT_GRANTS, async () => {
     expect((await actor.download(`${importPath(building.id)}/template`)).status()).toBe(200);
     expect((await uploadApartments(actor, building.id, [first])).counts).toEqual({
@@ -81,7 +82,9 @@ test("same non-admin token imports with all grants and loses access when a grant
             await actor.upload(importPath(building.id), {
               name: APARTMENT_IMPORT.FILE_NAME,
               mimeType: APARTMENT_IMPORT.MIME_TYPE,
-              buffer: await makeImportWorkbook([buildImportRow(buildCustomerInput(), "2")]),
+              buffer: await makeImportWorkbook([
+                buildImportRow(buildCustomerInput(), scopedApartmentNumber("2")),
+              ]),
             })
           ).status(),
         ).toBe(403);
@@ -90,7 +93,7 @@ test("same non-admin token imports with all grants and loses access when a grant
   });
   const apartments = await readBuildingApartments(api, building.id);
   expect(apartments).toHaveLength(1);
-  expect(apartments[0].customerApartment).toBe("1");
+  expect(apartments[0].customerApartment).toBe(scopedApartmentNumber("1"));
 });
 
 test("customer contact reads and writes follow current granular grants not role", async ({
