@@ -1,4 +1,11 @@
+import { QUOTATION_PERMISSIONS } from "./quotation.constant.ts";
+
 export const PERMISSIONS = {
+  QUOTATIONS_READ: QUOTATION_PERMISSIONS.READ,
+  QUOTATIONS_CREATE: QUOTATION_PERMISSIONS.CREATE,
+  QUOTATIONS_UPDATE: QUOTATION_PERMISSIONS.UPDATE,
+  QUOTATIONS_APPROVE: QUOTATION_PERMISSIONS.APPROVE,
+  CATALOGUE_MANAGE: QUOTATION_PERMISSIONS.CATALOGUE_MANAGE,
   PROJECTS_READ: "projects.read",
   PROJECTS_CREATE: "projects.create",
   PROJECTS_UPDATE: "projects.update",
@@ -43,3 +50,7 @@ export const PERMISSION_COPY = {
   ERROR: "לא ניתן לאמת את הרשאות החשבון",
 };
 export const PERMISSION_MIGRATION = "20261025093708_add_feature_permissions.sql";
+
+export const INITIAL_PERMISSION_VALUES = PERMISSION_VALUES.filter(
+  key => !Object.values(QUOTATION_PERMISSIONS).some(quotationKey => quotationKey === key),
+);
