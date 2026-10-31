@@ -13,7 +13,9 @@ import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
+import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
+import { scopedApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { updateProjectRelationFixture } from "../../src/environment/customer-projects-data.ts";
 import { PROJECT_TYPE_NAMES, PROJECT_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
 import { readCustomerProjects, customerProjectsPath } from "../../src/api/customer-projects.api.ts";
@@ -29,17 +31,17 @@ test("customer-ID isolation and approved building/apartment grouping use the sam
   const ownApartment = await api.createApartment(building.id, {
     customerId: customer.id,
     customerFloor: 1,
-    customerApartment: "11",
+    customerApartment: scopedApartmentNumber("11"),
   });
   const otherApartment = await api.createApartment(building.id, {
     customerId: other.id,
     customerFloor: 2,
-    customerApartment: "12",
+    customerApartment: scopedApartmentNumber("12"),
   });
   const directApartment = await api.createApartment(foreign.id, {
     customerId: customer.id,
     customerFloor: 3,
-    customerApartment: "13",
+    customerApartment: scopedApartmentNumber("13"),
   });
   const page = await readCustomerProjects(api, customer.id);
   expect(page.total).toBe(3);
@@ -72,7 +74,7 @@ test("deleted projects/parents are omitted and a null-owner parent preserves a d
   const apartment = await api.createApartment(foreign.id, {
     customerId: customer.id,
     customerFloor: 1,
-    customerApartment: "21",
+    customerApartment: scopedApartmentNumber("21"),
   });
   await updateProjectRelationFixture(foreign.id, { customerId: null });
   expect((await readCustomerProjects(api, customer.id)).items.map(item => item.id)).toEqual([
@@ -98,7 +100,7 @@ test("default keyset pages are 8 then 10, stable across ties, unicode names and 
   for (const _ of Array.from({ length: 19 })) {
     const project = await seedStandaloneProject(api, customer);
     await updateProjectRelationFixture(project.id, {
-      name: "🏠".repeat(200),
+      name: `${"🏠".repeat(160)}${project.id}`,
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
     ids.push(project.id);
@@ -135,7 +137,7 @@ test("search is literal and server-side; stage counts ignore the selected stage 
   const other = await seedStandaloneProject(api, customer);
   const pending = await api.findProjectStage(PROJECT_STATUS_NAMES.PENDING);
   const done = await api.findProjectStage(PROJECT_STATUS_NAMES.DONE);
-  await updateProjectRelationFixture(exact.id, { name: "פרויקט %_ ייחודי" });
+  await updateProjectRelationFixture(exact.id, { name: createUniqueName("פרויקט %_ ייחודי") });
   expect(
     (await api.send(HTTP_METHODS.PATCH, `/project/${exact.id}`, { stageId: pending.id })).ok(),
   ).toBe(true);
@@ -197,7 +199,7 @@ test("parent context search returns only the customer's apartment and inherited 
   const apartment = await api.createApartment(building.id, {
     customerId: customer.id,
     customerFloor: 4,
-    customerApartment: "51",
+    customerApartment: scopedApartmentNumber("51"),
   });
   for (const search of [building.name, building.code]) {
     const page = await readCustomerProjects(api, customer.id, { search });

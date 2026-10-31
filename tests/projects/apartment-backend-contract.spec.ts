@@ -27,11 +27,12 @@ import { isRecord } from "../../src/utilities/guard.utility.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { ROLE_ACCESS } from "../../src/constants/role-access.constant.ts";
-import { createSequenceNumber } from "../../src/utilities/test-data.utility.ts";
 import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
 import { seedBuilding, seedCustomer, seedUser } from "../../src/api/seed-data.ts";
 import { LEGACY_APARTMENT } from "../../src/constants/apartment-backend.constant.ts";
 import type { IProject, ICustomer } from "../../src/interfaces/entities.interface.ts";
+import { createApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
+import { scopedApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { USER_ROLES, USER_ROLE_VALUES } from "../../src/constants/user-role.constant.ts";
 import { verifyApartmentMigration } from "../../src/environment/apartment-migration-check.ts";
 
@@ -41,7 +42,7 @@ const MEMBER_ROLE = USER_ROLES.ENGINEER;
 const input = (customerId: string, changes: object = {}) => ({
   customerId,
   customerFloor: 3,
-  customerApartment: String(createSequenceNumber()),
+  customerApartment: createApartmentNumber(),
   ...changes,
 });
 const readPath = async (api: TGenAirApi, path: string): Promise<Record<string, unknown>> => {
@@ -88,13 +89,15 @@ test("new apartment links its own customer and reads contact live without inheri
   api,
 }) => {
   const { building, customer } = await scenario(api);
-  const apartment = await create(api, building, customer, { customerApartment: "24א" });
+  const apartment = await create(api, building, customer, {
+    customerApartment: scopedApartmentNumber("24א"),
+  });
   expect(await read(api, apartment.id)).toMatchObject({
     customerId: customer.id,
     customerName: customer.name,
     contactName: customer.contactName,
     hasOwnTeam: false,
-    customerApartment: "24א",
+    customerApartment: scopedApartmentNumber("24א"),
     parentProjectId: building.id,
   });
   await update(api, apartment.id, { notes: "Apartment note" });
@@ -115,7 +118,7 @@ test("create rejects missing, malformed, failed and deleted customers but accept
 }) => {
   const { building, customer } = await scenario(api);
   for (const body of [
-    { customerFloor: 1, customerApartment: "1" },
+    { customerFloor: 1, customerApartment: scopedApartmentNumber("1") },
     input("bad-id"),
     input(MISSING_ID),
   ]) {
@@ -144,7 +147,7 @@ test("apartment number validation, duplicate Hebrew feedback, stage independence
 }) => {
   const { building, customer } = await scenario(api);
   for (const invalid of [
-    { customerId: customer.id, customerApartment: "23" },
+    { customerId: customer.id, customerApartment: scopedApartmentNumber("23") },
     input(customer.id, { customerFloor: null }),
     input(customer.id, { customerFloor: 3.5 }),
     input(customer.id, { customerFloor: 1000 }),
@@ -163,14 +166,16 @@ test("apartment number validation, duplicate Hebrew feedback, stage independence
       ),
     );
   }
-  const apartment = await create(api, building, customer, { customerApartment: "24א" });
+  const apartment = await create(api, building, customer, {
+    customerApartment: scopedApartmentNumber("24א"),
+  });
   const duplicate = await api.send(
     HTTP_METHODS.POST,
     buildApartmentsPath(building.id),
-    input(customer.id, { customerApartment: "24א" }),
+    input(customer.id, { customerApartment: scopedApartmentNumber("24א") }),
   );
   await expectResponseStatus(duplicate, HTTP_STATUS.CONFLICT);
-  expect(await duplicate.text()).toContain("דירה 24א כבר קיימת בבניין");
+  expect(await duplicate.text()).toContain(`דירה ${scopedApartmentNumber("24א")} כבר קיימת בבניין`);
   const before = await read(api, building.id);
   const stage = await api.findProjectStage(PROJECT_STATUS_NAMES.IN_PROGRESS);
   const moved = await api.send(HTTP_METHODS.PATCH, `${buildProjectPath(apartment.id)}/stage`, {

@@ -16,6 +16,7 @@ import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { PROJECT_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 import { AUTOMATION_DIRECTORIES } from "../../src/constants/environment.constant.ts";
+import { scopedApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { updateProjectRelationFixture } from "../../src/environment/customer-projects-data.ts";
 import { seedCustomer, seedBuilding, seedStandaloneProject } from "../../src/api/seed-data.ts";
 import { createCustomerProjectsComponent } from "../../src/pages/customer-projects.component.ts";
@@ -32,12 +33,12 @@ test("customer card follows grouping, five statuses, root/apartment navigation a
   await api.createApartment(building.id, {
     customerId: customer.id,
     customerFloor: 1,
-    customerApartment: "101",
+    customerApartment: scopedApartmentNumber("101"),
   });
   const apartment = await api.createApartment(foreign.id, {
     customerId: customer.id,
     customerFloor: 2,
-    customerApartment: "202",
+    customerApartment: scopedApartmentNumber("202"),
   });
   const card = createCustomerProjectsComponent(page);
   const errors: string[] = [];

@@ -1,11 +1,15 @@
 import ExcelJS from "exceljs";
 import { Readable } from "node:stream";
 import type { buildCustomerInput } from "../api/seed-data.ts";
+import { createApartmentNumber } from "./apartment-fixture.utility.ts";
 import { APARTMENT_IMPORT } from "../constants/apartment-import.constant.ts";
 
 type TImportCustomer = ReturnType<typeof buildCustomerInput>;
 
-export const buildImportRow = (customer: TImportCustomer, apartment = "1"): string[] => [
+export const buildImportRow = (
+  customer: TImportCustomer,
+  apartment = createApartmentNumber(),
+): string[] => [
   "1",
   apartment,
   APARTMENT_IMPORT.OWNER,
