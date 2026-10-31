@@ -280,7 +280,7 @@ test("creation validates custom payment notes, persists an override and can retu
   });
   const second = await seedCustomer(api);
   await form.gotoCreate(building.id);
-  await form.fillUnit("25");
+  await form.fillUnit(scopedApartmentNumber("25"));
   await form.pickCustomer(second.name);
   await page.getByRole("button", { name: COPY.OVERRIDE, exact: true }).last().click();
   await page.getByRole("button", { name: COPY.RETURN_PARENT }).click();
