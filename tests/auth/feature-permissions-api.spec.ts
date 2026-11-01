@@ -165,6 +165,7 @@ test("employee content grant cannot create an account or change its role", async
 
 test("project update cannot smuggle stageId without the status grant", async ({ api }) => {
   const { project } = await seedTaskScenario(api);
+  const editedName = `${project.name} edited`;
   const stage = await api.findProjectStage(PROJECT_STATUS_NAMES.IN_PROGRESS);
   await withRolePermissions(
     ADMIN,
@@ -172,7 +173,7 @@ test("project update cannot smuggle stageId without the status grant", async ({ 
     async () => {
       expect(
         (
-          await api.send(HTTP_METHODS.PATCH, `/project/${project.id}`, { name: "Ordinary edit" })
+          await api.send(HTTP_METHODS.PATCH, `/project/${project.id}`, { name: editedName })
         ).status(),
       ).toBe(200);
       expect(
@@ -190,7 +191,7 @@ test("project update cannot smuggle stageId without the status grant", async ({ 
       ).toBe(403);
       expect(
         await (await api.send(HTTP_METHODS.GET, `/project/${project.id}`)).json(),
-      ).toMatchObject({ name: "Ordinary edit" });
+      ).toMatchObject({ name: editedName });
     },
   );
 });

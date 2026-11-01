@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { QUOTATION } from "../constants/quotation.constant.ts";
 import { createTestDatabaseClient } from "./test-database-client.ts";
 import type { ICatalogueFixture } from "../interfaces/quotation.interface.ts";
+import { QUOTATION, type QuotationStatusType } from "../constants/quotation.constant.ts";
 
 export const createCatalogueFixture = async (
   overrides: Partial<ICatalogueFixture> = {},
@@ -77,5 +77,25 @@ export const withQuotationRuleVersionChange = async <T>(
     } finally {
       await database.end();
     }
+  }
+};
+
+export const setQuotationCountFixture = async (id: string, status: QuotationStatusType) => {
+  const database = createTestDatabaseClient();
+  await database.connect();
+  try {
+    await database.query("UPDATE quotations SET status=$1 WHERE id=$2", [status, id]);
+  } finally {
+    await database.end();
+  }
+};
+
+export const softDeleteQuotationFixture = async (id: string) => {
+  const database = createTestDatabaseClient();
+  await database.connect();
+  try {
+    await database.query("UPDATE quotations SET deleted_at=NOW() WHERE id=$1", [id]);
+  } finally {
+    await database.end();
   }
 };
