@@ -41,3 +41,9 @@ test("published artifacts exclude disposable database and authentication state",
   assert.match(upload.with.path, /questionnaire-qa\/results\.json/);
   assert.doesNotMatch(upload.with.path, /database|auth|backend-runtime|\.env/);
 });
+
+test("runner context is evaluated only at supported step-level environment scope", () => {
+  assert.doesNotMatch(JSON.stringify(job.env), /runner\./);
+  const run = job.steps.find(step => step.name === "Run only questionnaire API and browser checks");
+  assert.equal(run.env.GEN_AIR_ARTIFACTS_DIR, "${{ runner.temp }}/questionnaire-qa");
+});

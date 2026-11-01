@@ -15,7 +15,7 @@ test.beforeAll(async () => {
 
 test("branded questionnaire accepts unauthenticated employee input and shows real persisted receipt", async ({
   page,
-}) => {
+}, testInfo) => {
   const input = submissionInput(state.questionnaireId);
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
@@ -25,6 +25,7 @@ test("branded questionnaire accepts unauthenticated employee input and shows rea
   await page.locator("#role").fill(input.role);
   await page.locator("#department").fill(input.department);
   await page.locator("#answer1").fill(input.answers[0].value);
+  await page.screenshot({ path: testInfo.outputPath("questionnaire-desktop.png"), fullPage: true });
   await page.locator("#send").click();
   await expect(page.locator("#status")).toContainText("אישור קבלה:");
   await expect(page.locator("#send")).toBeDisabled();
@@ -55,6 +56,7 @@ test("lost response followed by page reload retries without a second database su
   await page.locator("#send").click();
   await expect(page.locator("#status")).toContainText("לא התקבל אישור קבלה");
   await expect(page.locator("#answer1")).toBeDisabled();
+  page.once("dialog", dialog => dialog.accept());
   await page.reload();
   await expect(page.locator("#send")).toBeEnabled();
   await expect(page.locator("#answer1")).toHaveValue(input.answers[0].value);
@@ -63,7 +65,9 @@ test("lost response followed by page reload retries without a second database su
   expect(await readQuestionnaireSubmissions(input.fullName)).toHaveLength(1);
 });
 
-test("mobile questionnaire keeps all controls readable inside viewport", async ({ page }) => {
+test("mobile questionnaire keeps all controls readable inside viewport", async ({
+  page,
+}, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await expect(page.locator("#send")).toBeEnabled();
@@ -75,4 +79,5 @@ test("mobile questionnaire keeps all controls readable inside viewport", async (
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.width);
   await page.locator("#send").scrollIntoViewIfNeeded();
   await expect(page.locator("#send")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("questionnaire-mobile.png"), fullPage: true });
 });

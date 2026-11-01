@@ -33,7 +33,6 @@ jobs:
     env:
       BACKEND_REF: c6747457e12346a15f72be8ef651a3a7994d6374
       AUTOMATION_REF: ${{ github.event.pull_request.head.sha || github.sha }}
-      GEN_AIR_ARTIFACTS_DIR: ${{ runner.temp }}/questionnaire-qa
     steps:
       - name: Check out exact Automation candidate
         uses: actions/checkout@v4
@@ -90,6 +89,8 @@ jobs:
           node --test tests/workflows/questionnaire-qa.test.mjs
 
       - name: Run only questionnaire API and browser checks
+        env:
+          GEN_AIR_ARTIFACTS_DIR: ${{ runner.temp }}/questionnaire-qa
         working-directory: Gen-Air-Automation
         run: npx playwright test --config playwright.questionnaire.config.ts
 
