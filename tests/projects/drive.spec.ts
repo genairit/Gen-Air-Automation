@@ -140,9 +140,18 @@ for (const [kind, createScenario] of Object.entries(DRIVE_SCENARIOS)) {
       await expect(card).toHaveCount(1);
       await expect(card.getByText(DRIVE_COPY.SUBTITLE)).toBeVisible();
       await expect(card.getByText(DRIVE_COPY.FOLDER_HAS_FILES, { exact: true })).toBeVisible();
-      for (const color of ["#0F9D58", "#FFC107", "#4285F4"]) {
-        await expect(card.locator(`svg path[fill="${color}"]`)).toBeVisible();
-      }
+      await expect(projectPage.driveLogo).toHaveCount(1);
+      await expect(projectPage.driveLogo).toBeVisible();
+      await expect(projectPage.driveLogo).toHaveAttribute(
+        "src",
+        /\/gdrive(?:-[a-zA-Z0-9_-]+)?\.png(?:\?.*)?$/,
+      );
+      await expect(projectPage.driveLogo).toHaveJSProperty("complete", true);
+      await expect
+        .poll(() =>
+          projectPage.driveLogo.evaluate(image => (image as HTMLImageElement).naturalWidth),
+        )
+        .toBeGreaterThan(0);
       await expect(card.getByRole("link", { name: DRIVE_COPY.OPEN_FOLDER })).toHaveAttribute(
         "href",
         `https://drive.google.com/drive/folders/${ROOT_FOLDER_ID}`,
