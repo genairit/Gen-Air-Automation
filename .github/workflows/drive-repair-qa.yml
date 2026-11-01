@@ -26,8 +26,8 @@ jobs:
     timeout-minutes: 30
     env:
       BACKEND_REF: f4b7f90f5023841d4894be6328de9ea31faf8a84
-      FRONTEND_REF: 5d9ae59d2062fb11df2193da94319f56c555c912
-      AUTOMATION_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+      FRONTEND_REF: 813c066c87c263665b7c29005fadd152ec8201ec
+      AUTOMATION_REF: eb9543151e154381ef1dbdf3e901e1a0d4c644d8
     steps:
       - name: Check out exact Automation candidate
         uses: actions/checkout@v4
