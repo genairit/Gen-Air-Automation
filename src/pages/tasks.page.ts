@@ -128,7 +128,13 @@ export const createTaskFormPage = (page: Page) => {
   const openAssigneeOptions = async () => {
     await assigneePicker.click();
 
-    return page.getByRole("option");
+    const listboxId = await assigneePicker.getAttribute("aria-controls");
+
+    if (!listboxId) {
+      throw new Error("The assignee picker must identify its controlled listbox");
+    }
+
+    return page.locator(`[id=${JSON.stringify(listboxId)}]`).getByRole("option");
   };
 
   return {

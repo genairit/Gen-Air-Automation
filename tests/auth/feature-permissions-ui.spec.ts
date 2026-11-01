@@ -204,8 +204,9 @@ test("independent task grants keep content editable while assignment and urgency
       .toBe("QA content remains editable");
     const form = createTaskFormPage(page);
     await form.goto();
-    await form.assigneePicker.click();
-    await expect(page.getByRole("option")).toHaveCount(1);
+    const assigneeOptions = await form.openAssigneeOptions();
+    await expect(assigneeOptions).toHaveCount(1);
+    await expect(assigneeOptions).toHaveText(TASK_FORM_COPY.POOL_OPTION);
     await expect(page.getByText("דחיפות המשימה", { exact: true })).toHaveCount(0);
   });
 });
