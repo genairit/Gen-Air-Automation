@@ -4,6 +4,8 @@ export const APARTMENT_DESIGN_COPY = {
   CUSTOMER_REQUIRED: "בחר לקוח לדירה לפני השמירה",
   VALIDATION_COUNT: "יש 3 שדות לתיקון לפני ההוספה",
   CONTACT_TEAM: "אנשי קשר וצוות",
+  COMMERCIAL_TITLE: "נתוני הדירה",
+  INHERITED_TITLE: "נתונים מהפרויקט האב",
   END_CUSTOMER: "לקוח קצה — דירה זו",
   TEAM_TITLE: "צוות הדירה",
   INHERITED: "עובר מהבניין",

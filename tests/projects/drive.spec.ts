@@ -25,6 +25,7 @@ import { getAuthStatePath } from "../../src/utilities/auth-state.utility.ts";
 import { HTTP_STATUS, HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts";
 import { DRIVE_COPY, PROJECT_PAGE_COPY } from "../../src/constants/copy.constant.ts";
+import { APARTMENT_DESIGN_COPY } from "../../src/constants/apartment-design.constant.ts";
 
 const VALID_PDF = {
   name: "הצעת מחיר.pdf",
@@ -127,7 +128,7 @@ for (const [kind, createScenario] of Object.entries(DRIVE_SCENARIOS)) {
     { width: 1440, height: 1000 },
     { width: 390, height: 844 },
   ]) {
-    test(`${kind} Drive card follows the header at ${viewport.width}px with nested folders and safe links`, async ({
+    test(`${kind} Drive card follows the approved page sections at ${viewport.width}px with nested folders and safe links`, async ({
       page,
       api,
     }, testInfo) => {
@@ -163,9 +164,18 @@ for (const [kind, createScenario] of Object.entries(DRIVE_SCENARIOS)) {
       const placement = await card.evaluate(element => ({
         index: Array.from(element.parentElement?.children ?? []).indexOf(element),
         width: element.getBoundingClientRect().width,
-        headerWidth: element.previousElementSibling?.getBoundingClientRect().width ?? 0,
+        headerWidth: element.parentElement?.firstElementChild?.getBoundingClientRect().width ?? 0,
+        precedingSections: Array.from(element.parentElement?.children ?? [])
+          .slice(0, Array.from(element.parentElement?.children ?? []).indexOf(element))
+          .map(section => section.textContent ?? ""),
       }));
-      expect(placement.index).toBe(1);
+      expect(placement.index).toBe(kind === "apartment" ? 3 : 1);
+      if (kind === "apartment") {
+        expect(placement.precedingSections[1]).toContain(APARTMENT_DESIGN_COPY.END_CUSTOMER);
+        expect(placement.precedingSections[1]).toContain(APARTMENT_DESIGN_COPY.CONTACT_TEAM);
+        expect(placement.precedingSections[1]).toContain(APARTMENT_DESIGN_COPY.INHERITED_TITLE);
+        expect(placement.precedingSections[2]).toContain(APARTMENT_DESIGN_COPY.COMMERCIAL_TITLE);
+      }
       expect(Math.abs(placement.width - placement.headerWidth)).toBeLessThan(2);
       const fullFolder = projectPage.driveFolder(MOCK_DRIVE_FOLDERS.WITH_FILES.name);
       await expect(
