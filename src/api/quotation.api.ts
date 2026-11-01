@@ -1,6 +1,7 @@
 import type { TGenAirApi } from "./gen-air-api.ts";
 import type { APIResponse } from "@playwright/test";
 import { isRecord } from "../utilities/guard.utility.ts";
+import { HTTP_METHODS } from "../constants/http.constant.ts";
 import { QUOTATION } from "../constants/quotation.constant.ts";
 import type { IQuotationDocument, IQuotationWrite } from "../interfaces/quotation.interface.ts";
 
@@ -71,10 +72,15 @@ const isQuotationDocument = (value: unknown): value is IQuotationDocument =>
 
 export const catalogueIds = async (response: APIResponse): Promise<string[]> => {
   const value: unknown = await response.json();
-  if (!response.ok() || !Array.isArray(value))
+  if (!response.ok() || !Array.isArray(value)) {
     throw new Error(`Invalid catalogue ${response.status()}`);
+  }
+
   return value.map(item => {
-    if (!isRecord(item) || typeof item.id !== "string") throw new Error("Invalid catalogue item");
+    if (!isRecord(item) || typeof item.id !== "string") {
+      throw new Error("Invalid catalogue item");
+    }
+
     return item.id;
   });
 };
@@ -88,15 +94,19 @@ export const quotationPage = async (
     !Array.isArray(value.items) ||
     !value.items.every(isQuotationDocument) ||
     (value.nextCursor !== null && typeof value.nextCursor !== "string")
-  )
+  ) {
     throw new Error(`Invalid quotation page ${response.status()}`);
+  }
+
   return { items: value.items, nextCursor: value.nextCursor };
 };
 
 export const quotationDocument = async (response: APIResponse): Promise<IQuotationDocument> => {
   const value: unknown = await response.json();
-  if (!response.ok() || !isQuotationDocument(value))
+  if (!response.ok() || !isQuotationDocument(value)) {
     throw new Error(`Invalid quotation response ${response.status()}: ${JSON.stringify(value)}`);
+  }
+
   return value;
 };
 export const quotationWrite = (quote: IQuotationDocument): IQuotationWrite => ({
@@ -129,6 +139,6 @@ export const quotationWrite = (quote: IQuotationDocument): IQuotationWrite => ({
   })),
 });
 export const createQuotation = async (api: TGenAirApi, customerId: string) =>
-  quotationDocument(await api.send("POST", "/quotation", { customerId }));
+  quotationDocument(await api.send(HTTP_METHODS.POST, "/quotation", { customerId }));
 export const saveQuotation = async (api: TGenAirApi, id: string, input: IQuotationWrite) =>
-  quotationDocument(await api.send("PUT", `/quotation/${id}`, input));
+  quotationDocument(await api.send(HTTP_METHODS.PUT, `/quotation/${id}`, input));

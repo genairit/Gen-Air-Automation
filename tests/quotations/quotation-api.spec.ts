@@ -21,6 +21,8 @@ import {
 import { randomUUID } from "node:crypto";
 import { isRecord } from "../../src/utilities/guard.utility.ts";
 import { test, expect } from "../../src/fixtures/api.fixture.ts";
+import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
+import { PAYMENT_TERMS } from "../../src/constants/domain.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
@@ -47,10 +49,13 @@ const section = (catalogueItemId: string) => ({
 test("customer defaults are copied, notes empty, independent quotations retain identity and terms", async ({
   api,
 }) => {
-  const customer = await api.createCustomer({ ...buildCustomerInput(), paymentTerms: "prepaid" });
+  const customer = await api.createCustomer({
+    ...buildCustomerInput(),
+    paymentTerms: PAYMENT_TERMS.PREPAID,
+  });
   const first = await createQuotation(api, customer.id);
   const second = await createQuotation(api, customer.id);
-  expect(first.paymentTerms).toBe("prepaid");
+  expect(first.paymentTerms).toBe(PAYMENT_TERMS.PREPAID);
   expect(first.paymentTermsNote).toBe("");
   expect(first.projectId).toBeNull();
   expect(first.status).toBe(QUOTATION.STATUS.DRAFT);
@@ -63,7 +68,8 @@ test("customer defaults are copied, notes empty, independent quotations retain i
   expect(updated.id).toBe(first.id);
   expect(updated.paymentTermsNote).toBe("Quotation only");
   expect(
-    (await quotationDocument(await api.send("GET", `/quotation/${second.id}`))).paymentTermsNote,
+    (await quotationDocument(await api.send(HTTP_METHODS.GET, `/quotation/${second.id}`)))
+      .paymentTermsNote,
   ).toBe("");
 });
 
@@ -89,7 +95,7 @@ test("catalogue-backed repeated lines use server decimal half-up totals and zero
   });
   expect(zero.totals.pretax).toBe("0.00");
   expect(zero.totals.total).toBe("0.00");
-  const malformed = await api.send("PUT", `/quotation/${quote.id}`, {
+  const malformed = await api.send(HTTP_METHODS.PUT, `/quotation/${quote.id}`, {
     ...quotationWrite(zero),
     sections: [{ ...one, items: [{ ...one.items[0], catalogueItemId: randomUUID() }] }],
   });
@@ -109,21 +115,21 @@ test("archived catalogue stays readable but cannot become a new line; snapshots 
   });
   expect(
     (
-      await api.send("PATCH", `/catalogue-item/${item.id}`, {
+      await api.send(HTTP_METHODS.PATCH, `/catalogue-item/${item.id}`, {
         status: QUOTATION.CATALOGUE.ARCHIVED,
         description: "Changed catalogue",
         price: "99",
       })
     ).ok(),
   ).toBeTruthy();
-  expect((await api.send("GET", `/catalogue-item/${item.id}`)).ok()).toBeTruthy();
+  expect((await api.send(HTTP_METHODS.GET, `/catalogue-item/${item.id}`)).ok()).toBeTruthy();
   const retained = await saveQuotation(api, quote.id, quotationWrite(saved));
   expect(retained.sections[0]?.items[0]?.description).toBe("Independent quote description");
   expect(retained.sections[0]?.items[0]?.quotedPrice).toBe("10.0050");
   const other = await createQuotation(api, customer.id);
   expect(
     (
-      await api.send("PUT", `/quotation/${other.id}`, {
+      await api.send(HTTP_METHODS.PUT, `/quotation/${other.id}`, {
         ...quotationWrite(other),
         brand: QUOTATION.BRAND,
         sections: [section(item.id)],
@@ -138,11 +144,13 @@ test("optimistic versions permit only one concurrent writer", async ({ api }) =>
   const input = quotationWrite(quote);
   const results = await Promise.all(
     ["first", "second"].map(internalNotes =>
-      api.send("PUT", `/quotation/${quote.id}`, { ...input, internalNotes }),
+      api.send(HTTP_METHODS.PUT, `/quotation/${quote.id}`, { ...input, internalNotes }),
     ),
   );
   expect(results.map(result => result.status()).sort()).toEqual([200, 409]);
-  const current = await quotationDocument(await api.send("GET", `/quotation/${quote.id}`));
+  const current = await quotationDocument(
+    await api.send(HTTP_METHODS.GET, `/quotation/${quote.id}`),
+  );
   expect(current.version).toBe(quote.version + 1);
   expect(["first", "second"]).toContain(current.internalNotes);
 });
@@ -161,7 +169,7 @@ test("required warnings block approval, self approval works and reopening preser
     }),
   };
   currentState.value = await quotationDocument(
-    await api.send("POST", `/quotation/${quote.id}/review`, {
+    await api.send(HTTP_METHODS.POST, `/quotation/${quote.id}/review`, {
       version: currentState.value.version,
       status: QUOTATION.STATUS.REVIEW,
     }),
@@ -169,20 +177,20 @@ test("required warnings block approval, self approval works and reopening preser
   expect(currentState.value.warnings.length).toBeGreaterThan(0);
   expect(
     (
-      await api.send("POST", `/quotation/${quote.id}/review`, {
+      await api.send(HTTP_METHODS.POST, `/quotation/${quote.id}/review`, {
         version: currentState.value.version,
         status: QUOTATION.STATUS.APPROVED,
       })
     ).status(),
   ).toBe(409);
   currentState.value = await quotationDocument(
-    await api.send("POST", `/quotation/${quote.id}/warnings`, {
+    await api.send(HTTP_METHODS.POST, `/quotation/${quote.id}/warnings`, {
       version: currentState.value.version,
       warningKeys: currentState.value.warnings.map(warning => warning.key),
     }),
   );
   currentState.value = await quotationDocument(
-    await api.send("POST", `/quotation/${quote.id}/review`, {
+    await api.send(HTTP_METHODS.POST, `/quotation/${quote.id}/review`, {
       version: currentState.value.version,
       status: QUOTATION.STATUS.APPROVED,
     }),
@@ -191,11 +199,13 @@ test("required warnings block approval, self approval works and reopening preser
   expect(currentState.value.approvedById).toBe(api.session.user.id);
   const fingerprint = currentState.value.ruleConfigFingerprint;
   await withQuotationRuleVersionChange("zero_price", async () => {
-    const frozen = await quotationDocument(await api.send("GET", `/quotation/${quote.id}`));
+    const frozen = await quotationDocument(
+      await api.send(HTTP_METHODS.GET, `/quotation/${quote.id}`),
+    );
     expect(frozen.ruleConfigFingerprint).toBe(fingerprint);
   });
   currentState.value = await quotationDocument(
-    await api.send("POST", `/quotation/${quote.id}/review`, {
+    await api.send(HTTP_METHODS.POST, `/quotation/${quote.id}/review`, {
       version: currentState.value.version,
       status: QUOTATION.STATUS.DRAFT,
     }),
@@ -216,26 +226,28 @@ test("rule changes invalidate unapproved acknowledgement keys", async ({ api }) 
   const keys = saved.warnings.map(warning => warning.key);
   expect(keys.length).toBeGreaterThan(0);
   const acknowledged = await quotationDocument(
-    await api.send("POST", `/quotation/${quote.id}/warnings`, {
+    await api.send(HTTP_METHODS.POST, `/quotation/${quote.id}/warnings`, {
       version: saved.version,
       warningKeys: keys,
     }),
   );
   expect(acknowledged.warnings.every(warning => warning.acknowledged)).toBe(true);
   await withQuotationRuleVersionChange("payment_terms", async () => {
-    const refreshed = await quotationDocument(await api.send("GET", `/quotation/${quote.id}`));
+    const refreshed = await quotationDocument(
+      await api.send(HTTP_METHODS.GET, `/quotation/${quote.id}`),
+    );
     expect(refreshed.ruleConfigFingerprint).not.toBe(saved.ruleConfigFingerprint);
     expect(refreshed.warnings.map(warning => warning.key)).not.toEqual(keys);
     expect(refreshed.warnings.every(warning => !warning.acknowledged)).toBe(true);
     const page = await quotationPage(
-      await api.send("GET", `/quotation?search=${encodeURIComponent(saved.number)}`),
+      await api.send(HTTP_METHODS.GET, `/quotation?search=${encodeURIComponent(saved.number)}`),
     );
     expect(page.items.find(item => item.id === saved.id)?.ruleConfigFingerprint).toBe(
       refreshed.ruleConfigFingerprint,
     );
     expect(
       (
-        await api.send("POST", `/quotation/${quote.id}/warnings`, {
+        await api.send(HTTP_METHODS.POST, `/quotation/${quote.id}/warnings`, {
           version: refreshed.version,
           warningKeys: keys,
         })
@@ -251,13 +263,13 @@ test("engineering role reads quotation configuration but cannot create or mainta
   const engineer = await apiAs(TEST_USERS[USER_ROLES.ENGINEER]);
   const customer = await seedCustomer(api);
   const item = await createCatalogueFixture();
-  expect((await engineer.send("GET", QUOTATION.RULE_PATH)).ok()).toBeTruthy();
-  expect((await engineer.send("POST", QUOTATION.PATH, { customerId: customer.id })).status()).toBe(
-    403,
-  );
+  expect((await engineer.send(HTTP_METHODS.GET, QUOTATION.RULE_PATH)).ok()).toBeTruthy();
+  expect(
+    (await engineer.send(HTTP_METHODS.POST, QUOTATION.PATH, { customerId: customer.id })).status(),
+  ).toBe(403);
   expect(
     (
-      await engineer.send("PATCH", `/catalogue-item/${item.id}`, {
+      await engineer.send(HTTP_METHODS.PATCH, `/catalogue-item/${item.id}`, {
         status: QUOTATION.CATALOGUE.ARCHIVED,
       })
     ).status(),
@@ -270,16 +282,21 @@ test("duplicate SKUs are quarantined and concurrent explicit activation has one 
   const sku = `QA-duplicate-${randomUUID()}`;
   const first = await createCatalogueFixture({ sku, status: QUOTATION.CATALOGUE.CONFLICT });
   const second = await createCatalogueFixture({ sku, status: QUOTATION.CATALOGUE.CONFLICT });
-  const hidden = await api.send("GET", `/catalogue-item?search=${encodeURIComponent(sku)}`);
+  const hidden = await api.send(
+    HTTP_METHODS.GET,
+    `/catalogue-item?search=${encodeURIComponent(sku)}`,
+  );
   expect(await hidden.json()).toEqual([]);
   const responses = await Promise.all(
     [first, second].map(item =>
-      api.send("PATCH", `/catalogue-item/${item.id}`, { status: QUOTATION.CATALOGUE.ACTIVE }),
+      api.send(HTTP_METHODS.PATCH, `/catalogue-item/${item.id}`, {
+        status: QUOTATION.CATALOGUE.ACTIVE,
+      }),
     ),
   );
   expect(responses.map(response => response.status()).sort()).toEqual([200, 409]);
   const visible: unknown = await (
-    await api.send("GET", `/catalogue-item?search=${encodeURIComponent(sku)}`)
+    await api.send(HTTP_METHODS.GET, `/catalogue-item?search=${encodeURIComponent(sku)}`)
   ).json();
   expect(visible).toHaveLength(1);
 });
@@ -307,7 +324,7 @@ test("matching filters compatibility and capacity before personal history; uncha
   savedState.value = await saveQuotation(api, quote.id, quotationWrite(savedState.value));
   const search = async (actor: typeof api, suffix = "") => {
     const response = await actor.send(
-      "GET",
+      HTTP_METHODS.GET,
       `/catalogue-item?brand=${encodeURIComponent(QUOTATION.BRAND)}&systemType=SINGLE&search=${prefix}${suffix}`,
     );
     expect(response.ok()).toBeTruthy();
@@ -338,15 +355,19 @@ test("no-sell retained line emits a required warning and is unavailable for new 
   });
   expect(
     (
-      await api.send("PATCH", `/catalogue-item/${item.id}`, { status: QUOTATION.CATALOGUE.NO_SELL })
+      await api.send(HTTP_METHODS.PATCH, `/catalogue-item/${item.id}`, {
+        status: QUOTATION.CATALOGUE.NO_SELL,
+      })
     ).ok(),
   ).toBeTruthy();
-  const current = await quotationDocument(await api.send("GET", `/quotation/${quote.id}`));
+  const current = await quotationDocument(
+    await api.send(HTTP_METHODS.GET, `/quotation/${quote.id}`),
+  );
   expect(current.warnings.length).toBeGreaterThan(saved.warnings.length);
   const next = await createQuotation(api, customer.id);
   expect(
     (
-      await api.send("PUT", `/quotation/${next.id}`, {
+      await api.send(HTTP_METHODS.PUT, `/quotation/${next.id}`, {
         ...quotationWrite(next),
         brand: QUOTATION.BRAND,
         sections: [section(item.id)],
@@ -370,10 +391,12 @@ test("catalogue mismatch, duplicate identifiers, forged fields and malformed dec
     { ...input, sections: [{ ...input.sections[0], items: [{ ...line, quotedPrice: "1e2" }] }] },
     { ...input, brand: QUOTATION.OTHER_BRAND },
   ])
-    expect((await api.send("PUT", `/quotation/${quote.id}`, invalid)).status()).toBe(400);
-  expect((await quotationDocument(await api.send("GET", `/quotation/${quote.id}`))).version).toBe(
-    quote.version,
-  );
+    expect((await api.send(HTTP_METHODS.PUT, `/quotation/${quote.id}`, invalid)).status()).toBe(
+      400,
+    );
+  expect(
+    (await quotationDocument(await api.send(HTTP_METHODS.GET, `/quotation/${quote.id}`))).version,
+  ).toBe(quote.version);
 });
 
 test("VRF engineering checks remain required for headers, controls, missing sides, ratio and capacity", async ({
@@ -397,7 +420,7 @@ test("VRF engineering checks remain required for headers, controls, missing side
     value: await saveQuotation(api, quote.id, {
       ...quotationWrite(quote),
       brand: QUOTATION.BRAND,
-      paymentTerms: "other",
+      paymentTerms: PAYMENT_TERMS.OTHER,
       paymentTermsNote: "",
       paymentSchedule: [{ percent: "90", text: "First" }],
       sections: [
@@ -436,7 +459,7 @@ test("VRF engineering checks remain required for headers, controls, missing side
     capacityBtu: null,
   });
   inputState.value = quotationWrite(currentState.value);
-  inputState.value.paymentTerms = "prepaid";
+  inputState.value.paymentTerms = PAYMENT_TERMS.PREPAID;
   inputState.value.paymentSchedule = [{ percent: "100", text: "All" }];
   inputState.value.sections[0]!.items = [
     { ...indoorLine, requestedCapacityBtu: 24000 },
@@ -489,18 +512,18 @@ test("discovery supports cursor pagination, search, status and defensive query l
   const customer = await seedCustomer(api);
   const quote = await createQuotation(api, customer.id);
   const page = await api.send(
-    "GET",
+    HTTP_METHODS.GET,
     `/quotation?search=${encodeURIComponent(quote.number)}&batchSize=1&status=draft`,
   );
   expect(page.ok()).toBeTruthy();
   const body = await quotationPage(page);
   expect(body.items.map((item: { id: string }) => item.id)).toContain(quote.id);
-  const first = await quotationPage(await api.send("GET", "/quotation?batchSize=1"));
+  const first = await quotationPage(await api.send(HTTP_METHODS.GET, "/quotation?batchSize=1"));
   expect(first.items).toHaveLength(1);
   expect(first.nextCursor).toBeTruthy();
   const next = await quotationPage(
     await api.send(
-      "GET",
+      HTTP_METHODS.GET,
       `/quotation?batchSize=1&batchCursor=${encodeURIComponent(first.nextCursor ?? "")}`,
     ),
   );
@@ -511,7 +534,7 @@ test("discovery supports cursor pagination, search, status and defensive query l
     "/catalogue-item?capacityBtu=-1",
     "/catalogue-item?limit=9999",
   ])
-    expect((await api.send("GET", path)).status()).toBe(400);
+    expect((await api.send(HTTP_METHODS.GET, path)).status()).toBe(400);
 });
 
 test("optional project linkage enforces selected customer and preserves independent quote identity", async ({
@@ -529,7 +552,7 @@ test("optional project linkage enforces selected customer and preserves independ
   expect(linked.id).toBe(quote.id);
   expect(
     (
-      await api.send("PUT", `/quotation/${quote.id}`, {
+      await api.send(HTTP_METHODS.PUT, `/quotation/${quote.id}`, {
         ...quotationWrite(linked),
         customerId: other.id,
       })
@@ -551,13 +574,15 @@ test("live feature grants gate quotation read, update, approval and catalogue se
   const quote = await createQuotation(api, customer.id);
   const engineer = await apiAs(TEST_USERS[USER_ROLES.ENGINEER]);
   await withRolePermissions(USER_ROLES.ENGINEER, ["quotations.read"], async () => {
-    expect((await engineer.send("GET", `/quotation/${quote.id}`)).ok()).toBeTruthy();
+    expect((await engineer.send(HTTP_METHODS.GET, `/quotation/${quote.id}`)).ok()).toBeTruthy();
     expect(
-      (await engineer.send("PUT", `/quotation/${quote.id}`, quotationWrite(quote))).status(),
+      (
+        await engineer.send(HTTP_METHODS.PUT, `/quotation/${quote.id}`, quotationWrite(quote))
+      ).status(),
     ).toBe(403);
     expect(
       (
-        await engineer.send("POST", `/quotation/${quote.id}/review`, {
+        await engineer.send(HTTP_METHODS.POST, `/quotation/${quote.id}/review`, {
           version: quote.version,
           status: QUOTATION.STATUS.REVIEW,
         })
@@ -565,34 +590,41 @@ test("live feature grants gate quotation read, update, approval and catalogue se
     ).toBe(403);
     expect(
       (
-        await engineer.send("POST", `/quotation/${quote.id}/warnings`, {
+        await engineer.send(HTTP_METHODS.POST, `/quotation/${quote.id}/warnings`, {
           version: quote.version,
           warningKeys: [],
         })
       ).status(),
     ).toBe(403);
-    expect((await engineer.send("GET", "/catalogue-item/maintenance")).status()).toBe(403);
+    expect((await engineer.send(HTTP_METHODS.GET, "/catalogue-item/maintenance")).status()).toBe(
+      403,
+    );
     await withRolePermissions(USER_ROLES.ENGINEER, [], async () => {
-      expect((await engineer.send("GET", `/quotation/${quote.id}`)).status()).toBe(403);
-      expect((await engineer.send("GET", QUOTATION.RULE_PATH)).status()).toBe(403);
+      expect((await engineer.send(HTTP_METHODS.GET, `/quotation/${quote.id}`)).status()).toBe(403);
+      expect((await engineer.send(HTTP_METHODS.GET, QUOTATION.RULE_PATH)).status()).toBe(403);
     });
-    expect((await engineer.send("GET", `/quotation/${quote.id}`)).ok()).toBeTruthy();
+    expect((await engineer.send(HTTP_METHODS.GET, `/quotation/${quote.id}`)).ok()).toBeTruthy();
   });
 });
 
 test("all five source duplicate SKU groups are imported into quarantine", async ({ api }) => {
   for (const sku of QUOTATION_DUPLICATE_SKUS) {
     const visible = await catalogueIds(
-      await api.send("GET", `${QUOTATION.CATALOGUE_PATH}?search=${encodeURIComponent(sku)}`),
+      await api.send(
+        HTTP_METHODS.GET,
+        `${QUOTATION.CATALOGUE_PATH}?search=${encodeURIComponent(sku)}`,
+      ),
     );
     const response = await api.send(
-      "GET",
+      HTTP_METHODS.GET,
       `${QUOTATION.CATALOGUE_PATH}/maintenance?search=${encodeURIComponent(sku)}`,
     );
     const value: unknown = await response.json();
     expect(response.ok()).toBeTruthy();
-    if (!isRecord(value) || !Array.isArray(value.items))
+    if (!isRecord(value) || !Array.isArray(value.items)) {
       throw new Error("Invalid maintenance page");
+    }
+
     const items = value.items.filter((item: unknown) => isRecord(item) && item.sku === sku);
     expect(items).toHaveLength(2);
     expect(
