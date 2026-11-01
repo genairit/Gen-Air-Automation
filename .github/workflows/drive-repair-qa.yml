@@ -1,0 +1,107 @@
+name: Drive repair targeted QA
+
+on:
+  pull_request:
+    branches: [dev]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: drive-repair-qa-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repair:
+    name: Drive regression checks
+    if: >-
+      github.repository == 'genairit/Gen-Air-Automation' &&
+      ((github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.head.ref == 'fix-drive-release-budget') ||
+       (github.event_name == 'workflow_dispatch' && github.ref_name == 'fix-drive-release-budget'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      BACKEND_REF: f4b7f90f5023841d4894be6328de9ea31faf8a84
+      FRONTEND_REF: 8e666506b0774fcb76f878069ea95ec59f3a1965
+      AUTOMATION_REF: 2ba81d7ec7ac7571836c72921b961deb5d0ef774
+    steps:
+      - name: Check out exact Automation candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.AUTOMATION_REF }}
+          path: Gen-Air-Automation
+          persist-credentials: false
+
+      - name: Check out exact backend
+        uses: actions/checkout@v4
+        with:
+          repository: genairit/Gen-Air-Backend
+          ref: ${{ env.BACKEND_REF }}
+          path: Gen-Air-Backend
+          persist-credentials: false
+
+      - name: Check out exact frontend repair candidate
+        uses: actions/checkout@v4
+        with:
+          repository: genairit/Gen-Air-Frontend
+          ref: ${{ env.FRONTEND_REF }}
+          path: Gen-Air-Frontend
+          persist-credentials: false
+
+      - name: Record immutable tested revisions
+        shell: bash
+        run: |
+          test "$(git -C Gen-Air-Frontend rev-parse HEAD)" = "$FRONTEND_REF"
+          test "$(git -C Gen-Air-Backend rev-parse HEAD)" = "$BACKEND_REF"
+          test "$(git -C Gen-Air-Automation rev-parse HEAD)" = "$AUTOMATION_REF"
+          printf '### Drive repair targeted QA\nBackend: `%s`\n\nFrontend: `%s`\n\nAutomation: `%s`\n\nScope: Drive regression file plus auth setup; disposable database only.\n' "$BACKEND_REF" "$FRONTEND_REF" "$AUTOMATION_REF" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            Gen-Air-Automation/package-lock.json
+            Gen-Air-Backend/package-lock.json
+            Gen-Air-Frontend/package-lock.json
+
+      - name: Install locked dependencies
+        run: |
+          npm ci --prefix Gen-Air-Backend
+          npm ci --prefix Gen-Air-Frontend
+          npm ci --prefix Gen-Air-Automation
+
+      - name: Install supported Playwright Chromium
+        working-directory: Gen-Air-Automation
+        run: npx playwright install --with-deps chromium
+
+      - name: Typecheck Automation and verify targeted workflow contract
+        working-directory: Gen-Air-Automation
+        run: |
+          npm run typecheck
+          node --test tests/workflows/drive-repair-qa.test.mjs
+
+      - name: Run only affected regression files
+        env:
+          GEN_AIR_ARTIFACTS_DIR: ${{ runner.temp }}/drive-repair-qa
+        working-directory: Gen-Air-Automation
+        timeout-minutes: 22
+        run: >-
+          npx playwright test
+          tests/projects/drive.spec.ts
+          --retries=0 --global-timeout=1200000
+
+      - name: Upload focused regression evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: drive-repair-qa-${{ env.AUTOMATION_REF }}
+          path: |
+            ${{ runner.temp }}/drive-repair-qa/html
+            ${{ runner.temp }}/drive-repair-qa/test-results
+            ${{ runner.temp }}/drive-repair-qa/results.json
+          retention-days: 7
