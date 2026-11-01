@@ -26,7 +26,7 @@ jobs:
     timeout-minutes: 30
     env:
       BACKEND_REF: f4b7f90f5023841d4894be6328de9ea31faf8a84
-      FRONTEND_REF: 203f2030c063cb1b7033264aaaf189c9903d8246
+      FRONTEND_REF: b06fcf18f22a50492eab658a4957a3c3ff0b6461
       AUTOMATION_REF: 3a360795e338c0c205033af1a00361f4c8966a4b
     steps:
       - name: Check out exact Automation candidate
