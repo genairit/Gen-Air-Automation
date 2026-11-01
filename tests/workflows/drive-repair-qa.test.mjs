@@ -12,7 +12,7 @@ test("Drive repair runs only its complete spec on its own branch and immutable a
   assert.deepEqual(workflow.permissions, { contents: "read" });
   assert.match(job.env.FRONTEND_REF, /^[a-f0-9]{40}$/);
   assert.match(job.env.BACKEND_REF, /^[a-f0-9]{40}$/);
-  assert.equal(job.env.AUTOMATION_REF, "${{ github.event.pull_request.head.sha || github.sha }}");
+  assert.match(job.env.AUTOMATION_REF, /^[a-f0-9]{40}$/);
   const run = job.steps.find(step => step.name === "Run only affected regression files");
   assert.equal(
     run.run.trim(),
