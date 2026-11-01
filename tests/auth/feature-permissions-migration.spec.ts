@@ -1,6 +1,7 @@
 import {
   PERMISSION_VALUES,
   PERMISSION_MIGRATION,
+  INITIAL_PERMISSION_VALUES,
 } from "../../src/constants/permission.constant.ts";
 
 import { join } from "node:path";
@@ -9,6 +10,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { test, expect } from "../../src/fixtures/api.fixture.ts";
 import { USER_ROLE_VALUES } from "../../src/constants/user-role.constant.ts";
 import { APP_DIRECTORIES } from "../../src/constants/environment.constant.ts";
+import { compareMigrationFiles } from "../../src/utilities/migration-order.utility.ts";
 import { createTestDatabaseClient } from "../../src/environment/test-database-client.ts";
 
 const DIRECTORY = join(APP_DIRECTORIES.BACKEND, "migrations");
@@ -23,8 +25,10 @@ test("feature migration preserves existing data and enforces grants, keys and pr
   await database.connect();
   try {
     const files = (await readdir(DIRECTORY))
-      .filter(file => file.endsWith(".sql") && file < PERMISSION_MIGRATION)
-      .sort();
+      .filter(
+        file => file.endsWith(".sql") && compareMigrationFiles(file, PERMISSION_MIGRATION) < 0,
+      )
+      .sort(compareMigrationFiles);
     for (const file of files) {
       await database.query(await readMigration(file));
     }
@@ -43,7 +47,7 @@ test("feature migration preserves existing data and enforces grants, keys and pr
       (await database.query("SELECT row_to_json(projects) AS project FROM projects")).rows,
     ).toEqual(projects.rows);
     const keys = await database.query<{ key: string }>("SELECT key FROM permissions ORDER BY key");
-    expect(keys.rows.map(row => row.key)).toEqual([...PERMISSION_VALUES].sort());
+    expect(keys.rows.map(row => row.key)).toEqual([...INITIAL_PERMISSION_VALUES].sort());
     const roles = await database.query<{ role: string }>(
       "SELECT DISTINCT role::text AS role FROM role_permissions ORDER BY role::text",
     );

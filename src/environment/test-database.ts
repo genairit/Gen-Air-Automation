@@ -11,6 +11,7 @@ import EmbeddedPostgres from "embedded-postgres";
 import { readdir, readFile, rm } from "node:fs/promises";
 import { hashPassword } from "../utilities/password.utility.ts";
 import { TEST_USERS } from "../constants/test-users.constant.ts";
+import { compareMigrationFiles } from "../utilities/migration-order.utility.ts";
 
 const MIGRATIONS_DIRECTORY = join(APP_DIRECTORIES.BACKEND, "migrations");
 
@@ -36,7 +37,7 @@ const createServer = () =>
 const listMigrationFiles = async () => {
   const fileNames = await readdir(MIGRATIONS_DIRECTORY);
 
-  return fileNames.filter(fileName => fileName.endsWith(SQL_EXTENSION)).sort();
+  return fileNames.filter(fileName => fileName.endsWith(SQL_EXTENSION)).sort(compareMigrationFiles);
 };
 
 const applyMigrations = async (client: pg.Client) => {
