@@ -1,6 +1,6 @@
 import {
   quotationBox,
-  expectSameQuotationRow,
+  expectQuotationDeleteFooter,
   expectQuotationWithinViewport,
 } from "../../src/utilities/quotation-layout.utility.ts";
 
@@ -36,11 +36,13 @@ for (const status of Object.values(QUOTATION.STATUS)) {
     await expect(remove).toBeEnabled();
     expect((await quotationBox(remove)).height).toBe(44);
     await expect(remove).toHaveCSS("background-color", "rgb(245, 245, 247)");
-    await expectSameQuotationRow([
-      remove.locator(".."),
-      page.getByText("סה״כ כולל מע״מ", { exact: true }).locator("../.."),
-      page.getByRole("heading", { name: "בדיקה ואישור", exact: true }).locator(".."),
-    ]);
+    for (const width of [1440, 1100]) {
+      await page.setViewportSize({ width, height: 1100 });
+      const footer = await expectQuotationDeleteFooter(page, remove);
+      await footer.screenshot({
+        path: testInfo.outputPath(`delete-${status}-${width}-footer.png`),
+      });
+    }
     await remove.click();
     const confirm = quote.button("אישור מחיקת ההצעה");
     await expect(
@@ -57,6 +59,18 @@ for (const status of Object.values(QUOTATION.STATUS)) {
     ).toBe(quotation.version);
     await page.setViewportSize({ width: 390, height: 1100 });
     await expectQuotationWithinViewport(page, [remove]);
+    const mobileAction = await quotationBox(remove);
+    const mobileCard = await quotationBox(remove.locator(".."));
+    const mobileReview = await quotationBox(
+      page.getByRole("heading", { name: "בדיקה ואישור", exact: true }).locator(".."),
+    );
+    expect(Math.abs(mobileAction.width - (mobileCard.width - 40))).toBeLessThanOrEqual(1);
+    expect(mobileCard.y).toBeGreaterThanOrEqual(mobileReview.y + mobileReview.height + 23);
+    await remove.scrollIntoViewIfNeeded();
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await remove.locator("..").screenshot({
+      path: testInfo.outputPath(`delete-${status}-390-footer.png`),
+    });
     await remove.click();
     await expectQuotationWithinViewport(page, [confirm, quote.button("ביטול")]);
     await confirm.scrollIntoViewIfNeeded();
