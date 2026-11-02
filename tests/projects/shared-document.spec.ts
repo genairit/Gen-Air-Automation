@@ -1,4 +1,5 @@
 import type { Page, Route } from "@playwright/test";
+import { isRecord } from "../../src/utilities/guard.utility.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { createProjectPage } from "../../src/pages/project.page.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
@@ -30,6 +31,9 @@ const sharedPath = (projectId: string) =>
   `**${API_PROXY_PREFIX}${API_PATHS.PROJECT_DRIVE}/${projectId}/shared-document`;
 const contentsPath = (projectId: string) =>
   `**${API_PROXY_PREFIX}${API_PATHS.PROJECT_DRIVE}/${projectId}/contents**`;
+
+const isSharedSelection = (value: unknown): value is { fileId: string | null } =>
+  isRecord(value) && (value.fileId === null || typeof value.fileId === "string");
 
 const mockParentContents = async (page: Page, projectId: string) => {
   await page.route(contentsPath(projectId), route => {
@@ -80,15 +84,12 @@ const mockSelection = async (page: Page, parentId: string, apartmentIds: string[
   };
   for (const projectId of [parentId, ...apartmentIds]) {
     await page.route(sharedPath(projectId), route => {
-      if (route.request().method() !== "PATCH") return answer(route);
+      if (route.request().method() !== HTTP_METHODS.PATCH) {
+        return answer(route);
+      }
+
       const body: unknown = route.request().postDataJSON();
-      if (
-        projectId !== parentId ||
-        !body ||
-        typeof body !== "object" ||
-        !("fileId" in body) ||
-        (body.fileId !== null && typeof body.fileId !== "string")
-      ) {
+      if (projectId !== parentId || !isSharedSelection(body)) {
         return route.fulfill({ status: 400, json: { message: "Invalid selection" } });
       }
       mutations.push({ projectId, fileId: body.fileId });
