@@ -33,6 +33,10 @@ test("quotation list keeps dense six-column rows and inline toolbar while tab co
   await expect(row).toContainText("טיוטה");
   await expect(row).toContainText(/₪[\d,]+\.\d{2}/);
   await expect(row).toContainText(/לפני|עכשיו/);
+  expect(
+    (await quotationBox(page.getByRole("button", { name: "הצעה חדשה", exact: true }))).height,
+  ).toBe(52);
+  expect((await quotationBox(page.getByLabel(SEARCH, { exact: true }))).height).toBe(56);
   const box = await quotationBox(row);
   expect(box.height).toBeLessThanOrEqual(90);
   const cells = row.locator(":scope > *");
@@ -101,6 +105,10 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
     quote.field,
   );
   const boxes = await expectSameQuotationRow(metadata);
+  for (const box of boxes) {
+    expect(box.height).toBe(52);
+  }
+  await expect(page.locator("details")).toHaveCount(0);
   for (const [index, box] of boxes.entries()) {
     if (index > 0) {
       expect(box.x + box.width).toBeLessThanOrEqual(boxes[index - 1]!.x);
@@ -108,6 +116,9 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
   }
   const backBox = await quotationBox(back);
   expect(backBox.y).toBeLessThan(boxes[0]!.y);
+  expect((await quotationBox(quote.button("+ סינגלים"))).height).toBe(34);
+  await expect(quote.button("+ סינגלים")).toHaveCSS("background-color", "rgb(245, 245, 247)");
+  expect((await quotationBox(quote.button("מחיקת מערכת").first())).height).toBe(34);
   await expect(quote.field("כותרת מערכת / קומה")).toHaveCount(2);
   await expect(quote.field("כותרת מערכת / קומה").nth(0)).toHaveValue("קומה 3");
   await expect(quote.field("כותרת מערכת / קומה").nth(1)).toHaveValue("חדר עבודה");
@@ -123,6 +134,13 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
     quote.field(quantityLabel).first(),
     quote.field("מחיר ליחידה").first(),
   ]);
+  await expect(page.getByText("מחיר ליחידה (בהצעה)", { exact: true })).toHaveCount(5);
+  await expect(page.getByText("מטרים", { exact: true })).toBeVisible();
+  await expect(page.getByText("פריט", { exact: true })).toHaveCount(2);
+  const numericCaption = page.getByText("כמות", { exact: true }).first();
+  expect((await quotationBox(numericCaption)).y).toBeGreaterThan(
+    (await quotationBox(quote.field(quantityLabel).first())).y,
+  );
   const quantity = await quotationBox(quote.field(quantityLabel).first());
   expect(quantity.height).toBeLessThanOrEqual(42);
   await expect(quote.field("בקר עבור יחידה")).toHaveCount(2);
@@ -186,6 +204,7 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
     parentItemId: parent.id,
     quantity: parent.quantity,
   });
+  expect((await quotationBox(quote.field("חיפוש פריט בקטלוג").first())).height).toBe(44);
   await quote.field("חיפוש פריט בקטלוג").first().focus();
   await expect(page.getByRole("button").filter({ hasText: "E-SMD-63" })).toBeVisible();
   await quote.field("חיפוש פריט בקטלוג").first().fill("E-SMD-63");
@@ -194,6 +213,7 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
   await expect(page.getByRole("button").filter({ hasText: "E-SMD-63" })).toHaveCount(0);
   await quote.transition("סיימתי, לבדיקה");
   await expect(page.getByRole("heading", { name: "סיכום לבדיקה", exact: true })).toBeVisible();
+  expect((await quotationBox(quote.button("אישור ההצעה"))).height).toBe(52);
   const groups = page.getByRole("columnheader").filter({ hasText: /קומה 3|חדר עבודה/ });
   await expect(groups).toHaveCount(2);
   await expect(
@@ -202,6 +222,25 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
   await expect(
     page.getByRole("table").getByRole("cell", { name: "AC123", exact: true }),
   ).toBeVisible();
+  const warning = page
+    .getByText("חריג — מאושר במפורש", { exact: true })
+    .locator("..")
+    .locator("..")
+    .first();
+  expect((await quotationBox(warning)).y).toBeLessThan(
+    (await quotationBox(page.getByRole("table"))).y,
+  );
+  const warningCheckbox = warning.getByRole("checkbox");
+  const warningText = warning.locator("span").first();
+  const checkboxBox = await quotationBox(warningCheckbox);
+  expect(checkboxBox.x + checkboxBox.width).toBeLessThanOrEqual(
+    (await quotationBox(warningText)).x,
+  );
+  await expect(page.getByRole("progressbar", { name: "התקדמות בדיקת הצעה" })).toHaveCount(1);
+  const summaryCard = page
+    .getByRole("heading", { name: "בדיקה ואישור", exact: true })
+    .locator("..");
+  await expect(summaryCard.getByRole("checkbox")).toHaveCount(0);
   await captureQuotationScreenshot(page, testInfo.outputPath("quotation-review-desktop-1440.png"));
   await page.setViewportSize({ width: 390, height: 1100 });
   await expectQuotationWithinViewport(page, [
@@ -209,6 +248,10 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
     quote.button("עריכה"),
     quote.button("אישור ההצעה"),
   ]);
+  const mobileCheckboxBox = await quotationBox(warningCheckbox);
+  expect(mobileCheckboxBox.x + mobileCheckboxBox.width).toBeLessThanOrEqual(
+    (await quotationBox(warningText)).x,
+  );
   await captureQuotationScreenshot(page, testInfo.outputPath("quotation-review-mobile-390.png"));
   expect(errors).toEqual([]);
 });

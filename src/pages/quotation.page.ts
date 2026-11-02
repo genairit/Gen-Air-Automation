@@ -25,6 +25,11 @@ export const createQuotationPage = (page: Page) => {
     saved(() => field(name).nth(index).fill(value));
   const select = (name: string, value: string, index = 0) =>
     saved(() => field(name).nth(index).selectOption(value));
+  const chooseEntity = async (name: string, label: string) => {
+    await field(name).fill(label);
+    await page.getByRole("option", { name: label, exact: true }).click();
+  };
+  const selectEntity = (name: string, label: string) => saved(() => chooseEntity(name, label));
   const add = async (sku: string, index = 0) => {
     await field("חיפוש פריט בקטלוג").nth(index).fill(sku);
     await saved(() => page.getByRole("button").filter({ hasText: sku }).click());
@@ -62,6 +67,8 @@ export const createQuotationPage = (page: Page) => {
     saved,
     fill,
     select,
+    chooseEntity,
+    selectEntity,
     add,
     amount,
     transition,
