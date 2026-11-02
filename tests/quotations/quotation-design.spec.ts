@@ -230,6 +230,12 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
   expect((await quotationBox(warning)).y).toBeLessThan(
     (await quotationBox(page.getByRole("table"))).y,
   );
+  const warningCheckbox = warning.getByRole("checkbox");
+  const warningText = warning.locator("span").first();
+  const checkboxBox = await quotationBox(warningCheckbox);
+  expect(checkboxBox.x + checkboxBox.width).toBeLessThanOrEqual(
+    (await quotationBox(warningText)).x,
+  );
   await expect(page.getByRole("progressbar", { name: "התקדמות בדיקת הצעה" })).toHaveCount(1);
   const summaryCard = page
     .getByRole("heading", { name: "בדיקה ואישור", exact: true })
@@ -242,6 +248,10 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
     quote.button("עריכה"),
     quote.button("אישור ההצעה"),
   ]);
+  const mobileCheckboxBox = await quotationBox(warningCheckbox);
+  expect(mobileCheckboxBox.x + mobileCheckboxBox.width).toBeLessThanOrEqual(
+    (await quotationBox(warningText)).x,
+  );
   await captureQuotationScreenshot(page, testInfo.outputPath("quotation-review-mobile-390.png"));
   expect(errors).toEqual([]);
 });
