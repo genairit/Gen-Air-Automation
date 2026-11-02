@@ -14,6 +14,7 @@ const MISMATCHED_CONFIRMATION = `${NEW_PASSWORD}x`;
 
 const STATUSES_IN_ORDER = new RegExp(
   [
+    PROJECT_STATUS_NAMES.DRAFT,
     PROJECT_STATUS_NAMES.PENDING,
     PROJECT_STATUS_NAMES.IN_PROGRESS,
     PROJECT_STATUS_NAMES.ON_HOLD,
@@ -21,7 +22,7 @@ const STATUSES_IN_ORDER = new RegExp(
   ].join(".*"),
 );
 
-test("the project statuses card lists the four fixed statuses in order", async ({ page }) => {
+test("the project statuses card lists the five fixed statuses in order", async ({ page }) => {
   const settingsPage = createSettingsPage(page);
 
   await settingsPage.goto();

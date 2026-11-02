@@ -300,3 +300,29 @@ test("test → main cannot prepare, run or publish backend compatibility", async
   assert.equal(harness.statuses.length, 0);
   assert.deepEqual(harness.outputs, {});
 });
+
+test("full gate has a bounded suite budget and retains evidence on failure", () => {
+  const job = readWorkflow("../../.github/workflows/e2e.yml").jobs.playwright;
+  const suite = job.steps.find(step => step.id === "suite");
+  assert.equal(job["timeout-minutes"], 45);
+  assert.equal(suite["timeout-minutes"], 41);
+  assert.equal(suite.run, "npx playwright test --global-timeout=2400000");
+  assert.ok(suite["timeout-minutes"] < job["timeout-minutes"]);
+  const upload = job.steps.find(step => step.uses?.startsWith("actions/upload-artifact@"));
+  assert.equal(upload.if, "${{ always() }}");
+  const freshness = job.steps.find(
+    step => step.name === "Verify backend freshness and publish result",
+  );
+  assert.equal(freshness.env.SUITE_OUTCOME, "${{ steps.suite.outcome }}");
+});
+
+test("cancelled or timed-out suite never publishes compatibility success", async () => {
+  for (const outcome of ["cancelled", "timed_out", "failure"]) {
+    const harness = createHarness();
+    process.env.TESTED_BACKEND_REF = harness.backend.sha;
+    process.env.SUITE_OUTCOME = outcome;
+    await finish(harness);
+    assert.equal(harness.statuses.at(-1).state, "failure");
+    assert.ok(harness.errors.length > 0);
+  }
+});

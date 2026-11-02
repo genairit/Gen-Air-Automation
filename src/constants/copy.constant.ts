@@ -54,7 +54,7 @@ export const CUSTOMER_FORM_COPY = {
   SUMMARY: "מה יישמר",
   REQUIRED: "שדה חובה",
   IDENTITY: "זהות הלקוח",
-  CONTACT: "איש קשר ראשי",
+  CONTACT: "איש קשר ראשון",
   CONFLICT_STATUS: "הפעולה מתנגשת בנתונים קיימים",
   DUPLICATE_TAX_ID: "לקוח עם מספר מזהה זה כבר קיים",
   FIELDS: {
@@ -63,7 +63,7 @@ export const CUSTOMER_FORM_COPY = {
     ADDRESS: "כתובת",
     NAME: "שם הלקוח",
     TAX_ID: "ח.פ / ת.פ / ת.ז",
-    CONTACT_NAME: "איש קשר ראשי",
+    CONTACT_NAME: "איש קשר ראשון",
   },
 } as const;
 
@@ -215,10 +215,11 @@ export const TASK_COPY = {
 } as const;
 
 export const TASK_FORM_COPY = {
+  POOL_OPTION: "מאגר פתוח — כל מהנדס יכול למשוך",
   SAVE: "שמור משימה",
   DUE_DATE: "תאריך יעד",
   ASSIGNEE_PLACEHOLDER: "בחר...",
-  TITLE_PLACEHOLDER: "לדוגמה: הכנת הצעת מחיר ליחידות VRF",
+  TITLE_PLACEHOLDER: "לדוגמה: תיאום ביקור באתר",
   DESCRIPTION_PLACEHOLDER: SHARED_COPY.TASK_DESCRIPTION_PLACEHOLDER,
 } as const;
 

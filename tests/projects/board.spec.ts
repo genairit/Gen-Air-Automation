@@ -22,15 +22,15 @@ const { defaultBrowserType: _browserType, ...PHONE } = devices["Pixel 7"];
 
 test("a new project is counted under its status and found by search", async ({ page, api }) => {
   const boardPage = createBoardPage(page);
-  const pendingTab = boardPage.statusTab(PROJECT_STATUS_NAMES.PENDING);
+  const draftTab = boardPage.statusTab(PROJECT_STATUS_NAMES.DRAFT);
   const project = await seedStandaloneProject(api, await seedCustomer(api));
-  const pendingCount = await api.countProjectsInStage(PROJECT_STATUS_NAMES.PENDING);
+  const draftCount = await api.countProjectsInStage(PROJECT_STATUS_NAMES.DRAFT);
 
   await boardPage.goto();
 
-  await expect.poll(() => readTabCount(pendingTab)).toBe(pendingCount);
+  await expect.poll(() => readTabCount(draftTab)).toBe(draftCount);
 
-  await pendingTab.click();
+  await draftTab.click();
   await boardPage.searchBox.fill(project.name);
 
   await expect(boardPage.findRow(project.name)).toBeVisible();

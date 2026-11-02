@@ -11,11 +11,11 @@ import { buildApartmentRoute } from "../../src/utilities/route.utility.ts";
 import { PROJECT_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
 import { readTabCount, expectTabSelected } from "../../src/pages/tab.component.ts";
 import { seedBuilding, seedCustomer, seedApartment } from "../../src/api/seed-data.ts";
+import { createApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { createApartmentPage, createApartmentFormPage } from "../../src/pages/apartment.page.ts";
 
 const NEW_APARTMENT = {
   floor: "4",
-  number: "17",
 } as const;
 
 const APARTMENT_NOTE = "הדייר זמין רק בבוקר";
@@ -30,16 +30,15 @@ test("add an apartment to a building and see it listed and counted", async ({ pa
   await projectPage.goto(building.id);
   await projectPage.addApartmentButton.click();
   const customer = await seedCustomer(api);
-  await formPage.fill({ ...NEW_APARTMENT, customerName: customer.name });
+  const number = createApartmentNumber();
+  await formPage.fill({ ...NEW_APARTMENT, number, customerName: customer.name });
   await formPage.submitButton.click();
 
   await expect(page).toHaveURL(new RegExp(`/projects/${building.id}$`));
 
-  await expect(
-    projectPage.findApartmentRow(formatApartmentName(NEW_APARTMENT.number)),
-  ).toBeVisible();
+  await expect(projectPage.findApartmentRow(formatApartmentName(number))).toBeVisible();
   await expect
-    .poll(() => readTabCount(projectPage.statusTab(PROJECT_STATUS_NAMES.PENDING)))
+    .poll(() => readTabCount(projectPage.statusTab(PROJECT_STATUS_NAMES.DRAFT)))
     .toBe(SINGLE_APARTMENT_COUNT);
 });
 
@@ -74,7 +73,7 @@ test("change an apartment stage independently of its building", async ({ page, a
   await expect
     .poll(() => readTabCount(projectPage.statusTab(PROJECT_STATUS_NAMES.IN_PROGRESS)))
     .toBe(SINGLE_APARTMENT_COUNT);
-  await expect(page.getByText(formatStageLabel(PROJECT_STATUS_NAMES.PENDING))).toBeVisible();
+  await expect(page.getByText(formatStageLabel(PROJECT_STATUS_NAMES.DRAFT))).toBeVisible();
 });
 
 test("save notes on an apartment", async ({ page, api }) => {

@@ -11,15 +11,10 @@ import { USER_ROLE_LABELS, type ProjectMemberRoleType } from "../constants/user-
 export interface IProjectFormInput {
   name: string;
   place: IFakePlace;
-  contactName: string;
-  contactRole: string;
-  contactPhone: string;
   customerName: string;
   projectTypeName: string;
   paymentTermsLabel: string;
 }
-
-type TContactInput = Pick<IProjectFormInput, "contactName" | "contactRole" | "contactPhone">;
 
 export const createProjectFormPage = (page: Page) => {
   const form = findMainContent(page);
@@ -70,19 +65,10 @@ export const createProjectFormPage = (page: Page) => {
     await form.getByRole("option").filter({ hasText: customerName }).click();
   };
 
-  const fillContact = async (input: TContactInput) => {
-    await form.getByPlaceholder(PROJECT_FORM_COPY.CONTACT_NAME_PLACEHOLDER).fill(input.contactName);
-    await form
-      .getByPlaceholder(PROJECT_FORM_COPY.CONTACT_PHONE_PLACEHOLDER)
-      .fill(input.contactPhone);
-    await form.getByRole("button", { name: input.contactRole, exact: true }).click();
-  };
-
   const fill = async (input: IProjectFormInput) => {
     await nameInput.fill(input.name);
     await chooseProjectType(input.projectTypeName);
     await chooseAddress(input.place);
-    await fillContact(input);
     await chooseCustomer(input.customerName);
     await form.getByRole("radio", { name: input.paymentTermsLabel }).check();
   };

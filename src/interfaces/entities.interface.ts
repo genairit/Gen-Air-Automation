@@ -1,3 +1,5 @@
+import type { TaskType, TaskStatusType } from "../constants/domain.constant.ts";
+
 export interface IEntityReference {
   id: string;
 }
@@ -19,6 +21,10 @@ export interface ITaskProject extends ITaskParentProject {
 }
 
 export interface ITaskRecord extends ITask {
+  isUrgent: boolean;
+  taskType: TaskType;
+  status: TaskStatusType;
+  dueDate: string | null;
   projectId: string | null;
   assigneeId: string | null;
   customerId: string | null;
@@ -67,8 +73,8 @@ export interface ICustomerRecord extends ICustomer {
 }
 
 export interface ISession {
-  user: IUser;
   accessToken: string;
+  user: IAuthorizedUser;
 }
 
 export interface IProjectStage extends IEntityReference {
@@ -83,4 +89,20 @@ export interface IStageCounts {
 
 export interface ITaskCounts {
   byStatus: TCountsByKey;
+}
+
+export interface IAuthorizedUser extends IUser {
+  role: string;
+  permissions: string[];
+}
+
+export interface IDetailedTaskPage {
+  items: ITaskRecord[];
+}
+export interface ITaskTransition {
+  toStatus: string;
+  fromStatus: string | null;
+}
+export interface IProjectRecord extends IProject {
+  stage: IProjectStage;
 }
