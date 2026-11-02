@@ -9,10 +9,12 @@ const buildCountedTabName = (label: string) =>
   new RegExp(`^${escapeRegex(label)} ${TAB_COUNT_SUFFIX}`);
 
 export const findTab = (scope: Page | Locator, name: string): Locator =>
-  scope.getByRole("tab", { name, exact: true });
+  scope.getByRole("button", { name, exact: true });
 
 export const findCountedTab = (scope: Page | Locator, label: string): Locator =>
-  scope.getByRole("tab", { name: buildCountedTabName(label) });
+  scope
+    .getByRole("button", { name: buildCountedTabName(label) })
+    .or(scope.getByRole("tab", { name: buildCountedTabName(label) }));
 
 export const readTabCount = async (tab: Locator): Promise<number> => {
   const label = (await tab.textContent())?.trim() ?? "";
@@ -22,4 +24,4 @@ export const readTabCount = async (tab: Locator): Promise<number> => {
 };
 
 export const expectTabSelected = (tab: Locator): Promise<void> =>
-  expect(tab).toHaveAttribute("aria-selected", "true");
+  expect(tab).toHaveAttribute("aria-pressed", "true");

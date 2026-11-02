@@ -218,7 +218,6 @@ export const TASK_FORM_COPY = {
   POOL_OPTION: "מאגר פתוח — כל מהנדס יכול למשוך",
   SAVE: "שמור משימה",
   DUE_DATE: "תאריך יעד",
-  ASSIGNEE_PLACEHOLDER: "בחר...",
   TITLE_PLACEHOLDER: "לדוגמה: תיאום ביקור באתר",
   DESCRIPTION_PLACEHOLDER: SHARED_COPY.TASK_DESCRIPTION_PLACEHOLDER,
 } as const;

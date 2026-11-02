@@ -14,6 +14,7 @@ export const API_PATHS = {
   PROJECT: "/project",
   LOGIN: "/auth/login",
   CUSTOMER: "/customer",
+  QUOTATION: "/quotation",
   TASK_COUNTS: "/task/counts",
   PROJECT_TYPE: "/project-type",
   PROJECT_MEMBERS: "/project-member/by-project",
