@@ -4,6 +4,6 @@ export const LOCAL_STORAGE_KEYS = {
 } as const;
 
 export const PROJECT_DRAFT_VERSIONS = {
-  CURRENT: 2,
+  CURRENT: 3,
   LEGACY: 1,
 } as const;

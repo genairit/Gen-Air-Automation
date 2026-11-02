@@ -7,6 +7,8 @@ const AUTOMATION_ROOT = resolve(import.meta.dirname, "../..");
 const REPOSITORIES_ROOT = resolve(AUTOMATION_ROOT, "..");
 
 export const IS_CI = process.env.CI === "true";
+export const IS_SPRINT_ALMON_CLEANUP_ENABLED =
+  process.env.GEN_AIR_TEST_SPRINT_ALMON_CLEANUP === "true";
 
 export const APP_DIRECTORIES = {
   BACKEND: process.env.GEN_AIR_BACKEND_DIR ?? resolve(REPOSITORIES_ROOT, "Gen-Air-Backend"),

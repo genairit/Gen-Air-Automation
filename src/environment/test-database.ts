@@ -3,6 +3,7 @@ import {
   TEST_DATABASE,
   APP_DIRECTORIES,
   AUTOMATION_DIRECTORIES,
+  IS_SPRINT_ALMON_CLEANUP_ENABLED,
 } from "../constants/environment.constant.ts";
 
 import type pg from "pg";
@@ -11,6 +12,7 @@ import EmbeddedPostgres from "embedded-postgres";
 import { readdir, readFile, rm } from "node:fs/promises";
 import { hashPassword } from "../utilities/password.utility.ts";
 import { TEST_USERS } from "../constants/test-users.constant.ts";
+import { readReviewedPaymentTermsCleanup } from "./payment-terms-cleanup.ts";
 import { compareMigrationFiles } from "../utilities/migration-order.utility.ts";
 
 const MIGRATIONS_DIRECTORY = join(APP_DIRECTORIES.BACKEND, "migrations");
@@ -70,6 +72,11 @@ const prepareSchema = async (server: EmbeddedPostgres) => {
 
   try {
     await applyMigrations(client);
+
+    if (IS_SPRINT_ALMON_CLEANUP_ENABLED) {
+      await client.query(await readReviewedPaymentTermsCleanup());
+    }
+
     await seedTestUsers(client);
   } finally {
     await client.end();

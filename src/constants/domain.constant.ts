@@ -22,12 +22,9 @@ export const CUSTOMER_LIST_PAGING = {
 export const PAYMENT_TERMS = {
   OTHER: "other",
   PREPAID: "prepaid",
+  INSTALLMENTS_10_60_30: "installments_10_60_30",
   TWELVE_PREPAID_CHECKS: "twelve_prepaid_checks",
   MILESTONES_NET_60: "milestones_net_60",
-} as const;
-
-export const PAYMENT_TERMS_LABELS = {
-  MILESTONES_NET_60: "לפי אבני דרך (שוטף + 60)",
 } as const;
 
 export const CONTACT_ROLES = {

@@ -52,6 +52,13 @@ never depend on each other. Google Drive is left unconfigured on the backend, wh
 "Drive unavailable" banner is tested; folder, file and upload flows mock the Drive endpoints in the
 browser (`src/mocks/drive.mock.ts`).
 
+For card100's reviewed sprint cleanup, explicitly set
+`GEN_AIR_TEST_SPRINT_ALMON_CLEANUP=true`. Only the embedded disposable database startup
+uses this opt-in; it enables the reviewed `sprint-almon/after_deploy.sql` drops and commit.
+The migration's SHA-256 is pinned, so changed SQL requires renewed review. Nested sprint
+migrations are never discovered or enabled automatically. See
+[payment ownership coverage](docs/payment-term-ownership.md) for the targeted commands.
+
 ## Merge gate
 
 The frontend calls `.github/workflows/e2e.yml` at an immutable Automation commit. The workflow has

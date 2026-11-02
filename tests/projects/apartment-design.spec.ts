@@ -12,6 +12,12 @@ import {
 } from "../../src/environment/apartment-legacy-data.ts";
 
 import {
+  PAYMENT_DEFAULT_COPY,
+  PAYMENT_DEFAULT_PATTERNS,
+  RETIRED_PROJECT_PAYMENT_FIELDS,
+} from "../../src/constants/payment-default.constant.ts";
+
+import {
   APARTMENT_DESIGN_COPY as COPY,
   APARTMENT_DESIGN_DATA as DATA,
 } from "../../src/constants/apartment-design.constant.ts";
@@ -26,15 +32,17 @@ import { buildTaskRoute } from "../../src/utilities/route.utility.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { buildProjectPath } from "../../src/utilities/api-path.utility.ts";
+import { buildApartmentsPath } from "../../src/utilities/api-path.utility.ts";
+import { CUSTOMER_SYNC_STATUSES } from "../../src/constants/domain.constant.ts";
 import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
 import { API_PATHS, API_PROXY_PREFIX } from "../../src/constants/api.constant.ts";
 import { expectResponseOk } from "../../src/utilities/response-assertion.utility.ts";
 import { createApartmentDesignPage } from "../../src/pages/apartment-design.page.ts";
 import { LEGACY_APARTMENT } from "../../src/constants/apartment-backend.constant.ts";
 import type { IProject, ICustomer } from "../../src/interfaces/entities.interface.ts";
+import { expectFieldsAbsent } from "../../src/utilities/response-assertion.utility.ts";
 import { scopedApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { buildApartmentRoute, buildProjectRoute } from "../../src/utilities/route.utility.ts";
-import { CUSTOMER_SYNC_STATUSES, PAYMENT_TERMS } from "../../src/constants/domain.constant.ts";
 
 const readProject = async (api: TGenAirApi, id: string): Promise<Record<string, unknown>> => {
   const response = await api.send(HTTP_METHODS.GET, buildProjectPath(id));
@@ -257,39 +265,37 @@ test("creation adds an apartment-only team member and persists its assignment", 
   });
 });
 
-test("creation validates custom payment notes, persists an override and can return to parent terms", async ({
+test("apartment creation and detail omit payment controls, displays and parent inheritance", async ({
   page,
   api,
 }) => {
   const { building, customer } = await scenario(api);
   const form = createApartmentDesignPage(page);
   await form.gotoCreate(building.id);
+  await expect(page.getByText(PAYMENT_DEFAULT_PATTERNS.SECTION)).toHaveCount(0);
+  await expect(page.getByPlaceholder(PAYMENT_DEFAULT_COPY.RETIRED_PLACEHOLDER)).toHaveCount(0);
   await form.fillUnit(scopedApartmentNumber(DATA.NUMBER));
   await form.pickCustomer(customer.name);
-  await page.getByRole("button", { name: COPY.OVERRIDE, exact: true }).last().click();
-  await page.getByPlaceholder("בחר תנאי תשלום…").click();
-  await page.getByRole("option", { name: COPY.TERMS_OTHER, exact: true }).click();
-  await form.submit.click();
-  await expect(page.getByText(COPY.REQUIRED_TERMS_NOTE, { exact: true })).toBeVisible();
-  await page.getByRole("textbox").last().fill(DATA.NOTE);
-  await form.submit.click();
-  await expect(page).toHaveURL(new RegExp(`${buildProjectRoute(building.id)}$`));
-  expect(await findCreated(api, building, customer)).toMatchObject({
-    paymentTerms: PAYMENT_TERMS.OTHER,
-    paymentTermsNote: DATA.NOTE,
-  });
-  const second = await seedCustomer(api);
-  await form.gotoCreate(building.id);
-  await form.fillUnit(scopedApartmentNumber("25"));
-  await form.pickCustomer(second.name);
-  await page.getByRole("button", { name: COPY.OVERRIDE, exact: true }).last().click();
-  await page.getByRole("button", { name: COPY.RETURN_PARENT }).click();
+  const creation = page.waitForRequest(
+    request =>
+      request.method() === HTTP_METHODS.POST &&
+      request.url().endsWith(buildApartmentsPath(building.id)),
+  );
   await form.submit.click();
   await expect(page).toHaveURL(new RegExp(`${buildProjectRoute(building.id)}$`));
-  expect(await findCreated(api, building, second)).toMatchObject({
-    paymentTerms: PAYMENT_TERMS.MILESTONES_NET_60,
-    paymentTermsNote: null,
-  });
+  const created = await findCreated(api, building, customer);
+  const payload: unknown = (await creation).postDataJSON();
+  expectFieldsAbsent(payload, RETIRED_PROJECT_PAYMENT_FIELDS);
+  expectFieldsAbsent(created, RETIRED_PROJECT_PAYMENT_FIELDS);
+  if (typeof created.id !== "string") {
+    throw new Error("Created apartment id missing");
+  }
+
+  await page.goto(buildApartmentRoute(building.id, created.id));
+  await expect(page.getByText(customer.name, { exact: true })).toBeVisible();
+  await expect(page.getByText(PAYMENT_DEFAULT_PATTERNS.SECTION)).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByText(PAYMENT_DEFAULT_PATTERNS.SECTION)).toHaveCount(0);
 });
 
 test("detail shows linked customer, named parent customer, callable contact and preserved design cards", async ({

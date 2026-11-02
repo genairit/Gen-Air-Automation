@@ -13,7 +13,6 @@ export interface IProjectFormInput {
   place: IFakePlace;
   customerName: string;
   projectTypeName: string;
-  paymentTermsLabel: string;
 }
 
 export const createProjectFormPage = (page: Page) => {
@@ -70,7 +69,6 @@ export const createProjectFormPage = (page: Page) => {
     await chooseProjectType(input.projectTypeName);
     await chooseAddress(input.place);
     await chooseCustomer(input.customerName);
-    await form.getByRole("radio", { name: input.paymentTermsLabel }).check();
   };
 
   return {
