@@ -18,6 +18,8 @@ const BACKEND_ENTRY = join(APP_DIRECTORIES.BACKEND, "dist", "main.js");
 const RUNTIME_DIRECTORY = join(AUTOMATION_DIRECTORIES.DATABASE, "backend-runtime");
 
 const RATE_LIMIT_MULTIPLIER = "1000";
+const EMAIL_QA_ENABLED = process.env.GEN_AIR_EMAIL_QA === "true";
+const DRIVE_PRELOAD = join(import.meta.dirname, "fake-drive-preload.mjs");
 
 const buildBackendEnvironment = () => ({
   ...process.env,
@@ -31,6 +33,19 @@ const buildBackendEnvironment = () => ({
   GOOGLE_PLACES_BASE_URL: URLS.FAKE_PLACES,
   GOOGLE_PLACES_API_KEY: TEST_SECRETS.PLACES_API_KEY,
   RATE_LIMIT_MAX_REQUESTS_MULTIPLIER: RATE_LIMIT_MULTIPLIER,
+  GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON: "",
+  GOOGLE_DRIVE_ROOT_FOLDER_ID: EMAIL_QA_ENABLED ? "qa-drive-root" : "",
+  EMAIL_DELIVERY_MODE: EMAIL_QA_ENABLED ? "allowlist" : "disabled",
+  EMAIL_ALLOWED_RECIPIENTS: EMAIL_QA_ENABLED
+    ? "qa-architect@example.test,qa-other@example.test,qa-rejected@example.test"
+    : "",
+  SMTP_HOST: EMAIL_QA_ENABLED ? "127.0.0.1" : "",
+  SMTP_PORT: EMAIL_QA_ENABLED ? String(PORTS.SMTP) : "",
+  SMTP_FROM: EMAIL_QA_ENABLED ? "qa-sender@example.test" : "",
+  SMTP_USER: "",
+  SMTP_PASSWORD: "",
+  NODE_OPTIONS: EMAIL_QA_ENABLED ? `--import=${DRIVE_PRELOAD}` : "",
+  GEN_AIR_EMAIL_QA_FAIL_LOGO_MARKER: join(AUTOMATION_DIRECTORIES.MAIL, "fail-logo"),
 });
 
 export const buildBackend = () => {
