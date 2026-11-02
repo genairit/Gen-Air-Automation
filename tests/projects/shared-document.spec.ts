@@ -58,7 +58,12 @@ const mockParentContents = async (page: Page, projectId: string) => {
 };
 
 const mockSelection = async (page: Page, parentId: string, apartmentIds: string[]) => {
-  const state = { selected: null as string | null, unavailable: false, noAccess: false };
+  const state = {
+    selected: null as string | null,
+    renamed: null as string | null,
+    unavailable: false,
+    noAccess: false,
+  };
   const mutations: { projectId: string; fileId: string | null }[] = [];
   const answer = (route: Route) => {
     if (state.noAccess) {
@@ -76,7 +81,7 @@ const mockSelection = async (page: Page, parentId: string, apartmentIds: string[
         status: "available",
         file: {
           id: file.id,
-          name: file.name,
+          name: state.renamed ?? file.name,
           url: `https://drive.google.com/open?id=${file.id}`,
         },
       },
@@ -132,6 +137,15 @@ test("one nested parent selection reaches two apartments, replacement and cleari
     await expect(page.getByText(FILES[0].name, { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: COPY.select })).toHaveCount(0);
   }
+
+  mock.state.renamed = "תוכנית קומה - שם חדש.pdf";
+  await page.reload();
+  await expect(page.getByText(mock.state.renamed, { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: COPY.open })).toHaveAttribute(
+    "href",
+    `https://drive.google.com/open?id=${FILES[0].id}`,
+  );
+  mock.state.renamed = null;
 
   await createProjectPage(page).goto(parent.id);
   await page.getByRole("button", { name: /תוכניות/ }).click();
