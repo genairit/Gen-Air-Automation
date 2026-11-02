@@ -88,6 +88,10 @@ test("failed delete keeps confirmation open, reload resolves actual stale versio
 }) => {
   const { quotation } = await seedQuotationForDeletion(api, QUOTATION.STATUS.DRAFT);
   const quote = createQuotationPage(page);
+  const diagnostics: Promise<unknown[]>[] = [];
+  page.on("console", message => {
+    diagnostics.push(Promise.all(message.args().map(argument => argument.jsonValue())));
+  });
   await quote.goto(quotation.id);
   await quote.button("מחיקת ההצעה").click();
   await saveQuotation(api, quotation.id, {
@@ -101,6 +105,11 @@ test("failed delete keeps confirmation open, reload resolves actual stale versio
   expect((await conflict).status()).toBe(409);
   await expect(page).toHaveURL(new RegExp(`/quotations/${quotation.id}$`));
   await expect(page.getByRole("alert")).toBeVisible();
+  const logged = JSON.stringify(await Promise.all(diagnostics));
+  expect(logged).toContain("Failed to delete quotation");
+  expect(logged).not.toContain("Bearer ");
+  expect(logged).not.toContain("Authorization");
+  expect(logged).not.toMatch(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/);
   await expect(quote.button("אישור מחיקת ההצעה")).toBeEnabled();
   await quote.button("טעינת גרסה מעודכנת").click();
   await expect(page.getByRole("alert")).toHaveCount(0);
