@@ -5,7 +5,11 @@ import {
 } from "../constants/seed.constant.ts";
 
 import {
-  CONTACT_ROLES,
+  insertLegacyCustomerTask,
+  linkTaskCustomerBypassingApi,
+} from "../environment/legacy-data.ts";
+
+import {
   PAYMENT_TERMS,
   CUSTOMER_TYPES,
   PROJECT_TYPE_NAMES,
@@ -17,18 +21,17 @@ import {
   createMobilePhone,
   createUniqueEmail,
   createCompanyNumber,
-  createSequenceNumber,
 } from "../utilities/test-data.utility.ts";
 
 import type { TGenAirApi } from "./gen-air-api.ts";
 import { FAKE_PLACES } from "../constants/fake-places.constant.ts";
 import { TEST_PASSWORD } from "../constants/test-users.constant.ts";
 import type { UserRoleType } from "../constants/user-role.constant.ts";
-import { linkTaskCustomerBypassingApi } from "../environment/legacy-data.ts";
+import { createApartmentNumber } from "../utilities/apartment-fixture.utility.ts";
 import { recreateLegacyApartment } from "../environment/apartment-legacy-data.ts";
 import type { ITask, IUser, IProject, ICustomer } from "../interfaces/entities.interface.ts";
 
-export type TTaskLinkInput = { projectId: string } | { customerId: string };
+export type TTaskLinkInput = { projectId: string };
 
 type TOwnedProjectSeeder = (api: TGenAirApi, owner: ICustomer) => Promise<IProject>;
 
@@ -114,12 +117,9 @@ export const seedCustomers = async (api: TGenAirApi, count: number): Promise<ICu
 export const buildProjectInput = (options: IProjectInputOptions) => ({
   members: options.members ?? [],
   projectTypeId: options.projectTypeId,
-  contactPhone: createMobilePhone(),
   customerId: options.customer.id,
   addressPlaceId: FAKE_PLACES[0].placeId,
-  contactRole: CONTACT_ROLES.PROJECT_MANAGER,
   paymentTerms: PAYMENT_TERMS.MILESTONES_NET_60,
-  contactName: SEED_VALUES.PROJECT_CONTACT_NAME,
   name: createUniqueName(SEED_NAME_PREFIXES.PROJECT),
 });
 
@@ -153,7 +153,7 @@ export const seedApartment = async (api: TGenAirApi, building: IProject): Promis
   return api.createApartment(building.id, {
     customerId: customer.id,
     customerFloor: SEED_VALUES.APARTMENT_FLOOR,
-    customerApartment: String(createSequenceNumber()),
+    customerApartment: createApartmentNumber(),
   });
 };
 
@@ -167,10 +167,6 @@ export const seedLegacyApartment = async (
 };
 
 export const linkToProject = (project: IProject): TTaskLinkInput => ({ projectId: project.id });
-
-export const linkToCustomer = (customer: ICustomer): TTaskLinkInput => ({
-  customerId: customer.id,
-});
 
 export const buildUnlinkedTaskInput = (assigneeId: string | null = null) => ({
   assigneeId,
@@ -216,4 +212,19 @@ export const seedTaskScenario = async (
   const task = await seedTask(api, { link, ...(assigneeId && { assigneeId }) });
 
   return { task, project, customer };
+};
+
+export const seedLegacyCustomerTask = async (
+  api: TGenAirApi,
+  customer: ICustomer,
+  assigneeId: string | null = null,
+): Promise<ITask> => {
+  const title = createUniqueName(SEED_NAME_PREFIXES.TASK);
+  const id = await insertLegacyCustomerTask({
+    title,
+    customerId: customer.id,
+    createdById: api.session.user.id,
+    assigneeId,
+  });
+  return { id, title };
 };

@@ -28,6 +28,7 @@ export const createProjectPage = (page: Page) => {
 
   return {
     driveCard,
+    driveLogo: driveCard.locator('img[src*="/gdrive"][aria-hidden="true"]'),
     timeline,
     editButton,
     uploadInput,

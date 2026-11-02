@@ -1,10 +1,4 @@
 import {
-  CONTACT_ROLES,
-  PROJECT_TYPE_NAMES,
-  PAYMENT_TERMS_LABELS,
-} from "../../src/constants/domain.constant.ts";
-
-import {
   RETIRED_ROLES,
   NON_MEMBER_ROLES,
   USER_ROLE_LABELS,
@@ -18,13 +12,14 @@ import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { escapeRegex } from "../../src/utilities/regex.utility.ts";
 import { formatFullName } from "../../src/utilities/user.utility.ts";
 import { FAKE_PLACES } from "../../src/constants/fake-places.constant.ts";
+import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { ROUTE_PATTERNS } from "../../src/constants/route-patterns.constant.ts";
 import { PROJECT_DRAFT_VERSIONS } from "../../src/constants/storage.constant.ts";
 import { buildProjectDraftKey } from "../../src/utilities/auth-state.utility.ts";
 import { seedUser, seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts";
-import { createUniqueName, createMobilePhone } from "../../src/utilities/test-data.utility.ts";
 import { buildEditProjectRoute, readLastPathSegment } from "../../src/utilities/route.utility.ts";
+import { PROJECT_TYPE_NAMES, PAYMENT_TERMS_LABELS } from "../../src/constants/domain.constant.ts";
 
 const PROJECT_NAME_PREFIXES = {
   NEW: "פרויקט חדש",
@@ -33,8 +28,6 @@ const PROJECT_NAME_PREFIXES = {
   TEAM: "פרויקט עם צוות",
   DRAFT: "טיוטת פרויקט",
 } as const;
-
-const NEW_PROJECT_CONTACT_NAME = "יוסי לוי";
 
 test("create a project with a verified address and see it on the board", async ({ page, api }) => {
   const customer = await seedCustomer(api);
@@ -48,9 +41,6 @@ test("create a project with a verified address and see it on the board", async (
     name: projectName,
     place: FAKE_PLACES[1],
     customerName: customer.name,
-    contactPhone: createMobilePhone(),
-    contactName: NEW_PROJECT_CONTACT_NAME,
-    contactRole: CONTACT_ROLES.ENGINEER,
     projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL,
     paymentTermsLabel: PAYMENT_TERMS_LABELS.MILESTONES_NET_60,
   });
@@ -156,9 +146,6 @@ test("create a project with every member slot filled and see the team on the edi
     name: projectName,
     place: FAKE_PLACES[1],
     customerName: customer.name,
-    contactPhone: createMobilePhone(),
-    contactName: NEW_PROJECT_CONTACT_NAME,
-    contactRole: CONTACT_ROLES.ENGINEER,
     projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL,
     paymentTermsLabel: PAYMENT_TERMS_LABELS.MILESTONES_NET_60,
   });

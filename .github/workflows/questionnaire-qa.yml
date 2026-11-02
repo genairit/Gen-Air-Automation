@@ -1,0 +1,106 @@
+name: Questionnaire targeted QA
+
+on:
+  pull_request:
+    branches: [dev]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - ".github/workflows/questionnaire-qa.yml"
+      - "playwright.questionnaire*.config.ts"
+      - "src/constants/questionnaire.constant.ts"
+      - "src/environment/questionnaire-fixture.ts"
+      - "tests/questionnaire/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: questionnaire-qa-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  questionnaire:
+    name: Questionnaire API and browser
+    if: >-
+      github.repository == 'genairit/Gen-Air-Automation' &&
+      ((github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.head.ref == 'questionnaire-persistence-qa') ||
+       (github.event_name == 'workflow_dispatch' && github.ref_name == 'questionnaire-persistence-qa'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      BACKEND_REF: c6747457e12346a15f72be8ef651a3a7994d6374
+      AUTOMATION_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Check out exact Automation candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.AUTOMATION_REF }}
+          path: Gen-Air-Automation
+          persist-credentials: false
+
+      - name: Check out exact backend and independent questionnaire client
+        uses: actions/checkout@v4
+        with:
+          repository: genairit/Gen-Air-Backend
+          ref: ${{ env.BACKEND_REF }}
+          path: Gen-Air-Backend
+          persist-credentials: false
+
+      - name: Record immutable tested revisions
+        shell: bash
+        run: |
+          test "$(git -C Gen-Air-Backend rev-parse HEAD)" = "$BACKEND_REF"
+          test "$(git -C Gen-Air-Automation rev-parse HEAD)" = "$AUTOMATION_REF"
+          printf '### Questionnaire targeted QA\nBackend/client: `%s`\n\nAutomation: `%s`\n\nScope: five API/database and three browser tests; disposable database only.\n' "$BACKEND_REF" "$AUTOMATION_REF" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            Gen-Air-Automation/package-lock.json
+            Gen-Air-Backend/package-lock.json
+
+      - name: Install locked dependencies
+        run: |
+          npm ci --prefix Gen-Air-Backend
+          npm ci --prefix Gen-Air-Automation
+
+      - name: Supply isolated embedded PostgreSQL runtime dependency
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/questionnaire-pg-libs"
+          curl --fail --location --retry 2 --max-time 120 https://archive.ubuntu.com/ubuntu/pool/main/i/icu/libicu60_60.2-3ubuntu3.2_amd64.deb -o "$RUNNER_TEMP/questionnaire-pg-libs/libicu60.deb"
+          printf 'f01f61f57e63dc905e02e6441d10370fe0c79e43e70e6f5fe24b342fd2633209  %s\n' "$RUNNER_TEMP/questionnaire-pg-libs/libicu60.deb" | sha256sum --check --strict
+          dpkg-deb --extract "$RUNNER_TEMP/questionnaire-pg-libs/libicu60.deb" "$RUNNER_TEMP/questionnaire-pg-libs"
+          printf 'LD_LIBRARY_PATH=%s\n' "$RUNNER_TEMP/questionnaire-pg-libs/usr/lib/x86_64-linux-gnu" >> "$GITHUB_ENV"
+
+      - name: Install supported Playwright Chromium
+        working-directory: Gen-Air-Automation
+        run: npx playwright install --with-deps chromium
+
+      - name: Typecheck Automation and verify targeted workflow contract
+        working-directory: Gen-Air-Automation
+        run: |
+          npm run typecheck
+          node --test tests/workflows/questionnaire-qa.test.mjs
+
+      - name: Run only questionnaire API and browser checks
+        env:
+          GEN_AIR_ARTIFACTS_DIR: ${{ runner.temp }}/questionnaire-qa
+        working-directory: Gen-Air-Automation
+        run: npx playwright test --config playwright.questionnaire.config.ts
+
+      - name: Upload questionnaire-only evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: questionnaire-qa-${{ env.AUTOMATION_REF }}
+          path: |
+            ${{ runner.temp }}/questionnaire-qa/html
+            ${{ runner.temp }}/questionnaire-qa/test-results
+            ${{ runner.temp }}/questionnaire-qa/results.json
+          retention-days: 7

@@ -100,28 +100,30 @@ tests/            one folder per area of the app
 
 ## Coverage
 
-| Area            | Spec                                        | Flows                                                                                                |
-| --------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Auth            | `tests/auth/login.spec.ts`                  | login, invalid login, disabled submit, session guard, logout                                         |
-| Roles           | `tests/auth/role-access.spec.ts`            | what each of the six roles sees and can use, denied project, task and customer routes                |
-| Role API        | `tests/auth/role-api-permissions.spec.ts`   | every role against every guarded project, customer and task action (2xx or 403)                      |
-| Role rules      | `tests/auth/role-contract.spec.ts`          | six roles, retired `lead_installer`, member-slot roles, engineer-only task assignees                 |
-| Role migration  | `tests/auth/role-migration.spec.ts`         | new roles, `lead_installer` rename, system-admin member slots removed                                |
-| Board           | `tests/projects/board.spec.ts`              | status counts, search, buildings without apartments, status change, mobile                           |
-| Projects        | `tests/projects/project-form.spec.ts`       | create with verified address, validation, edit, delete, four member slots, drafts                    |
-| Project drafts  | `tests/projects/project-form-draft.spec.ts` | pending address verification, draft restore/privacy/discard, success cleanup, edit isolation         |
-| Project page    | `tests/projects/project-page.spec.ts`       | standalone and building views, edit entry, not found                                                 |
-| Priority fields | `tests/projects/priority-fields.spec.ts`    | renamed API fields, preserved sync date and nullable unsynced caption                                |
-| Migration       | `tests/projects/priority-migration.spec.ts` | populated/null preservation, staged read compatibility, final types and column cleanup               |
-| Apartments      | `tests/projects/apartments.spec.ts`         | add, details, independent stage, notes, next apartment, open from building                           |
-| Drive           | `tests/projects/drive.spec.ts`              | unavailable banner, folder status and files, upload, blocked file                                    |
-| Tasks           | `tests/tasks/tasks.spec.ts`                 | create, validation, engineer-only pickers, counts, status, urgency, reassign, claim, legacy assignee |
-| Task links      | `tests/tasks/task-link.spec.ts`             | customer or project choice, cleared-link undo, picker and selection states, chips, legacy display    |
-| Task link API   | `tests/tasks/task-link-api.spec.ts`         | exactly-one-link validation, 404s, edit replacement, legacy links, customer filter/search/counts     |
-| Customers       | `tests/customers/customers.spec.ts`         | header button, form layout, validation, create, duplicate, cancel, mobile, pagination overflow       |
-| Employees       | `tests/employees/employees.spec.ts`         | add each of the six roles, role picker, role filters, new employee login, delete, search             |
-| Settings        | `tests/settings/settings.spec.ts`           | fixed statuses, password mismatch, change password                                                   |
-| Hosted          | `tests/hosted/deployment.spec.ts`           | HTTPS, client-route fallback, missing assets, `/api` proxy, auth rejection                           |
+| Area              | Spec                                         | Flows                                                                                                                                                                |
+| ----------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth              | `tests/auth/login.spec.ts`                   | login, invalid login, disabled submit, session guard, logout                                                                                                         |
+| Feature grants    | `tests/auth/feature-permissions-*.spec.ts`   | migration/data preservation and private tables, six-role grant parity, live grants without re-login, independent actions, session revocation/restore/account changes |
+| Roles             | `tests/auth/role-access.spec.ts`             | what each of the six roles sees and can use, denied project, task and customer routes                                                                                |
+| Role API          | `tests/auth/role-api-permissions.spec.ts`    | every role against every guarded project, customer and task action (2xx or 403)                                                                                      |
+| Role rules        | `tests/auth/role-contract.spec.ts`           | six roles, retired `lead_installer`, member-slot roles, engineer-only task assignees                                                                                 |
+| Role migration    | `tests/auth/role-migration.spec.ts`          | new roles, `lead_installer` rename, system-admin member slots removed                                                                                                |
+| Board             | `tests/projects/board.spec.ts`               | status counts, search, buildings without apartments, status change, mobile                                                                                           |
+| Projects          | `tests/projects/project-form.spec.ts`        | create with verified address, validation, edit, delete, four member slots, drafts                                                                                    |
+| Project drafts    | `tests/projects/project-form-draft.spec.ts`  | pending address verification, draft restore/privacy/discard, success cleanup, edit isolation                                                                         |
+| Project page      | `tests/projects/project-page.spec.ts`        | standalone and building views, edit entry, not found                                                                                                                 |
+| Priority fields   | `tests/projects/priority-fields.spec.ts`     | renamed API fields, preserved sync date and nullable unsynced caption                                                                                                |
+| Migration         | `tests/projects/priority-migration.spec.ts`  | populated/null preservation, staged read compatibility, final types and column cleanup                                                                               |
+| Apartments        | `tests/projects/apartments.spec.ts`          | add, details, independent stage, notes, next apartment, open from building                                                                                           |
+| Drive             | `tests/projects/drive.spec.ts`               | unavailable banner, folder status and files, upload, blocked file                                                                                                    |
+| Tasks             | `tests/tasks/tasks.spec.ts`                  | create, validation, engineer-only pickers, counts, status, urgency, reassign, claim, legacy assignee                                                                 |
+| Task links        | `tests/tasks/task-link.spec.ts`              | customer or project choice, cleared-link undo, picker and selection states, chips, legacy display                                                                    |
+| Task link API     | `tests/tasks/task-link-api.spec.ts`          | exactly-one-link validation, 404s, edit replacement, legacy links, customer filter/search/counts                                                                     |
+| Customers         | `tests/customers/customers.spec.ts`          | header button, form layout, validation, create, duplicate, cancel, mobile, pagination overflow                                                                       |
+| Customer projects | `tests/customers/customer-projects*.spec.ts` | customer-ID grouping, scoped search/status/paging, permissions, inherited teams, desktop/mobile navigation, errors/retry, cached reassignment refresh                |
+| Employees         | `tests/employees/employees.spec.ts`          | add each of the six roles, role picker, role filters, new employee login, delete, search                                                                             |
+| Settings          | `tests/settings/settings.spec.ts`            | fixed statuses, password mismatch, change password                                                                                                                   |
+| Hosted            | `tests/hosted/deployment.spec.ts`            | HTTPS, client-route fallback, missing assets, `/api` proxy, auth rejection                                                                                           |
 
 Every new page or flow in the app gets a spec here as part of the same task.
 
@@ -180,3 +182,23 @@ suite, feature → dev suite or test → main gate. Before feature PRs, QA owns 
 relevant unit checks; it never adds a full run to feature verification. Use explicit spec paths or
 filters and record the executed scope. The full-suite local command above is for reproducing the
 dev → test integration gate, not a feature requirement.
+
+### Targeted apartment import and contacts API checks
+
+With the disposable local stack running, run `npx playwright test --config playwright.import-api.config.ts` for API-only import and customer-contact checks. This configuration uses explicit API login and does not launch a browser or run browser authentication setup. The four feature browser tests remain in the standard configuration and require a permitted browser environment.
+
+The embedded test database explicitly uses UTF-8 regardless of the host locale, and TCP loopback without Unix-domain sockets. A clean locale-less environment otherwise initialized PostgreSQL 17 as `SQL_ASCII`: `SHOW server_encoding` returned `SQL_ASCII` and `length('אמ')` returned 4, causing the existing two-initial Hebrew project-code constraint to reject valid fixture names. Explicit `--encoding=UTF8` fixes the test infrastructure rather than weakening application constraints or replacing Hebrew fixtures.
+
+## Independent questionnaire feature QA
+
+The public questionnaire is a separate service in `Gen-Air-Backend/apps/questionnaire`, not a CRM route. Its tests use a dedicated configuration, without browser-login setup. They are excluded from the CRM-only default configuration.
+
+```sh
+export GEN_AIR_BACKEND_DIR=/absolute/path/to/exact/backend/feature/checkout
+export GEN_AIR_ARTIFACTS_DIR="$(mktemp -d /tmp/genair-questionnaire-qa.XXXXXX)"
+npx playwright test --config playwright.questionnaire.config.ts
+```
+
+This starts the existing isolated stack (ephemeral UTF-8 PostgreSQL, all migrations, fake Places, backend port3100) and the independent questionnaire client on port5181. Tests activate the seeded questionnaire **only in the disposable database**, submit self-reported test identities, and assert original answers and duplicate prevention directly in that database. No live Railway database, employee account, Google Drive data or deployment is used. The lost-response test lets the real backend commit before dropping only the browser response; it does not mock persistence.
+
+If the same isolated stack is already running in the same execution environment, API-only verification can run without a browser using `npx playwright test --config playwright.questionnaire-api.config.ts`. A passing API run does not satisfy the browser/mobile criteria or the feature QA gate. Keep the exact app/Automation refs and artifacts in the handoff. The client port is fixed at5181 to avoid the CRM Vite port5180.
