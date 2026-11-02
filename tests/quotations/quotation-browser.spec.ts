@@ -47,7 +47,7 @@ test("customer-first creation, optional project, local payments and RTL desktop/
   await expect(page).toHaveURL(/\/quotations\/[\w-]+$/);
   const id = new URL(page.url()).pathname.split("/").at(-1)!;
   await expect(quote.field("פרויקט (אופציונלי)")).toHaveValue("");
-  await expect(quote.field("תנאי תשלום")).toHaveValue(PAYMENT_TERMS.PREPAID);
+  await expect(page.getByRole("radio", { name: "תשלום מראש", exact: true })).toBeChecked();
   await expect(quote.field(NOTE)).toHaveValue("");
   await quote.fill(NOTE, "Quotation terms only");
   await quote.fill(NOTES, "Internal information");
@@ -60,7 +60,7 @@ test("customer-first creation, optional project, local payments and RTL desktop/
     ).status(),
   ).toBe(200);
   await page.reload();
-  await expect(quote.field("תנאי תשלום")).toHaveValue(PAYMENT_TERMS.PREPAID);
+  await expect(page.getByRole("radio", { name: "תשלום מראש", exact: true })).toBeChecked();
   await expect(quote.field("פרויקט (אופציונלי)")).toHaveValue(project.id);
   await expect(quote.field(NOTE)).toHaveValue("Quotation terms only");
   expect((await getQuote(api, id)).internalNotes).toBe("Internal information");
@@ -142,7 +142,12 @@ test("catalogue filters, repeated independent snapshots, section ordering and se
   ).toBe(200);
   await page.reload();
   await expect(quote.field("תיאור בהצעה").nth(0)).toHaveValue("Independent snapshot");
-  await expect(quote.field("מחיר ליחידה").nth(0)).toHaveValue("10.0050");
+  await expect(quote.field("מחיר ליחידה").nth(0)).toHaveValue("10.005");
+  expect(
+    (await getQuote(api, initial.id)).sections
+      .flatMap(section => section.items)
+      .find(line => line.catalogueItemId === item.id)!.quotedPrice,
+  ).toBe("10.0050");
   expect((await getQuote(api, initial.id)).id).toBe(initial.id);
 });
 
@@ -359,7 +364,9 @@ test("VRF circuits, included controls, linked accessory quantities and removal s
   const saved = await getQuote(api, initial.id);
   const parent = saved.sections[0]!.items[0]!;
   await quote.select("בקר עבור יחידה", parent.id);
-  await expect(quote.field("כמות (יח׳)").nth(1)).toHaveValue("2.0000");
+  await expect(quote.field("כמות (יח׳)")).toHaveCount(1);
+  await expect(page.getByText(/2 יח׳ ·/)).toBeVisible();
+  expect((await getQuote(api, initial.id)).sections[0]!.items[1]!.quantity).toBe("2.0000");
   await page.reload();
   await expect(quote.field("מעגל")).toHaveValue("B");
   await expect(quote.field("בקר עבור יחידה")).toHaveValue(parent.id);
@@ -413,7 +420,8 @@ test("brand replacement confirms, preserves placement and quantities, missing ma
   expect(changed.sections[0]!.items[0]!.catalogueItemId).toBe(replacement.id);
   expect(changed.sections[0]!.items[0]!.id).toBe(before.sections[0]!.items[0]!.id);
   await expect(quote.field("מיקום")).toHaveValue("Roof office");
-  await expect(quote.field("כמות (יח׳)")).toHaveValue("3.0000");
+  await expect(quote.field("כמות (יח׳)")).toHaveValue("3");
+  expect(changed.sections[0]!.items[0]!.quantity).toBe("3.0000");
   await quote.field("חברת מיזוג").selectOption("טושיבה");
   await quote.button("החלף לפריטים תואמים").click();
   await expect(page.getByRole("alert")).toContainText("ההצעה לא שונתה");
@@ -422,4 +430,57 @@ test("brand replacement confirms, preserves placement and quantities, missing ma
   await page.reload();
   await expect(quote.field("חברת מיזוג")).toHaveValue(QUOTATION.OTHER_BRAND);
   await expect(quote.field("מיקום")).toHaveValue("Roof office");
+});
+
+test("pre-add placement and quantities persist while decimal focus edits retain exact snapshots and payment chips save", async ({
+  page,
+  api,
+}) => {
+  const item = await createCatalogueFixture({
+    systemType: QUOTATION.SYSTEM.VRF,
+    equipmentRole: QUOTATION.ROLE.INDOOR,
+  });
+  const customer = await api.createCustomer({
+    ...buildCustomerInput(),
+    paymentTerms: PAYMENT_TERMS.PREPAID,
+  });
+  const initial = await createQuotation(api, customer.id);
+  const quote = createQuotationPage(page);
+  await quote.goto(initial.id);
+  await quote.select("חברת מיזוג", QUOTATION.BRAND);
+  await quote.saved(() => quote.button("מערכת VRF").click());
+  await quote.field("כמות להוספה").fill("2");
+  await quote.field("מיקום להוספה").fill("QA new room");
+  await quote.field("מעגל להוספה").selectOption("B");
+  await quote.add(item.sku);
+  const addedDocument = await getQuote(api, initial.id);
+  const added = addedDocument.sections[0]!.items[0]!;
+  expect(added).toMatchObject({
+    quantity: "2.0000",
+    location: "QA new room",
+    circuit: "B",
+    quotedPrice: "10.0050",
+  });
+  await expect(quote.field("מחיר ליחידה")).toHaveValue("10.005");
+  await quote.field("מחיר ליחידה").focus();
+  await expect(quote.field("מחיר ליחידה")).toHaveValue("10.005");
+  await quote.field(NOTES).focus();
+  await expect(quote.field("מחיר ליחידה")).toHaveValue("10.005");
+  expect((await getQuote(api, initial.id)).version).toBe(addedDocument.version);
+  await quote.fill("מחיר ליחידה", "8.1250");
+  await quote.fill("כמות (יח׳)", "3");
+  await quote.fill("הנחה %", "10");
+  const saved = await getQuote(api, initial.id);
+  expect(saved.discountPercent).toBe("10.0000");
+  expect(saved.sections[0]!.items[0]!).toMatchObject({ quantity: "3.0000", quotedPrice: "8.1250" });
+  await quote.saved(() => page.getByRole("radio", { name: "אחר", exact: true }).click());
+  await quote.fill(NOTE, "Quotation chip terms");
+  await page.reload();
+  await expect(page.getByRole("radio", { name: "אחר", exact: true })).toBeChecked();
+  await expect(quote.field(NOTE)).toHaveValue("Quotation chip terms");
+  await expect(quote.field("מחיר ליחידה")).toHaveValue("8.125");
+  await expect(quote.field("כמות (יח׳)")).toHaveValue("3");
+  expect(
+    (await (await api.send(HTTP_METHODS.GET, `/customer/${customer.id}`)).json()).paymentTerms,
+  ).toBe(PAYMENT_TERMS.PREPAID);
 });

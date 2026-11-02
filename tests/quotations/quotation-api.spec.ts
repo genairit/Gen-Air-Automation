@@ -11,22 +11,31 @@ import {
   quotationWrite,
   createQuotation,
   quotationDocument,
+  quotationStatusCounts,
 } from "../../src/api/quotation.api.ts";
 
 import {
+  QUOTATION,
+  QUOTATION_PERMISSIONS,
+  QUOTATION_DUPLICATE_SKUS,
+} from "../../src/constants/quotation.constant.ts";
+
+import {
   createCatalogueFixture,
+  setQuotationCountFixture,
+  softDeleteQuotationFixture,
   withQuotationRuleVersionChange,
 } from "../../src/environment/quotation-fixtures.ts";
 
 import { randomUUID } from "node:crypto";
 import { isRecord } from "../../src/utilities/guard.utility.ts";
 import { test, expect } from "../../src/fixtures/api.fixture.ts";
+import { URLS } from "../../src/constants/environment.constant.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { PAYMENT_TERMS } from "../../src/constants/domain.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
-import { QUOTATION, QUOTATION_DUPLICATE_SKUS } from "../../src/constants/quotation.constant.ts";
 
 const draftLine = (catalogueItemId: string, price = "10.0050") => ({
   id: randomUUID(),
@@ -573,7 +582,7 @@ test("live feature grants gate quotation read, update, approval and catalogue se
   const customer = await seedCustomer(api);
   const quote = await createQuotation(api, customer.id);
   const engineer = await apiAs(TEST_USERS[USER_ROLES.ENGINEER]);
-  await withRolePermissions(USER_ROLES.ENGINEER, ["quotations.read"], async () => {
+  await withRolePermissions(USER_ROLES.ENGINEER, [QUOTATION_PERMISSIONS.READ], async () => {
     expect((await engineer.send(HTTP_METHODS.GET, `/quotation/${quote.id}`)).ok()).toBeTruthy();
     expect(
       (
@@ -678,4 +687,143 @@ test("concurrent quotation creation allocates distinct stable numbers", async ({
   );
   expect(new Set(quotations.map(quote => quote.number)).size).toBe(4);
   expect(new Set(quotations.map(quote => quote.id)).size).toBe(4);
+});
+
+test("status counts cover all statuses beyond pagination and exclude deleted quotations", async ({
+  api,
+}) => {
+  const customer = await seedCustomer(api);
+  const statuses = [
+    ...Array.from({ length: 21 }, () => QUOTATION.STATUS.DRAFT),
+    QUOTATION.STATUS.REVIEW,
+    QUOTATION.STATUS.APPROVED,
+  ];
+  for (const status of statuses) {
+    const quote = await createQuotation(api, customer.id);
+    await setQuotationCountFixture(quote.id, status);
+  }
+  const deleted = await createQuotation(api, customer.id);
+  await setQuotationCountFixture(deleted.id, QUOTATION.STATUS.APPROVED);
+  await softDeleteQuotationFixture(deleted.id);
+  const expected = { all: 23, draft: 21, review: 1, approved: 1 };
+  expect(await quotationStatusCounts(api, customer.name)).toEqual(expected);
+  const page = await quotationPage(
+    await api.send(
+      HTTP_METHODS.GET,
+      `/quotation?search=${encodeURIComponent(customer.name)}&batchSize=20&status=draft`,
+    ),
+  );
+  expect(page.items).toHaveLength(20);
+  expect(page.nextCursor).toBeTruthy();
+  const next = await quotationPage(
+    await api.send(
+      HTTP_METHODS.GET,
+      `/quotation?search=${encodeURIComponent(customer.name)}&batchSize=20&status=draft&batchCursor=${encodeURIComponent(page.nextCursor ?? "")}`,
+    ),
+  );
+  expect(next.items).toHaveLength(1);
+  expect(await quotationStatusCounts(api, customer.name)).toEqual(expected);
+});
+
+test("status counts share joined search, trim whitespace, escape literals and return numeric empty results", async ({
+  api,
+}) => {
+  const customer = await api.createCustomer({
+    ...buildCustomerInput(),
+    name: `QA-${randomUUID()}%_\\suffix`,
+  });
+  const project = await seedStandaloneProject(api, customer);
+  const quote = await createQuotation(api, customer.id);
+  const brandBefore = await quotationStatusCounts(api, QUOTATION.BRAND);
+  const saved = await saveQuotation(api, quote.id, {
+    ...quotationWrite(quote),
+    projectId: project.id,
+    brand: QUOTATION.BRAND,
+  });
+  const expected = { all: 1, draft: 1, review: 0, approved: 0 };
+  for (const search of [saved.number, customer.name.toUpperCase(), project.name]) {
+    expect(await quotationStatusCounts(api, `  ${search}  `)).toEqual(expected);
+    const page = await quotationPage(
+      await api.send(HTTP_METHODS.GET, `/quotation?search=${encodeURIComponent(search)}`),
+    );
+    expect(page.items.map(item => item.id)).toEqual([saved.id]);
+  }
+  expect(await quotationStatusCounts(api, QUOTATION.BRAND)).toEqual({
+    ...brandBefore,
+    all: Number(brandBefore.all) + 1,
+    draft: Number(brandBefore.draft) + 1,
+  });
+  const lookalike = await api.createCustomer({
+    ...buildCustomerInput(),
+    name: customer.name.replace("%_\\", "XY"),
+  });
+  await createQuotation(api, lookalike.id);
+  const underscoreLookalike = await api.createCustomer({
+    ...buildCustomerInput(),
+    name: customer.name.replace("_", "X"),
+  });
+  await createQuotation(api, underscoreLookalike.id);
+  const literalPrefix = customer.name.slice(0, customer.name.indexOf("%"));
+  expect(await quotationStatusCounts(api, `${literalPrefix}%`)).toEqual({
+    all: 2,
+    draft: 2,
+    review: 0,
+    approved: 0,
+  });
+  expect(await quotationStatusCounts(api, `${literalPrefix}%_`)).toEqual(expected);
+  expect(await quotationStatusCounts(api, customer.name)).toEqual(expected);
+  expect(await quotationStatusCounts(api, randomUUID())).toEqual({
+    all: 0,
+    draft: 0,
+    review: 0,
+    approved: 0,
+  });
+  expect(await quotationStatusCounts(api, " ")).toEqual(await quotationStatusCounts(api));
+  const retained = await quotationDocument(
+    await api.send(HTTP_METHODS.GET, `/quotation/${quote.id}`),
+  );
+  expect(retained.version).toBe(saved.version);
+});
+
+test("status counts enforce live read grants and strict query boundaries", async ({
+  api,
+  apiAs,
+  playwright,
+}) => {
+  const anonymous = await playwright.request.newContext();
+  try {
+    expect((await anonymous.get(`${URLS.BACKEND}/quotation/status-counts`)).status()).toBe(401);
+  } finally {
+    await anonymous.dispose();
+  }
+  const engineer = await apiAs(TEST_USERS[USER_ROLES.ENGINEER]);
+  await withRolePermissions(USER_ROLES.ENGINEER, [QUOTATION_PERMISSIONS.READ], async () => {
+    expect(await quotationStatusCounts(engineer, randomUUID())).toEqual({
+      all: 0,
+      draft: 0,
+      review: 0,
+      approved: 0,
+    });
+    await withRolePermissions(USER_ROLES.ENGINEER, [], async () => {
+      expect((await engineer.send(HTTP_METHODS.GET, "/quotation/status-counts")).status()).toBe(
+        403,
+      );
+    });
+  });
+  for (const query of [
+    "search=" + "x".repeat(201),
+    "search=a&search=b",
+    "batchSize=1",
+    "batchCursor=abc",
+    "status=draft",
+  ]) {
+    expect((await api.send(HTTP_METHODS.GET, `/quotation/status-counts?${query}`)).status()).toBe(
+      400,
+    );
+  }
+  expect(
+    (
+      await api.send(HTTP_METHODS.GET, `/quotation/status-counts?search=${"x".repeat(200)}`)
+    ).status(),
+  ).toBe(200);
 });

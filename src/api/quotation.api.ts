@@ -142,3 +142,27 @@ export const createQuotation = async (api: TGenAirApi, customerId: string) =>
   quotationDocument(await api.send(HTTP_METHODS.POST, "/quotation", { customerId }));
 export const saveQuotation = async (api: TGenAirApi, id: string, input: IQuotationWrite) =>
   quotationDocument(await api.send(HTTP_METHODS.PUT, `/quotation/${id}`, input));
+
+const isNonNegativeInteger = (value: unknown): value is number => {
+  const isInteger = typeof value === "number" && Number.isInteger(value);
+  return isInteger && value >= 0;
+};
+
+export const quotationStatusCounts = async (api: TGenAirApi, search = "") => {
+  const response = await api.send(
+    HTTP_METHODS.GET,
+    `/quotation/status-counts?search=${encodeURIComponent(search)}`,
+  );
+  const value: unknown = await response.json();
+  const keys = ["all", ...Object.values(QUOTATION.STATUS)];
+  if (
+    !response.ok() ||
+    !isRecord(value) ||
+    Object.keys(value).length !== keys.length ||
+    !keys.every(key => isNonNegativeInteger(value[key]))
+  ) {
+    throw new Error(`Invalid quotation counts ${response.status()}`);
+  }
+
+  return value;
+};
