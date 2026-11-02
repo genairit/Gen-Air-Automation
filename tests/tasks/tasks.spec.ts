@@ -90,6 +90,7 @@ test("create a task for an engineer and see it in their tasks and on its project
     description: NEW_TASK.description,
     assigneeName: formatFullName(ENGINEER),
   });
+  await expect(formPage.assigneePicker).toHaveValue(formatFullName(ENGINEER));
   await formPage.saveButton.click();
 
   await expect(page).toHaveURL(ROUTE_PATTERNS.TASK);

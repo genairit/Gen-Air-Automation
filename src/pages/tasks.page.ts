@@ -85,7 +85,9 @@ export const createTaskFormPage = (page: Page) => {
   const linkPlaceholder = form.getByText(TASK_LINK_COPY.NO_KIND, { exact: true });
   const undoButton = form.getByRole("button", { name: TASK_LINK_COPY.UNDO, exact: true });
   const dismissButton = form.getByRole("button", { name: TASK_LINK_COPY.DISMISS, exact: true });
-  const assigneePicker = form.getByRole("combobox", { name: TASK_FORM_COPY.ASSIGNEE_PLACEHOLDER });
+  const assigneePicker = form.getByRole("combobox", {
+    name: buildStartPattern(TASK_COPY.ASSIGNEE),
+  });
 
   const goto = () => page.goto(ROUTES.NEW_TASK);
 
