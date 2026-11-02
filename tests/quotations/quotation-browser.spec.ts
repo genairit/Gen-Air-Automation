@@ -42,7 +42,7 @@ test("customer-first creation, optional project, local payments and RTL desktop/
   await page.goto("/quotations");
   await quote.button("הצעה חדשה").click();
   await expect(quote.button("יצירת הצעה")).toBeDisabled();
-  await quote.field("לקוח *").selectOption(customer.id);
+  await quote.chooseEntity("לקוח *", customer.name);
   await quote.button("יצירת הצעה").click();
   await expect(page).toHaveURL(/\/quotations\/[\w-]+$/);
   const id = new URL(page.url()).pathname.split("/").at(-1)!;
@@ -51,7 +51,7 @@ test("customer-first creation, optional project, local payments and RTL desktop/
   await expect(quote.field(NOTE)).toHaveValue("");
   await quote.fill(NOTE, "Quotation terms only");
   await quote.fill(NOTES, "Internal information");
-  await quote.select("פרויקט (אופציונלי)", project.id);
+  await quote.selectEntity("פרויקט (אופציונלי)", project.name);
   expect(
     (
       await api.send(HTTP_METHODS.PATCH, `/customer/${customer.id}`, {
@@ -61,7 +61,8 @@ test("customer-first creation, optional project, local payments and RTL desktop/
   ).toBe(200);
   await page.reload();
   await expect(page.getByRole("radio", { name: "תשלום מראש", exact: true })).toBeChecked();
-  await expect(quote.field("פרויקט (אופציונלי)")).toHaveValue(project.id);
+  await expect(quote.field("פרויקט (אופציונלי)")).toHaveValue(project.name);
+  expect((await getQuote(api, id)).projectId).toBe(project.id);
   await expect(quote.field(NOTE)).toHaveValue("Quotation terms only");
   expect((await getQuote(api, id)).internalNotes).toBe("Internal information");
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
@@ -98,7 +99,7 @@ test("catalogue filters, repeated independent snapshots, section ordering and se
   const quote = createQuotationPage(page);
   await quote.goto(initial.id);
   await quote.select("חברת מיזוג", QUOTATION.BRAND);
-  await quote.saved(() => quote.button("סינגלים").click());
+  await quote.saved(() => quote.button("+ סינגלים").click());
   await quote.fill("כותרת מערכת / קומה", "First floor");
   await quote.field("סוג ציוד / לחץ").selectOption("עילי");
   await quote.field("גודל מבוקש (BTU)").fill("24000");
@@ -121,9 +122,9 @@ test("catalogue filters, repeated independent snapshots, section ordering and se
   await expect(quote.amount("מחיר כולל לפני מע״מ")).toHaveText(/15\.00/);
 
   const saved = await getQuote(api, initial.id);
-  await expect(page.getByText(`מע״מ ${saved.vatRate}%`, { exact: true })).toBeVisible();
+  await expect(page.getByText(`מע״מ ${Number(saved.vatRate)}%`, { exact: true })).toBeVisible();
   expect(saved.totals.total).toBe("17.70");
-  await quote.saved(() => quote.button("פריטים נוספים").click());
+  await quote.saved(() => quote.button("+ פריטים נוספים").click());
   await quote.fill("כותרת מערכת / קומה", "Second floor", 1);
   await quote.saved(() => quote.button("הזז למעלה").nth(1).click());
   await page.reload();
@@ -161,7 +162,7 @@ test("required warnings block approval, explicit self approval and repeated reop
   await quote.goto(initial.id);
   const item = await createCatalogueFixture();
   await quote.select("חברת מיזוג", QUOTATION.BRAND);
-  await quote.saved(() => quote.button("סינגלים").click());
+  await quote.saved(() => quote.button("+ סינגלים").click());
   await quote.add(item.sku);
   await quote.saved(() => quote.button("הוסף שלב תשלום").click());
   await quote.fill("אחוז מהסכום", "50");
@@ -267,7 +268,7 @@ test("read-only role sees saved quotation without creation, mutation or approval
       await expect(quote.button("סיימתי, לבדיקה")).toHaveCount(0);
       await expect(quote.button("הוסף שלב תשלום")).toHaveCount(0);
       for (const system of ["מערכת VRF", "מולטי / VRF BOX", "סינגלים", "פריטים נוספים"]) {
-        await expect(quote.button(system)).toHaveCount(0);
+        await expect(quote.button(`+ ${system}`)).toHaveCount(0);
       }
       expect((await getQuote(api, initial.id)).version).toBe(initial.version);
     },
@@ -287,7 +288,7 @@ test("private usage ranks genuine selections while capacity filters remain autho
   const quote = createQuotationPage(page);
   await quote.goto(initial.id);
   await quote.select("חברת מיזוג", QUOTATION.BRAND);
-  await quote.saved(() => quote.button("סינגלים").click());
+  await quote.saved(() => quote.button("+ סינגלים").click());
   await quote.add(far.sku);
   await quote.field("חיפוש פריט בקטלוג").fill(prefix);
   const results = page.getByRole("button").filter({ hasText: prefix });
@@ -337,7 +338,7 @@ test("VRF circuits, included controls, linked accessory quantities and removal s
   const quote = createQuotationPage(page);
   await quote.goto(initial.id);
   await quote.select("חברת מיזוג", QUOTATION.BRAND);
-  await quote.saved(() => quote.button("מערכת VRF").click());
+  await quote.saved(() => quote.button("+ מערכת VRF").click());
   await quote.add(indoor.sku);
   await expect(page.getByText("כולל שלט במחיר היחידה")).toBeVisible();
   await quote.fill("מיקום", "Main hall");
@@ -404,7 +405,7 @@ test("brand replacement confirms, preserves placement and quantities, missing ma
   const quote = createQuotationPage(page);
   await quote.goto(initial.id);
   await quote.select("חברת מיזוג", QUOTATION.BRAND);
-  await quote.saved(() => quote.button("סינגלים").click());
+  await quote.saved(() => quote.button("+ סינגלים").click());
   await quote.add(original.sku);
   await quote.fill("מיקום", "Roof office");
   await quote.fill("כמות (יח׳)", "3");
@@ -448,7 +449,7 @@ test("pre-add placement and quantities persist while decimal focus edits retain 
   const quote = createQuotationPage(page);
   await quote.goto(initial.id);
   await quote.select("חברת מיזוג", QUOTATION.BRAND);
-  await quote.saved(() => quote.button("מערכת VRF").click());
+  await quote.saved(() => quote.button("+ מערכת VRF").click());
   await quote.field("כמות להוספה").fill("2");
   await quote.field("מיקום להוספה").fill("QA new room");
   await quote.field("מעגל להוספה").selectOption("B");
