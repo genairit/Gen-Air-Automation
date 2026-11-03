@@ -10,7 +10,6 @@ import {
 } from "../environment/legacy-data.ts";
 
 import {
-  PAYMENT_TERMS,
   CUSTOMER_TYPES,
   PROJECT_TYPE_NAMES,
   type ProjectTypeNameType,
@@ -120,7 +119,6 @@ export const buildProjectInput = (options: IProjectInputOptions) => ({
   projectTypeId: options.projectTypeId,
   customerId: options.customer.id,
   addressPlaceId: FAKE_PLACES[0].placeId,
-  paymentTerms: PAYMENT_TERMS.MILESTONES_NET_60,
   name: createUniqueName(SEED_NAME_PREFIXES.PROJECT),
 });
 

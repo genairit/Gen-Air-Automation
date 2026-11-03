@@ -19,6 +19,28 @@ import { readPort } from "../../src/utilities/port.utility.ts";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { MIGRATION_STAGES } from "../../src/constants/migration.constant.ts";
 import { applyStagedMigrations } from "../../src/environment/staged-migrations.ts";
+import { buildProjectInput, buildStandaloneProjectInput } from "../../src/api/seed-data.ts";
+
+test("shared project fixtures omit retired payment ownership while preserving customer and member links", async () => {
+  const customer = { id: "qa-customer", paymentTerms: "prepaid" };
+  const members = [{ userId: "qa-engineer", role: USER_ROLES.ENGINEER }];
+  const direct = buildProjectInput({ customer, members, projectTypeId: "qa-type" });
+  const standalone = await buildStandaloneProjectInput(
+    {
+      findProjectType: async () => ({ id: "qa-type" }),
+    },
+    customer,
+    members,
+  );
+  for (const input of [direct, standalone]) {
+    assert.equal(Object.hasOwn(input, "paymentTerms"), false);
+    assert.equal(Object.hasOwn(input, "paymentTermsNote"), false);
+    assert.equal(input.customerId, customer.id);
+    assert.equal(input.projectTypeId, "qa-type");
+    assert.deepEqual(input.members, members);
+  }
+  assert.equal(customer.paymentTerms, "prepaid");
+});
 
 const PORT_ENVIRONMENT = [
   "GEN_AIR_BACKEND_PORT",
