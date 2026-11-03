@@ -18,7 +18,7 @@ test("an assigned engineer remains selectable beyond the first lazy options batc
   api,
   page,
 }) => {
-  const engineer = await seedMultiRoleUser(api, [ENGINEER, FINANCE], FINANCE);
+  const engineer = await seedMultiRoleUser(api, [FINANCE, ENGINEER]);
   for (const index of Array.from({ length: 21 }, (_, index) => index)) {
     await test.step(`seed newer engineer ${index + 1}`, () => seedMultiRoleUser(api, [ENGINEER]));
   }
@@ -37,7 +37,7 @@ test("engineer pickers use assigned roles even while the employee is active in f
   api,
   page,
 }) => {
-  const engineer = await seedMultiRoleUser(api, [ENGINEER, FINANCE], FINANCE);
+  const engineer = await seedMultiRoleUser(api, [FINANCE, ENGINEER]);
   const financeOnly = await seedMultiRoleUser(api, [FINANCE]);
   const taskForm = createTaskFormPage(page);
   await taskForm.goto();
@@ -56,7 +56,7 @@ test("personal tasks remain scoped to the same account across an active-role cha
   api,
   openPageAs,
 }) => {
-  const user = await seedMultiRoleUser(api, [ENGINEER, FINANCE], FINANCE);
+  const user = await seedMultiRoleUser(api, [FINANCE, ENGINEER]);
   const mine = await seedTaskScenario(api, user.id);
   const other = await seedTaskScenario(api);
   const page = await openPageAs(user);
@@ -81,7 +81,7 @@ test("history leaves legacy actor roles unknown and preserves the actual role of
   apiAs,
   openPageAs,
 }) => {
-  const user = await seedMultiRoleUser(api, [ADMIN, ENGINEER], ADMIN);
+  const user = await seedMultiRoleUser(api, [ADMIN, ENGINEER]);
   const actor = await apiAs(user);
   const { task } = await seedTaskScenario(actor, user.id);
   const database = createTestDatabaseClient();

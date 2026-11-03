@@ -75,7 +75,6 @@ interface ITaskScenario {
 }
 
 export const buildUserInput = (role: UserRoleType) => ({
-  role,
   assignedRoles: [role],
   password: TEST_PASSWORD,
   phone: createMobilePhone(),

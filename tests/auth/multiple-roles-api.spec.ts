@@ -33,7 +33,7 @@ test("six assigned roles persist, but the original JWT grants only the current a
   api,
   apiAs,
 }) => {
-  const user = await seedMultiRoleUser(api, USER_ROLE_VALUES, ADMIN);
+  const user = await seedMultiRoleUser(api, USER_ROLE_VALUES);
   const actor = await apiAs(user);
   const before = await actor.send(HTTP_METHODS.GET, API_PATHS.USER);
   expect(before.status()).toBe(200);
@@ -83,6 +83,41 @@ for (const assignedRoles of [
     });
   });
 }
+
+test("create and edit reject an explicit active role and derive it from assignments", async ({
+  api,
+}) => {
+  const input = { ...buildUserInput(ENGINEER), assignedRoles: [FINANCE, ENGINEER] };
+  const rejectedCreate = await api.send(HTTP_METHODS.POST, API_PATHS.USER, {
+    ...input,
+    role: ENGINEER,
+  });
+  expect(rejectedCreate.status()).toBe(400);
+
+  const created = await api.createUser(input);
+  expect(created).toMatchObject({
+    role: FINANCE,
+    assignedRoles: expect.arrayContaining([FINANCE, ENGINEER]),
+  });
+
+  const rejectedEdit = await api.send(HTTP_METHODS.PATCH, buildUserPath(created.id), {
+    role: ENGINEER,
+    assignedRoles: [FINANCE, ENGINEER],
+  });
+  expect(rejectedEdit.status()).toBe(400);
+
+  const preserved = await api.send(HTTP_METHODS.PATCH, buildUserPath(created.id), {
+    assignedRoles: [ENGINEER, FINANCE],
+  });
+  expect(preserved.status()).toBe(200);
+  expect(await preserved.json()).toMatchObject({ role: FINANCE });
+
+  const fallback = await api.send(HTTP_METHODS.PATCH, buildUserPath(created.id), {
+    assignedRoles: [ENGINEER],
+  });
+  expect(fallback.status()).toBe(200);
+  expect(await fallback.json()).toMatchObject({ role: ENGINEER, assignedRoles: [ENGINEER] });
+});
 
 test("assignment changes and switches retain durable actor-role audit snapshots", async ({
   api,
@@ -171,7 +206,7 @@ test("active-role revocation immediately replaces old-token permissions and reje
   api,
   apiAs,
 }) => {
-  const user = await seedMultiRoleUser(api, [ADMIN, FINANCE], ADMIN);
+  const user = await seedMultiRoleUser(api, [ADMIN, FINANCE]);
   const actor = await apiAs(user);
   const updated = await api.send(HTTP_METHODS.PATCH, buildUserPath(user.id), {
     assignedRoles: [FINANCE],
@@ -189,7 +224,7 @@ test("engineer eligibility and personal tasks follow assignments and account, no
   api,
   apiAs,
 }) => {
-  const user = await seedMultiRoleUser(api, [ENGINEER, FINANCE], FINANCE);
+  const user = await seedMultiRoleUser(api, [FINANCE, ENGINEER]);
   const actor = await apiAs(user);
   const customer = await seedCustomer(api);
   const members = [{ userId: user.id, role: ENGINEER }];
