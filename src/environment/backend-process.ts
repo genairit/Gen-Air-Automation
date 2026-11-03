@@ -49,6 +49,11 @@ const buildBackendEnvironment = () => ({
 });
 
 export const buildBackend = () => {
+  // Isolated candidate checkouts may use a prebuilt dist from an explicit external build.
+  if (process.env.GEN_AIR_BACKEND_PREBUILT === "1") {
+    return;
+  }
+
   const build = spawnSync("npm", ["run", "build"], {
     stdio: "inherit",
     cwd: APP_DIRECTORIES.BACKEND,

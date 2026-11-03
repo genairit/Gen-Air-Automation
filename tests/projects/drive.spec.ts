@@ -169,12 +169,13 @@ for (const [kind, createScenario] of Object.entries(DRIVE_SCENARIOS)) {
           .slice(0, Array.from(element.parentElement?.children ?? []).indexOf(element))
           .map(section => section.textContent ?? ""),
       }));
-      expect(placement.index).toBe(kind === "apartment" ? 3 : 1);
+      expect(placement.index).toBe(kind === "apartment" ? 4 : 1);
       if (kind === "apartment") {
         expect(placement.precedingSections[1]).toContain(APARTMENT_DESIGN_COPY.END_CUSTOMER);
         expect(placement.precedingSections[1]).toContain(APARTMENT_DESIGN_COPY.CONTACT_TEAM);
         expect(placement.precedingSections[1]).toContain(APARTMENT_DESIGN_COPY.INHERITED_TITLE);
         expect(placement.precedingSections[2]).toContain(APARTMENT_DESIGN_COPY.COMMERCIAL_TITLE);
+        expect(placement.precedingSections[3]).toContain("מסמך משותף מפרויקט האב");
       }
       expect(Math.abs(placement.width - placement.headerWidth)).toBeLessThan(2);
       const fullFolder = projectPage.driveFolder(MOCK_DRIVE_FOLDERS.WITH_FILES.name);
