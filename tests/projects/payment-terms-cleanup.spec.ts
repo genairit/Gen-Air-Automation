@@ -7,6 +7,7 @@ import { createTestDatabaseClient } from "../../src/environment/test-database-cl
 import { IS_SPRINT_ALMON_CLEANUP_ENABLED } from "../../src/constants/environment.constant.ts";
 import { readReviewedPaymentTermsCleanup } from "../../src/environment/payment-terms-cleanup.ts";
 import { RETIRED_PROJECT_PAYMENT_FIELDS } from "../../src/constants/payment-default.constant.ts";
+import { PAYMENT_CLEANUP_FIXTURE_SQL } from "../../src/constants/payment-cleanup-fixture.constant.ts";
 
 test("disposable application schema matches the explicitly selected cleanup phase", async () => {
   const database = createTestDatabaseClient();
@@ -40,15 +41,8 @@ test("disposable application schema matches the explicitly selected cleanup phas
 
 test("reviewed cleanup discards populated project values without changing existing defaults or quote snapshots", async () => {
   await withDisposableDatabase(async (database, databaseName) => {
-    await database.query(`
-      CREATE TYPE payment_terms AS ENUM ('prepaid', 'other');
-      CREATE TABLE projects (id integer PRIMARY KEY, payment_terms payment_terms, payment_terms_note text);
-      CREATE TABLE customers (id integer PRIMARY KEY, payment_terms varchar(40));
-      CREATE TABLE quotations (id integer PRIMARY KEY, payment_terms varchar(40), payment_terms_note text NOT NULL DEFAULT '');
-      INSERT INTO projects VALUES (1, 'other', 'Discard this legacy project note'), (2, null, null);
-      INSERT INTO customers VALUES (1, 'prepaid'), (2, null);
-      INSERT INTO quotations VALUES (1, 'other', 'Retain quote note'), (2, null, '');
-    `);
+    await database.query(PAYMENT_CLEANUP_FIXTURE_SQL.ROLES);
+    await database.query(PAYMENT_CLEANUP_FIXTURE_SQL.SNAPSHOTS);
     await database.query(await readReviewedPaymentTermsCleanup());
     const committed = createTestDatabaseClient(databaseName);
     try {
@@ -64,6 +58,18 @@ test("reviewed cleanup discards populated project values without changing existi
       expect((await committed.query("SELECT * FROM quotations ORDER BY id")).rows).toEqual([
         { id: 1, payment_terms: "other", payment_terms_note: "Retain quote note" },
         { id: 2, payment_terms: null, payment_terms_note: "" },
+      ]);
+      expect(
+        (
+          await committed.query(`
+            SELECT tgname, tgdeferrable, tginitdeferred FROM pg_trigger
+            WHERE tgname IN ('trg_user_roles_preserve_active_role', 'trg_users_preserve_active_role')
+            ORDER BY tgname
+          `)
+        ).rows,
+      ).toEqual([
+        { tgname: "trg_user_roles_preserve_active_role", tgdeferrable: true, tginitdeferred: true },
+        { tgname: "trg_users_preserve_active_role", tgdeferrable: true, tginitdeferred: true },
       ]);
     } finally {
       await committed.end();

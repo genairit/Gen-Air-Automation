@@ -58,6 +58,10 @@ uses this opt-in; it enables the reviewed `sprint-almon/after_deploy.sql` drops 
 The migration's SHA-256 is pinned, so changed SQL requires renewed review. Nested sprint
 migrations are never discovered or enabled automatically. See
 [payment ownership coverage](docs/payment-term-ownership.md) for the targeted commands.
+The combined backend also requires the explicitly hash-pinned sprint-almon role prerequisite
+`before_deploy.sql`. Disposable startup applies it before optional cleanup and test-user
+seeding, even when payment cleanup is disabled. Neither prerequisite nor cleanup is executed
+against an external database.
 
 ## Merge gate
 

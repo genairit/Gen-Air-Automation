@@ -45,3 +45,20 @@ behavior is never mocked. No shared Supabase, Google credentials or customer doc
 The backend cleanup remains operator-gated in the application repository. Automation enabling
 it on disposable data does not approve execution in a shared environment. Paired feature
 verification does not replace the required dependency merge and renewed revision verification.
+
+The cleanup pin now covers the combined payment/role migration reviewed at backend
+`c47c8c31a959f4c6faaefc639ae064de0d60d9b7` (SHA-256
+`1625136eef66b5703c6e0174c43001fb60a41c353db96ee1a4ccfb45542619e7`).
+Revalidate the eventual merged backend-dev file before browser QA. Minimal disposable role
+tables allow the complete migration, including both deferred role triggers, to execute.
+Startup explicitly applies the reviewed role prerequisite `before_deploy.sql` (SHA-256
+`5a8151cacf0b1929441b164592aa5a205bf4a6a3ebe58d77b2d94a6e738cf125`)
+before optional payment cleanup and test-user seeding. Both pins fail closed on any change;
+no other nested sprint files are discovered automatically. The prerequisite is required
+even with payment cleanup disabled because the combined backend reads role memberships.
+Focused contracts use PostgreSQL syntax trees to distinguish trigger events from actual DML
+and writable CTEs; opaque PL/pgSQL bodies remain protected by the exact-file hash gate.
+In-process PGlite checks verify setup/cleanup ordering, subsequent user seeding,
+snapshot/role-data preservation and both trigger rejections without starting the application
+stack. Maintained browser-run cleanup assertions additionally require committed results
+through a fresh database connection; execution against final app refs remains pending.
