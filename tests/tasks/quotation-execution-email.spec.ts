@@ -115,6 +115,50 @@ test("quotation completion offers an optional email and cancelling keeps the tas
   expect(await status.text()).toBe("");
 });
 
+test("email choices use shared blue controls and fit a reduced-motion mobile dialog", async ({
+  page,
+  api,
+}) => {
+  const { apartmentCustomer, task } = await seedQuotation(api);
+  const architectName = createUniqueName("אדריכלית");
+  await addContact(api, apartmentCustomer.id, architectName, createUniqueEmail("architect"));
+  await completeQuotation(api, task.id);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+
+  const emailPage = createQuotationEmailPage(page);
+  await emailPage.open(task.id);
+  const dialog = emailPage.dialog;
+  await expect(dialog).toHaveCSS("direction", "rtl");
+  await expect(dialog).toHaveCSS("border-radius", "22px");
+  await emailPage.chooseArchitect(architectName);
+  await expect(dialog.getByRole("checkbox", { name: new RegExp(architectName) })).toBeChecked();
+  await expect(dialog.getByRole("button", { name: "אדריכל ✓" })).toBeVisible();
+  await emailPage.setVersion("03");
+  await expect(emailPage.nextButton).toBeEnabled();
+  await expect(emailPage.nextButton).toHaveCSS("background-image", /linear-gradient/);
+  const dialogBounds = await dialog.boundingBox();
+  if (!dialogBounds) {
+    throw new Error("The quotation email dialog is not visible");
+  }
+  expect(dialogBounds.x).toBeGreaterThanOrEqual(0);
+  expect(dialogBounds.x + dialogBounds.width).toBeLessThanOrEqual(390);
+  await emailPage.continueToFiles();
+  await expect(dialog.getByText("שלב 2 מתוך 2", { exact: false })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "חזרה לאנשי קשר" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "ביטול" })).toBeVisible();
+  await expect(dialog.locator("section")).toHaveCSS("opacity", "1");
+  await expect(dialog.locator("section")).toHaveCSS("transform", "none");
+
+  const hasHorizontalOverflow = await dialog.evaluate(
+    element => element.scrollWidth > element.clientWidth + 1,
+  );
+  expect(hasHorizontalOverflow).toBe(false);
+  await dialog.screenshot({
+    path: join(AUTOMATION_DIRECTORIES.RESULTS, "quotation-email-mobile.png"),
+  });
+});
+
 test("recipient selection, nested file picker and exact preview require explicit valid choices", async ({
   page,
   api,
