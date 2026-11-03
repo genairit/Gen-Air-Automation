@@ -15,6 +15,7 @@ import { createProjectPage } from "../../src/pages/project.page.ts";
 import { FAKE_PLACES } from "../../src/constants/fake-places.constant.ts";
 import { readLastPathSegment } from "../../src/utilities/route.utility.ts";
 import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
+import { PROJECT_TYPE_NAMES } from "../../src/constants/domain.constant.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { readBuildingApartments } from "../../src/api/apartment-import.api.ts";
 import { ROUTE_PATTERNS } from "../../src/constants/route-patterns.constant.ts";
@@ -25,7 +26,6 @@ import { APARTMENT_IMPORT } from "../../src/constants/apartment-import.constant.
 import { createApartmentDesignPage } from "../../src/pages/apartment-design.page.ts";
 import { createApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { PROJECT_CONSTRAINTS as COPY } from "../../src/constants/project-constraints.constant.ts";
-import { PROJECT_TYPE_NAMES, PAYMENT_TERMS_LABELS } from "../../src/constants/domain.constant.ts";
 
 test("lighting is keyboard accessible, validates height and persists decimal and disabled states", async ({
   page,
@@ -39,7 +39,6 @@ test("lighting is keyboard accessible, validates height and persists decimal and
     place: FAKE_PLACES[1],
     customerName: customer.name,
     projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL,
-    paymentTermsLabel: PAYMENT_TERMS_LABELS.MILESTONES_NET_60,
   });
   const toggle = page.getByRole("switch", { name: COPY.LIGHTING_LABEL });
   const height = page.getByPlaceholder(COPY.HEIGHT_PLACEHOLDER);
@@ -92,7 +91,6 @@ test("taken names show inline feedback and failed availability requires retry", 
     place: FAKE_PLACES[1],
     customerName: customer.name,
     projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL,
-    paymentTermsLabel: PAYMENT_TERMS_LABELS.MILESTONES_NET_60,
   });
   await expect(page.getByText(COPY.DUPLICATE_NAME, { exact: true })).toBeVisible();
   await expect(form.createButton).toBeDisabled();
@@ -230,7 +228,6 @@ test("pending availability blocks submission until the real server answers", asy
     place: FAKE_PLACES[1],
     customerName: customer.name,
     projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL,
-    paymentTermsLabel: PAYMENT_TERMS_LABELS.MILESTONES_NET_60,
   });
   await expect(form.createButton).toBeEnabled();
   const pending = { release: () => {} };

@@ -5,6 +5,9 @@ type TTaskActionSegment = (typeof API_SEGMENTS)["CLAIM" | "STATUS" | "URGENCY"];
 export const buildCustomerPath = (customerId: string): string =>
   `${API_PATHS.CUSTOMER}/${customerId}`;
 
+export const buildQuotationPath = (quotationId: string): string =>
+  `${API_PATHS.QUOTATION}/${quotationId}`;
+
 export const buildTaskPath = (taskId: string): string => `${API_PATHS.TASK}/${taskId}`;
 
 export const buildTaskActionPath = (taskId: string, segment: TTaskActionSegment): string =>

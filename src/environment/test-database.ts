@@ -3,19 +3,19 @@ import {
   TEST_DATABASE,
   APP_DIRECTORIES,
   AUTOMATION_DIRECTORIES,
+  IS_SPRINT_ALMON_CLEANUP_ENABLED,
 } from "../constants/environment.constant.ts";
 
 import type pg from "pg";
 import { join } from "node:path";
-import { existsSync } from "node:fs";
 import EmbeddedPostgres from "embedded-postgres";
 import { readdir, readFile, rm } from "node:fs/promises";
 import { hashPassword } from "../utilities/password.utility.ts";
 import { TEST_USERS } from "../constants/test-users.constant.ts";
 import { compareMigrationFiles } from "../utilities/migration-order.utility.ts";
+import { readReviewedRoleSetup, readReviewedPaymentTermsCleanup } from "./payment-terms-cleanup.ts";
 
 const MIGRATIONS_DIRECTORY = join(APP_DIRECTORIES.BACKEND, "migrations");
-const STAGED_ROLE_MIGRATION = join(MIGRATIONS_DIRECTORY, "sprint-almon", "before_deploy.sql");
 
 const SQL_EXTENSION = ".sql";
 
@@ -65,16 +65,6 @@ const seedTestUsers = async (client: pg.Client) => {
   }
 };
 
-const applyStagedRoleMigration = async (client: pg.Client) => {
-  if (!existsSync(STAGED_ROLE_MIGRATION)) {
-    return;
-  }
-
-  const migration = await readFile(STAGED_ROLE_MIGRATION, "utf8");
-
-  await client.query(`${migration}\nCOMMIT;`);
-};
-
 const prepareSchema = async (server: EmbeddedPostgres) => {
   const client = server.getPgClient(TEST_DATABASE.NAME);
 
@@ -82,8 +72,13 @@ const prepareSchema = async (server: EmbeddedPostgres) => {
 
   try {
     await applyMigrations(client);
+    await client.query(await readReviewedRoleSetup());
+
+    if (IS_SPRINT_ALMON_CLEANUP_ENABLED) {
+      await client.query(await readReviewedPaymentTermsCleanup());
+    }
+
     await seedTestUsers(client);
-    await applyStagedRoleMigration(client);
   } finally {
     await client.end();
   }
