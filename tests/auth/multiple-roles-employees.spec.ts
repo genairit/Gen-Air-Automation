@@ -21,6 +21,7 @@ import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { API_PATHS } from "../../src/constants/api.constant.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
+import { EMPLOYEES_COPY } from "../../src/constants/copy.constant.ts";
 import { createEmployeesPage } from "../../src/pages/employees.page.ts";
 import { KEYBOARD_KEYS } from "../../src/constants/keyboard.constant.ts";
 import { refreshVisibility } from "../../src/utilities/browser-event.utility.ts";
@@ -79,7 +80,7 @@ test("admin edits assigned roles with labeled checkboxes and keyboard-native act
   await expect(dialog.getByRole("checkbox")).toHaveCount(USER_ROLE_VALUES.length);
   await expect(dialog.getByRole("radio")).toHaveCount(0);
   await dialog.getByRole("checkbox", { name: USER_ROLE_LABELS[FINANCE], exact: true }).check();
-  const group = dialog.getByRole("radiogroup", { name: MULTIPLE_ROLES_COPY.ACTIVE_ROLE });
+  const group = dialog.getByRole("group", { name: EMPLOYEES_COPY.ROLE_LABEL });
   const engineer = group.getByRole("radio", { name: USER_ROLE_LABELS[ENGINEER], exact: true });
   const finance = group.getByRole("radio", { name: USER_ROLE_LABELS[FINANCE], exact: true });
   await expect(engineer).toBeChecked();
