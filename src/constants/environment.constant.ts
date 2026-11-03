@@ -2,6 +2,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { TIME_UNITS } from "./time.constant.ts";
+import { readPort } from "../utilities/port.utility.ts";
 
 const AUTOMATION_ROOT = resolve(import.meta.dirname, "../..");
 const REPOSITORIES_ROOT = resolve(AUTOMATION_ROOT, "..");
@@ -27,10 +28,14 @@ export const AUTOMATION_DIRECTORIES = {
 } as const;
 
 export const PORTS = {
-  BACKEND: 3100,
-  FRONTEND: 5180,
-  DATABASE: 54329,
-  FAKE_PLACES: 4100,
+  BACKEND: readPort("GEN_AIR_BACKEND_PORT", process.env.GEN_AIR_BACKEND_PORT ?? null, 3100),
+  FRONTEND: readPort("GEN_AIR_FRONTEND_PORT", process.env.GEN_AIR_FRONTEND_PORT ?? null, 5180),
+  DATABASE: readPort("GEN_AIR_DATABASE_PORT", process.env.GEN_AIR_DATABASE_PORT ?? null, 54329),
+  FAKE_PLACES: readPort(
+    "GEN_AIR_FAKE_PLACES_PORT",
+    process.env.GEN_AIR_FAKE_PLACES_PORT ?? null,
+    4100,
+  ),
 } as const;
 
 export const LOCAL_HOST = "localhost";

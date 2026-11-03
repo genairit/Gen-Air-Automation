@@ -9,6 +9,7 @@ import type pg from "pg";
 import { join } from "node:path";
 import EmbeddedPostgres from "embedded-postgres";
 import { readdir, readFile, rm } from "node:fs/promises";
+import { applyStagedMigrations } from "./staged-migrations.ts";
 import { hashPassword } from "../utilities/password.utility.ts";
 import { TEST_USERS } from "../constants/test-users.constant.ts";
 import { compareMigrationFiles } from "../utilities/migration-order.utility.ts";
@@ -46,6 +47,8 @@ const applyMigrations = async (client: pg.Client) => {
 
     await client.query(migration);
   }
+
+  await applyStagedMigrations(MIGRATIONS_DIRECTORY, client);
 };
 
 const seedTestUsers = async (client: pg.Client) => {

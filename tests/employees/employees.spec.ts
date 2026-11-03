@@ -51,9 +51,10 @@ test("the role picker offers exactly the six roles", async ({ page }) => {
 
   await employeesPage.goto();
 
-  await expect(await employeesPage.openRoleOptions()).toHaveText(
-    USER_ROLE_VALUES.map(role => USER_ROLE_LABELS[role]),
-  );
+  await expect(employeesPage.roleOptions).toHaveCount(USER_ROLE_VALUES.length);
+  for (const role of USER_ROLE_VALUES) {
+    await expect(employeesPage.roleCheckbox(role)).toHaveAccessibleName(USER_ROLE_LABELS[role]);
+  }
 });
 
 test("the role filters narrow the table to each of the six roles", async ({ page, api }) => {

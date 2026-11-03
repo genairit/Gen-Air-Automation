@@ -25,6 +25,13 @@ npm test
 ```
 
 Point the suite at other checkouts with `GEN_AIR_BACKEND_DIR` and `GEN_AIR_FRONTEND_DIR`.
+For parallel isolated stacks, override all four ports with `GEN_AIR_BACKEND_PORT`,
+`GEN_AIR_FRONTEND_PORT`, `GEN_AIR_DATABASE_PORT`, and `GEN_AIR_FAKE_PLACES_PORT`.
+Set `GEN_AIR_ARTIFACTS_DIR` to a unique OS temporary directory for each run; database, authentication,
+JSON/HTML reports, screenshots and traces stay beneath that directory.
+
+Card 98's [multiple-role coverage matrix](docs/multiple-roles-coverage.md) documents the targeted
+feature and affected regression checks, including real and simulated boundaries.
 
 | Command                                       | What it does                                                 |
 | --------------------------------------------- | ------------------------------------------------------------ |

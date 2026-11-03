@@ -31,18 +31,31 @@ import type {
 } from "../interfaces/entities.interface.ts";
 
 import { TASK_TYPES, TASK_STATUSES } from "../constants/domain.constant.ts";
+import { USER_ROLE_VALUES, type UserRoleType } from "../constants/user-role.constant.ts";
 
 export const isTask = createStringFieldsGuard<ITask>(["id", "title"]);
 
 export const isUser = createStringFieldsGuard<IUser>(["id", "email", "firstName", "lastName"]);
 
-export const isUserRecord = createStringFieldsGuard<IUserRecord>([
+const hasUserRecordFields = createStringFieldsGuard<IUserRecord>([
   "id",
   "role",
   "email",
   "firstName",
   "lastName",
 ]);
+
+const isUserRole = (value: unknown): value is UserRoleType =>
+  USER_ROLE_VALUES.some(role => role === value);
+
+export const isAssignedRoles = (value: unknown): value is UserRoleType[] =>
+  Array.isArray(value) &&
+  value.length > 0 &&
+  value.every(isUserRole) &&
+  new Set(value).size === value.length;
+
+export const isUserRecord = (value: unknown): value is IUserRecord =>
+  hasUserRecordFields(value) && isRecord(value) && isAssignedRoles(value.assignedRoles);
 
 const NULLABLE_TASK_STRINGS = [
   "projectId",
@@ -131,6 +144,7 @@ export const isAuthorizedUser = (value: unknown): value is IAuthorizedUser =>
   isUser(value) &&
   isRecord(value) &&
   typeof value.role === "string" &&
+  isAssignedRoles(value.assignedRoles) &&
   Array.isArray(value.permissions) &&
   value.permissions.every(key => typeof key === "string");
 
