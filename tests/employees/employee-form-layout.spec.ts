@@ -112,50 +112,28 @@ test("employee form stays readable and actionable at 390px", async ({ page }, te
   await expect(employees.findRow(employee.email)).toBeVisible();
 });
 
-test("active-role control stays inside selected role tiles", async ({ page }) => {
+test("role tiles are assignment-only and can be selected across the whole tile", async ({
+  page,
+}) => {
   const employees = createEmployeesPage(page);
   await employees.goto();
 
   const roleGroup = page.getByRole("group", { name: EMPLOYEES_COPY.ROLE_LABEL });
-  const engineer = employees.roleCheckbox(USER_ROLES.ENGINEER);
   const finance = employees.roleCheckbox(USER_ROLES.FINANCE);
-  await expect(engineer).toBeChecked();
+  await expect(employees.roleCheckbox(USER_ROLES.ENGINEER)).toBeChecked();
   await expect(roleGroup.getByRole("radio")).toHaveCount(0);
 
-  await finance.check();
-  const engineerActive = roleGroup.getByRole("radio", {
-    name: USER_ROLE_LABELS[USER_ROLES.ENGINEER],
-    exact: true,
-  });
-  const financeActive = roleGroup.getByRole("radio", {
-    name: USER_ROLE_LABELS[USER_ROLES.FINANCE],
-    exact: true,
-  });
-  const engineerTile = roleGroup.locator(":scope > div").filter({
-    hasText: USER_ROLE_LABELS[USER_ROLES.ENGINEER],
-  });
   const financeTile = roleGroup.locator(":scope > div").filter({
     hasText: USER_ROLE_LABELS[USER_ROLES.FINANCE],
   });
-  await expect(roleGroup.getByRole("radio")).toHaveCount(2);
-  await expect(
-    engineerTile.getByRole("checkbox", { name: USER_ROLE_LABELS[USER_ROLES.ENGINEER] }),
-  ).toHaveCount(1);
+  const tileBox = await readBoundingBox(financeTile);
+  await financeTile.click({ position: { x: tileBox.width / 2, y: tileBox.height - 8 } });
+  await expect(finance).toBeChecked();
   await expect(
     financeTile.getByRole("checkbox", { name: USER_ROLE_LABELS[USER_ROLES.FINANCE] }),
   ).toHaveCount(1);
-  await expect(
-    engineerTile.getByRole("radio", { name: USER_ROLE_LABELS[USER_ROLES.ENGINEER] }),
-  ).toHaveCount(1);
-  await expect(
-    financeTile.getByRole("radio", { name: USER_ROLE_LABELS[USER_ROLES.FINANCE] }),
-  ).toHaveCount(1);
-  await expect(engineerActive).toBeChecked();
-  await financeActive.check();
-  await expect(financeActive).toBeChecked();
-  await engineer.uncheck();
   await expect(roleGroup.getByRole("radio")).toHaveCount(0);
-  await expect(finance).toBeChecked();
+  await expect(roleGroup.getByText("פעיל", { exact: true })).toHaveCount(0);
 });
 
 test("create form blocks empty roles and keeps entered values after a request rejection", async ({

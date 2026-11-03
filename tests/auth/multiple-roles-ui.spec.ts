@@ -14,7 +14,7 @@ test("switching updates visible permissions, persists after reload, and synchron
   api,
   openPageAs,
 }) => {
-  const user = await seedMultiRoleUser(api, [ADMIN, FINANCE], ADMIN);
+  const user = await seedMultiRoleUser(api, [ADMIN, FINANCE]);
   const page = await openPageAs(user);
   await page.goto(ROUTES.BOARD);
   const board = createBoardPage(page);

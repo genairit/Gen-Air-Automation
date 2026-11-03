@@ -54,7 +54,10 @@ for (const role of USER_ROLE_VALUES) {
 }
 
 test("creating an employee with the retired lead_installer role is rejected", async ({ api }) => {
-  const input = { ...buildUserInput(USER_ROLES.INSTALLER), role: RETIRED_ROLES.LEAD_INSTALLER };
+  const input = {
+    ...buildUserInput(USER_ROLES.INSTALLER),
+    assignedRoles: [RETIRED_ROLES.LEAD_INSTALLER],
+  };
 
   await expectBadRequest(await api.send(HTTP_METHODS.POST, API_PATHS.USER, input));
 });

@@ -42,12 +42,6 @@ export const createEmployeesPage = (page: Page) => {
     for (const role of USER_ROLE_VALUES) {
       await roleCheckbox(role).setChecked(assignedRoles.includes(role));
     }
-    if (assignedRoles.length > 1) {
-      await form
-        .getByRole("group", { name: EMPLOYEES_COPY.ROLE_LABEL })
-        .getByRole("radio", { name: USER_ROLE_LABELS[input.role], exact: true })
-        .check();
-    }
     await addButton.click();
   };
 

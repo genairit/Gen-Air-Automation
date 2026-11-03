@@ -139,7 +139,9 @@ test("task content grant cannot assign on create/update or change urgency", asyn
   );
 });
 
-test("employee content grant cannot create an account or change its role", async ({ api }) => {
+test("employee content grant cannot create an account or change its assigned roles", async ({
+  api,
+}) => {
   const employee = await seedUser(api, USER_ROLES.ENGINEER);
   await withRolePermissions(
     ADMIN,
@@ -154,7 +156,11 @@ test("employee content grant cannot create an account or change its role", async
         ).status(),
       ).toBe(200);
       expect(
-        (await api.send(HTTP_METHODS.PATCH, `/user/${employee.id}`, { role: ADMIN })).status(),
+        (
+          await api.send(HTTP_METHODS.PATCH, `/user/${employee.id}`, {
+            assignedRoles: [ADMIN],
+          })
+        ).status(),
       ).toBe(403);
       expect(await (await api.send(HTTP_METHODS.GET, `/user/${employee.id}`)).json()).toMatchObject(
         { role: USER_ROLES.ENGINEER, firstName: "Edited" },

@@ -25,7 +25,7 @@ test("a stale current-user refresh cannot overwrite a more recent successful rol
   api,
   openPageAs,
 }) => {
-  const user = await seedMultiRoleUser(api, [ADMIN, FINANCE], ADMIN);
+  const user = await seedMultiRoleUser(api, [ADMIN, FINANCE]);
   const page = await openPageAs(user);
   await page.goto(ROUTES.BOARD);
   const board = createBoardPage(page);
@@ -86,7 +86,7 @@ test("a late restricted query cannot repopulate visible customer data after swit
   api,
   openPageAs,
 }) => {
-  const user = await seedMultiRoleUser(api, [ADMIN, FINANCE], ADMIN);
+  const user = await seedMultiRoleUser(api, [ADMIN, FINANCE]);
   const customer = await seedCustomer(api);
   await withRolePermissions(FINANCE, [PERMISSIONS.TASKS_READ], async () => {
     const page = await openPageAs(user);
@@ -112,7 +112,7 @@ test("a completed employee mutation cannot run its success-close callback after 
   apiAs,
   openPageAs,
 }) => {
-  const user = await seedMultiRoleUser(api, [ADMIN, FINANCE], ADMIN);
+  const user = await seedMultiRoleUser(api, [ADMIN, FINANCE]);
   const employee = await seedMultiRoleUser(api, [USER_ROLES.ENGINEER]);
   const actor = await apiAs(user);
   const page = await openPageAs(user);
@@ -174,7 +174,7 @@ for (const status of [400, 403, 500]) {
     api,
     openPageAs,
   }) => {
-    const user = await seedMultiRoleUser(api, [ADMIN, FINANCE], ADMIN);
+    const user = await seedMultiRoleUser(api, [ADMIN, FINANCE]);
     const page = await openPageAs(user);
     await page.goto(ROUTES.BOARD);
     const board = createBoardPage(page);

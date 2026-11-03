@@ -21,9 +21,7 @@ import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { API_PATHS } from "../../src/constants/api.constant.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
-import { EMPLOYEES_COPY } from "../../src/constants/copy.constant.ts";
 import { createEmployeesPage } from "../../src/pages/employees.page.ts";
-import { KEYBOARD_KEYS } from "../../src/constants/keyboard.constant.ts";
 import { refreshVisibility } from "../../src/utilities/browser-event.utility.ts";
 import { MULTIPLE_ROLES_COPY } from "../../src/constants/multiple-roles.constant.ts";
 import { createTestDatabaseClient } from "../../src/environment/test-database-client.ts";
@@ -32,13 +30,13 @@ const ADMIN = USER_ROLES.SYSTEM_ADMIN;
 const FINANCE = USER_ROLES.FINANCE;
 const ENGINEER = USER_ROLES.ENGINEER;
 
-test("admin creates a multi-role account with a distinct active role and counts the account once", async ({
+test("admin creates a multi-role account and the server activates the first assigned role", async ({
   api,
   page,
   apiAs,
 }) => {
   const employee = {
-    role: FINANCE,
+    role: ENGINEER,
     assignedRoles: [ENGINEER, FINANCE],
     name: createUniqueName("עובד רב תפקידים"),
     email: createUniqueEmail("multi-role"),
@@ -51,7 +49,7 @@ test("admin creates a multi-role account with a distinct active role and counts 
   await employees.searchBox.fill(employee.email);
   await expect(employees.findRow(employee.email)).toBeVisible();
   const actor = await apiAs({ email: employee.email, password: "temp1234" });
-  expect(actor.session.user.role).toBe(FINANCE);
+  expect(actor.session.user.role).toBe(ENGINEER);
   expect([...actor.session.user.assignedRoles].sort()).toEqual([ENGINEER, FINANCE].sort());
   const after = await api.readRoleCounts();
   expect(after.total).toBe(before.total + 1);
@@ -65,7 +63,7 @@ test("admin creates a multi-role account with a distinct active role and counts 
   await expect(employees.findRow(employee.email)).toBeVisible();
 });
 
-test("admin edits assigned roles with labeled checkboxes and keyboard-native active-role radios", async ({
+test("admin edits assigned roles without choosing an active role and receives a fallback", async ({
   api,
   page,
   apiAs,
@@ -80,27 +78,30 @@ test("admin edits assigned roles with labeled checkboxes and keyboard-native act
   await expect(dialog.getByRole("checkbox")).toHaveCount(USER_ROLE_VALUES.length);
   await expect(dialog.getByRole("radio")).toHaveCount(0);
   await dialog.getByRole("checkbox", { name: USER_ROLE_LABELS[FINANCE], exact: true }).check();
-  const group = dialog.getByRole("group", { name: EMPLOYEES_COPY.ROLE_LABEL });
-  const engineer = group.getByRole("radio", { name: USER_ROLE_LABELS[ENGINEER], exact: true });
-  const finance = group.getByRole("radio", { name: USER_ROLE_LABELS[FINANCE], exact: true });
-  await expect(engineer).toBeChecked();
-  await engineer.focus();
-  await page.keyboard.press(KEYBOARD_KEYS.ARROW_DOWN);
-  await expect(finance).toBeChecked();
-  await expect(engineer).not.toBeChecked();
+  await expect(dialog.getByRole("radio")).toHaveCount(0);
   await dialog.getByRole("button", { name: MULTIPLE_ROLES_COPY.SAVE }).click();
   await expect(dialog).toHaveCount(0);
   const actor = await apiAs(user);
-  expect(actor.session.user.role).toBe(FINANCE);
+  expect(actor.session.user.role).toBe(ENGINEER);
   expect([...actor.session.user.assignedRoles].sort()).toEqual([ENGINEER, FINANCE].sort());
   await page.reload();
   await employees.searchBox.fill(user.email);
   await expect(
     employees.findRow(user.email).getByText(USER_ROLE_LABELS[ENGINEER], { exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(2);
   await expect(
     employees.findRow(user.email).getByText(USER_ROLE_LABELS[FINANCE], { exact: true }),
-  ).toHaveCount(2);
+  ).toBeVisible();
+
+  await employees
+    .findRow(user.email)
+    .getByRole("button", { name: MULTIPLE_ROLES_COPY.EDIT })
+    .click();
+  await dialog.getByRole("checkbox", { name: USER_ROLE_LABELS[ENGINEER], exact: true }).uncheck();
+  await expect(dialog.getByRole("radio")).toHaveCount(0);
+  await dialog.getByRole("button", { name: MULTIPLE_ROLES_COPY.SAVE }).click();
+  await expect(dialog).toHaveCount(0);
+  expect((await apiAs(user)).session.user.role).toBe(FINANCE);
 });
 
 test("empty assignments block saving and a server rejection retains the edit and entered selections", async ({
@@ -145,7 +146,7 @@ test("revoked active administrator loses employee actions after focus without an
   api,
   openPageAs,
 }) => {
-  const user = await seedMultiRoleUser(api, [ADMIN, FINANCE], ADMIN);
+  const user = await seedMultiRoleUser(api, [ADMIN, FINANCE]);
   const page = await openPageAs(user);
   const employees = createEmployeesPage(page);
   await employees.goto();
