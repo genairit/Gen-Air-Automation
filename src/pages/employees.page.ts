@@ -11,7 +11,6 @@ import { findCountedTab } from "./tab.component.ts";
 import { findMainContent } from "./layout.component.ts";
 import { ROUTES } from "../constants/routes.constant.ts";
 import { EMPLOYEES_COPY } from "../constants/copy.constant.ts";
-import { MULTIPLE_ROLES_COPY } from "../constants/multiple-roles.constant.ts";
 
 export interface IEmployeeFormInput {
   name: string;
@@ -45,7 +44,7 @@ export const createEmployeesPage = (page: Page) => {
     }
     if (assignedRoles.length > 1) {
       await form
-        .getByRole("radiogroup", { name: MULTIPLE_ROLES_COPY.ACTIVE_ROLE })
+        .getByRole("group", { name: EMPLOYEES_COPY.ROLE_LABEL })
         .getByRole("radio", { name: USER_ROLE_LABELS[input.role], exact: true })
         .check();
     }

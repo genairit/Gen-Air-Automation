@@ -120,7 +120,10 @@ export const TASKS_COPY = {
 } as const;
 
 export const EMPLOYEES_COPY = {
-  ROLE_LABEL: "תפקיד והרשאה",
+  ROLE_LABEL: "תפקידים משויכים",
+  ADD_TITLE: "הוספת עובד / משתמש חדש",
+  ACCOUNT_SECTION: "פרטי חשבון",
+  ACCESS_SECTION: "גישה ותפקידים",
   DELETE_EMPLOYEE: "מחיקת עובד",
   NAME_PLACEHOLDER: "לדוגמה: יובל אל",
   PHONE_PLACEHOLDER: "0500000000",
