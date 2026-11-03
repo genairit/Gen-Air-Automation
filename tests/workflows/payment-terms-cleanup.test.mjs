@@ -1,15 +1,21 @@
 import {
   ROLE_SETUP_PATH,
   enableReviewedRoleSetup,
+  preparePaymentCleanupStage,
   PAYMENT_TERMS_CLEANUP_PATH,
+  preparePaymentPreservingStage,
   enableReviewedPaymentTermsCleanup,
 } from "../../src/environment/payment-terms-cleanup.ts";
 
 import { test } from "node:test";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { parse } from "pgsql-parser";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
+import { readFile, mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { applyStagedMigrations } from "../../src/environment/staged-migrations.ts";
+import { MIGRATION_STAGES, REVIEWED_ROLE_SPRINT } from "../../src/constants/migration.constant.ts";
 import { PAYMENT_CLEANUP_FIXTURE_SQL } from "../../src/constants/payment-cleanup-fixture.constant.ts";
 
 const migration = await readFile(PAYMENT_TERMS_CLEANUP_PATH, "utf8");
@@ -121,15 +127,133 @@ test("changed or unreviewed role prerequisite fails closed", () => {
   );
 });
 
-test("startup applies pinned role setup before optional cleanup and user seeds", async () => {
+test("startup routes stages through reviewed policy once before user seeds, never replays prerequisites", async () => {
   const source = await readFile(
     new URL("../../src/environment/test-database.ts", import.meta.url),
     "utf8",
   );
+  assert.match(source, /await applyMigrations\(client\);\s+await seedTestUsers\(client\);/);
   assert.match(
     source,
-    /await applyMigrations\(client\);\s+await client.query\(await readReviewedRoleSetup\(\)\);\s+if \(IS_SPRINT_ALMON_CLEANUP_ENABLED\) \{\s+await client.query\(await readReviewedPaymentTermsCleanup\(\)\);\s+\}\s+await seedTestUsers\(client\);/,
+    /const prepareStage = IS_SPRINT_ALMON_CLEANUP_ENABLED\s+\? preparePaymentCleanupStage\s+: preparePaymentPreservingStage;\s+await applyStagedMigrations\(MIGRATIONS_DIRECTORY, client, prepareStage\);/,
   );
+  assert.equal((source.match(/await applyStagedMigrations\(/g) ?? []).length, 1);
+  assert.doesNotMatch(source, /readReviewedRoleSetup|readReviewedPaymentTermsCleanup/);
+});
+
+for (const cleanupEnabled of [false, true]) {
+  test(`actual staged loader applies pinned combined schema exactly once with cleanup=${cleanupEnabled}`, async () => {
+    const directory = await mkdtemp(join(tmpdir(), "genair-reviewed-stage-"));
+    const database = new PGlite();
+    const calls = [];
+    try {
+      await mkdir(join(directory, REVIEWED_ROLE_SPRINT));
+      await writeFile(
+        join(directory, REVIEWED_ROLE_SPRINT, MIGRATION_STAGES.BEFORE_DEPLOY),
+        roleSetup,
+      );
+      await writeFile(
+        join(directory, REVIEWED_ROLE_SPRINT, MIGRATION_STAGES.AFTER_DEPLOY),
+        migration,
+      );
+      await database.exec(PAYMENT_CLEANUP_FIXTURE_SQL.LEGACY_ROLES);
+      await database.exec(PAYMENT_CLEANUP_FIXTURE_SQL.SNAPSHOTS);
+      await applyStagedMigrations(
+        directory,
+        {
+          query: async sql => {
+            calls.push(sql);
+            await database.exec(sql);
+          },
+        },
+        cleanupEnabled ? preparePaymentCleanupStage : preparePaymentPreservingStage,
+      );
+      assert.equal(calls.length, 4);
+      assert.equal(calls[1], "COMMIT");
+      assert.equal(calls[3], "COMMIT");
+      assert.deepEqual((await database.query("SELECT role FROM user_roles")).rows, [
+        { role: "engineer" },
+      ]);
+      await database.exec("INSERT INTO users (role) VALUES ('finance');");
+      assert.deepEqual(
+        (await database.query("SELECT role FROM user_roles ORDER BY role::text")).rows,
+        [{ role: "engineer" }, { role: "finance" }],
+      );
+      assert.deepEqual(
+        (await database.query("SELECT changed_by_role FROM task_status_transitions")).rows,
+        [{ changed_by_role: null }],
+      );
+      const fields = (
+        await database.query(`SELECT column_name FROM information_schema.columns
+        WHERE table_name='projects' ORDER BY column_name`)
+      ).rows.map(row => row.column_name);
+      assert.deepEqual(
+        fields,
+        cleanupEnabled ? ["id"] : ["id", "payment_terms", "payment_terms_note"],
+      );
+      assert.deepEqual((await database.query("SELECT * FROM customers ORDER BY id")).rows, [
+        { id: 1, payment_terms: "prepaid" },
+        { id: 2, payment_terms: null },
+      ]);
+      assert.deepEqual((await database.query("SELECT * FROM quotations ORDER BY id")).rows, [
+        { id: 1, payment_terms: "other", payment_terms_note: "Retain quote note" },
+        { id: 2, payment_terms: null, payment_terms_note: "" },
+      ]);
+      assert.equal(
+        (await database.query("SELECT typname FROM pg_type WHERE typname='payment_terms'")).rows
+          .length,
+        cleanupEnabled ? 0 : 1,
+      );
+      await assert.rejects(
+        database.exec("DELETE FROM user_roles"),
+        /Every active user must have their active role assigned/,
+      );
+    } finally {
+      await database.close();
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+}
+
+for (const stage of Object.values(MIGRATION_STAGES)) {
+  test(`actual stage policy rejects changed reviewed ${stage} before SQL execution`, async () => {
+    const directory = await mkdtemp(join(tmpdir(), "genair-rejected-stage-"));
+    try {
+      await mkdir(join(directory, REVIEWED_ROLE_SPRINT));
+      await writeFile(
+        join(directory, REVIEWED_ROLE_SPRINT, MIGRATION_STAGES.BEFORE_DEPLOY),
+        stage === MIGRATION_STAGES.BEFORE_DEPLOY ? `${roleSetup}\n-- changed` : roleSetup,
+      );
+      await writeFile(
+        join(directory, REVIEWED_ROLE_SPRINT, MIGRATION_STAGES.AFTER_DEPLOY),
+        stage === MIGRATION_STAGES.AFTER_DEPLOY ? `${migration}\n-- changed` : migration,
+      );
+      for (const prepareStage of [preparePaymentPreservingStage, preparePaymentCleanupStage]) {
+        const calls = [];
+        await assert.rejects(
+          applyStagedMigrations(directory, { query: async sql => calls.push(sql) }, prepareStage),
+          /migration changed/,
+        );
+        assert.equal(calls.at(-1), "ROLLBACK");
+        assert.equal(calls.length, stage === MIGRATION_STAGES.BEFORE_DEPLOY ? 1 : 3);
+        assert.equal(
+          calls.some(sql => sql.includes("-- changed")),
+          false,
+        );
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+}
+
+test("reviewed stage policy leaves unrelated sprint SQL unchanged", () => {
+  for (const prepareStage of [preparePaymentPreservingStage, preparePaymentCleanupStage]) {
+    assert.equal(
+      prepareStage("SELECT 1;", "sprint-other", MIGRATION_STAGES.BEFORE_DEPLOY),
+      "SELECT 1;",
+    );
+  }
 });
 
 for (const phase of ["setup-only", "setup-and-cleanup"]) {

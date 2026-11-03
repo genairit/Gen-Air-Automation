@@ -1,4 +1,9 @@
 import {
+  preparePaymentCleanupStage,
+  preparePaymentPreservingStage,
+} from "./payment-terms-cleanup.ts";
+
+import {
   PORTS,
   TEST_DATABASE,
   APP_DIRECTORIES,
@@ -10,10 +15,10 @@ import type pg from "pg";
 import { join } from "node:path";
 import EmbeddedPostgres from "embedded-postgres";
 import { readdir, readFile, rm } from "node:fs/promises";
+import { applyStagedMigrations } from "./staged-migrations.ts";
 import { hashPassword } from "../utilities/password.utility.ts";
 import { TEST_USERS } from "../constants/test-users.constant.ts";
 import { compareMigrationFiles } from "../utilities/migration-order.utility.ts";
-import { readReviewedRoleSetup, readReviewedPaymentTermsCleanup } from "./payment-terms-cleanup.ts";
 
 const MIGRATIONS_DIRECTORY = join(APP_DIRECTORIES.BACKEND, "migrations");
 
@@ -48,6 +53,11 @@ const applyMigrations = async (client: pg.Client) => {
 
     await client.query(migration);
   }
+
+  const prepareStage = IS_SPRINT_ALMON_CLEANUP_ENABLED
+    ? preparePaymentCleanupStage
+    : preparePaymentPreservingStage;
+  await applyStagedMigrations(MIGRATIONS_DIRECTORY, client, prepareStage);
 };
 
 const seedTestUsers = async (client: pg.Client) => {
@@ -72,12 +82,6 @@ const prepareSchema = async (server: EmbeddedPostgres) => {
 
   try {
     await applyMigrations(client);
-    await client.query(await readReviewedRoleSetup());
-
-    if (IS_SPRINT_ALMON_CLEANUP_ENABLED) {
-      await client.query(await readReviewedPaymentTermsCleanup());
-    }
-
     await seedTestUsers(client);
   } finally {
     await client.end();

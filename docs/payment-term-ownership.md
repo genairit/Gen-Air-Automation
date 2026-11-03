@@ -54,7 +54,10 @@ tables allow the complete migration, including both deferred role triggers, to e
 Startup explicitly applies the reviewed role prerequisite `before_deploy.sql` (SHA-256
 `5a8151cacf0b1929441b164592aa5a205bf4a6a3ebe58d77b2d94a6e738cf125`)
 before optional payment cleanup and test-user seeding. Both pins fail closed on any change;
-no other nested sprint files are discovered automatically. The prerequisite is required
+the ordered staged loader applies each sprint's before/after files exactly once, with one commit
+per stage. The combined after stage installs role constraints even when payment drops remain
+disabled. Other sprint files remain unchanged; destructive payment SQL requires the explicit opt-in.
+The prerequisite is required
 even with payment cleanup disabled because the combined backend reads role memberships.
 Focused contracts use PostgreSQL syntax trees to distinguish trigger events from actual DML
 and writable CTEs; opaque PL/pgSQL bodies remain protected by the exact-file hash gate.

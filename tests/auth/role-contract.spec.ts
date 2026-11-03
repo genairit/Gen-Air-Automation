@@ -36,7 +36,8 @@ const sortRoles = (roles: readonly string[]) => [...roles].sort();
 test("role counts report exactly the six roles", async ({ api }) => {
   const counts = await api.readRoleCounts();
 
-  expect(sortRoles(Object.keys(counts))).toEqual(sortRoles(USER_ROLE_VALUES));
+  expect(sortRoles(Object.keys(counts))).toEqual(sortRoles([...USER_ROLE_VALUES, "total"]));
+  expect(counts.total).toBeGreaterThanOrEqual(USER_ROLE_VALUES.length);
   for (const role of USER_ROLE_VALUES) {
     expect(counts[role]).toBeGreaterThanOrEqual(1);
   }

@@ -25,6 +25,20 @@ npm test
 ```
 
 Point the suite at other checkouts with `GEN_AIR_BACKEND_DIR` and `GEN_AIR_FRONTEND_DIR`.
+For parallel isolated stacks, override ports with `GEN_AIR_BACKEND_PORT`,
+`GEN_AIR_FRONTEND_PORT`, `GEN_AIR_DATABASE_PORT`, `GEN_AIR_FAKE_PLACES_PORT`, and
+`GEN_AIR_SMTP_PORT`. Each explicit override takes precedence over `GEN_AIR_QA_PORT_OFFSET`;
+otherwise the offset shifts the established default port. Every resolved port is validated.
+Set `GEN_AIR_ARTIFACTS_DIR` to a unique OS temporary directory for each run; database, authentication,
+JSON/HTML reports, screenshots and traces stay beneath that directory.
+
+Card 98's [multiple-role coverage matrix](docs/multiple-roles-coverage.md) documents the targeted
+feature and affected regression checks, including real and simulated boundaries.
+
+Staged sprint migrations run once in the disposable database, with one commit per stage.
+The combined role/payment stages are hash-pinned. Destructive cleanup remains commented unless
+`GEN_AIR_TEST_SPRINT_ALMON_CLEANUP=true` explicitly enables the reviewed payment drops.
+A changed combined sprint SQL revision fails closed until its fingerprint is reviewed.
 
 | Command                                       | What it does                                                 |
 | --------------------------------------------- | ------------------------------------------------------------ |
@@ -40,7 +54,7 @@ No Docker, database or Google credentials are needed.
 `npm test` starts everything through Playwright's `webServer`:
 
 1. **Throwaway Postgres 17** (`embedded-postgres`) on port `54329`, wiped on every start.
-2. **Schema**: every `Gen-Air-Backend/migrations/*.sql` file, applied in order.
+2. **Schema**: root SQL migrations, then sorted sprint directories' before/after stages.
 3. **Seed**: one user per role (`src/constants/test-users.constant.ts`).
 4. **Fake Google Places** on port `4100`, so project addresses can be verified without a key.
 5. **Gen-Air-Backend** is built and runs on port `3100`. It runs from an empty working directory so
@@ -54,13 +68,14 @@ mock Drive endpoints in the browser (`src/mocks/drive.mock.ts`).
 
 For card100's reviewed sprint cleanup, explicitly set
 `GEN_AIR_TEST_SPRINT_ALMON_CLEANUP=true`. Only the embedded disposable database startup
-uses this opt-in; it enables the reviewed `sprint-almon/after_deploy.sql` drops and commit.
-The migration's SHA-256 is pinned, so changed SQL requires renewed review. Nested sprint
-migrations are never discovered or enabled automatically. See
+uses this opt-in; it enables the reviewed `sprint-almon/after_deploy.sql` drops.
+The staged loader owns each stage's commit and applies the combined constraints even with
+destructive cleanup disabled. Both combined migration SHA-256 values are pinned; changed SQL
+requires renewed review. Other sprint directories retain the ordered, unchanged stage policy. See
 [payment ownership coverage](docs/payment-term-ownership.md) for the targeted commands.
 The combined backend also requires the explicitly hash-pinned sprint-almon role prerequisite
-`before_deploy.sql`. Disposable startup applies it before optional cleanup and test-user
-seeding, even when payment cleanup is disabled. Neither prerequisite nor cleanup is executed
+`before_deploy.sql`. Disposable startup applies it exactly once before the combined after stage
+and test-user seeding, even when payment cleanup is disabled. Neither prerequisite nor cleanup is executed
 against an external database.
 
 ## Merge gate
