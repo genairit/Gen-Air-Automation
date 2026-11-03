@@ -13,7 +13,6 @@ import {
 
 import type { Page } from "@playwright/test";
 import type { TGenAirApi } from "../../src/api/gen-air-api.ts";
-import { API_PATHS } from "../../src/constants/api.constant.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { MIME_TYPES } from "../../src/constants/domain.constant.ts";
 import { createProjectPage } from "../../src/pages/project.page.ts";
@@ -24,6 +23,7 @@ import { USER_ROLE_VALUES } from "../../src/constants/user-role.constant.ts";
 import { getAuthStatePath } from "../../src/utilities/auth-state.utility.ts";
 import { HTTP_STATUS, HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts";
+import { API_PATHS, API_PROXY_PREFIX } from "../../src/constants/api.constant.ts";
 import { DRIVE_COPY, PROJECT_PAGE_COPY } from "../../src/constants/copy.constant.ts";
 import { APARTMENT_DESIGN_COPY } from "../../src/constants/apartment-design.constant.ts";
 
@@ -39,9 +39,18 @@ const BLOCKED_FILE = {
   mimeType: MIME_TYPES.BINARY,
 };
 
-test("the Drive-unavailable banner shows when Drive is not configured", async ({ page, api }) => {
+test("the Drive-unavailable banner shows when Drive cannot be reached", async ({ page, api }) => {
   const project = await seedStandaloneProject(api, await seedCustomer(api));
   const projectPage = createProjectPage(page);
+
+  await page.route(
+    `**${API_PROXY_PREFIX}${API_PATHS.PROJECT_DRIVE}/${project.id}/contents**`,
+    route =>
+      route.fulfill({
+        status: HTTP_STATUS.SERVICE_UNAVAILABLE,
+        json: { message: "Drive is unavailable" },
+      }),
+  );
 
   await projectPage.goto(project.id);
 
