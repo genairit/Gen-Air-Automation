@@ -37,9 +37,10 @@ Relevant existing quotation regressions can be selected by title from
 | Legacy values discarded, no customer/quote backfill                  | Cleanup spec: populated legacy rows, new connection verifies commit and preserved snapshots; actual application schema checked separately                      | Disposable embedded Postgres only                                                                      |
 | Safe opt-in cleanup infrastructure                                   | `node --test tests/workflows/payment-terms-cleanup.test.mjs`; cleanup spec: disposable migration databases are dropped after successful and rejected callbacks | Executed contract checks and real embedded Postgres teardown; no UI exists for test-run infrastructure |
 
-Google Places is faked locally. Google Drive is unconfigured; existing Drive-display checks use
-browser mocks. Payment behavior is never mocked. No shared Supabase, Google credentials or
-customer documents are needed.
+Google Places is faked locally. The integrated shared baseline uses a test Drive adapter and
+local SMTP sink by default; existing Drive-display checks also use browser mocks. Set
+`GEN_AIR_EMAIL_QA=false` to leave Drive unconfigured and disable the email fixture. Payment
+behavior is never mocked. No shared Supabase, Google credentials or customer documents are needed.
 
 The backend cleanup remains operator-gated in the application repository. Automation enabling
 it on disposable data does not approve execution in a shared environment. Paired feature

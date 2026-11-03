@@ -7,6 +7,7 @@ const AUTOMATION_ROOT = resolve(import.meta.dirname, "../..");
 const REPOSITORIES_ROOT = resolve(AUTOMATION_ROOT, "..");
 
 export const IS_CI = process.env.CI === "true";
+export const EMAIL_QA_ENABLED = process.env.GEN_AIR_EMAIL_QA !== "false";
 export const IS_SPRINT_ALMON_CLEANUP_ENABLED =
   process.env.GEN_AIR_TEST_SPRINT_ALMON_CLEANUP === "true";
 
@@ -16,6 +17,7 @@ export const APP_DIRECTORIES = {
 } as const;
 
 const CHECKOUT_ID = createHash("sha256").update(AUTOMATION_ROOT).digest("hex").slice(0, 12);
+const PORT_OFFSET = Number(process.env.GEN_AIR_QA_PORT_OFFSET ?? 0);
 const ARTIFACTS_ROOT = resolve(
   process.env.GEN_AIR_ARTIFACTS_DIR ?? resolve(tmpdir(), "gen-air-automation", CHECKOUT_ID),
 );
@@ -26,13 +28,15 @@ export const AUTOMATION_DIRECTORIES = {
   JSON: resolve(ARTIFACTS_ROOT, "results.json"),
   RESULTS: resolve(ARTIFACTS_ROOT, "test-results"),
   DATABASE: resolve(ARTIFACTS_ROOT, "database"),
+  MAIL: resolve(ARTIFACTS_ROOT, "mail"),
 } as const;
 
 export const PORTS = {
-  BACKEND: 3100,
-  FRONTEND: 5180,
-  DATABASE: 54329,
-  FAKE_PLACES: 4100,
+  BACKEND: 3100 + PORT_OFFSET,
+  FRONTEND: 5180 + PORT_OFFSET,
+  DATABASE: 54329 + PORT_OFFSET,
+  FAKE_PLACES: 4100 + PORT_OFFSET,
+  SMTP: 2525 + PORT_OFFSET,
 } as const;
 
 export const LOCAL_HOST = "localhost";
