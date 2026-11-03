@@ -4,10 +4,10 @@ import type EmbeddedPostgres from "embedded-postgres";
 import type { ChildProcess } from "node:child_process";
 import { startTestDatabase } from "./test-database.ts";
 import { startFakeSmtpServer } from "./fake-smtp-server.ts";
-import { PORTS } from "../constants/environment.constant.ts";
 import { createLogger } from "../utilities/logger.utility.ts";
 import { startFakePlacesServer } from "./fake-places-server.ts";
 import { buildBackend, startBackend } from "./backend-process.ts";
+import { PORTS, EMAIL_QA_ENABLED } from "../constants/environment.constant.ts";
 
 interface IStack {
   fakePlaces: Server;
@@ -47,7 +47,7 @@ const registerShutdown = (stack: IStack) => {
 const startStack = async () => {
   buildBackend();
 
-  const smtp = process.env.GEN_AIR_EMAIL_QA === "true" ? await startFakeSmtpServer() : null;
+  const smtp = EMAIL_QA_ENABLED ? await startFakeSmtpServer() : null;
   const database = await startTestDatabase();
   const fakePlaces = await startFakePlacesServer(PORTS.FAKE_PLACES);
   const backend = await startBackend();

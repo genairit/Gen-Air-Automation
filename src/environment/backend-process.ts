@@ -5,6 +5,7 @@ import {
   TEST_SECRETS,
   TEST_DATABASE,
   APP_DIRECTORIES,
+  EMAIL_QA_ENABLED,
   AUTOMATION_DIRECTORIES,
 } from "../constants/environment.constant.ts";
 
@@ -18,7 +19,6 @@ const BACKEND_ENTRY = join(APP_DIRECTORIES.BACKEND, "dist", "main.js");
 const RUNTIME_DIRECTORY = join(AUTOMATION_DIRECTORIES.DATABASE, "backend-runtime");
 
 const RATE_LIMIT_MULTIPLIER = "1000";
-const EMAIL_QA_ENABLED = process.env.GEN_AIR_EMAIL_QA === "true";
 const DRIVE_PRELOAD = join(import.meta.dirname, "fake-drive-preload.mjs");
 
 const buildBackendEnvironment = () => ({

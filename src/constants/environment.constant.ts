@@ -7,6 +7,7 @@ const AUTOMATION_ROOT = resolve(import.meta.dirname, "../..");
 const REPOSITORIES_ROOT = resolve(AUTOMATION_ROOT, "..");
 
 export const IS_CI = process.env.CI === "true";
+export const EMAIL_QA_ENABLED = process.env.GEN_AIR_EMAIL_QA !== "false";
 
 export const APP_DIRECTORIES = {
   BACKEND: process.env.GEN_AIR_BACKEND_DIR ?? resolve(REPOSITORIES_ROOT, "Gen-Air-Backend"),

@@ -48,9 +48,9 @@ No Docker, database or Google credentials are needed.
 6. **Gen-Air-Frontend** (Vite) runs on port `5180`, proxied to the backend.
 
 Each spec creates its own data through the API (`src/api/seed-data.ts`) with unique names, so specs
-never depend on each other. Google Drive is left unconfigured on the backend, which is how the
-"Drive unavailable" banner is tested; folder, file and upload flows mock the Drive endpoints in the
-browser (`src/mocks/drive.mock.ts`).
+never depend on each other. The isolated stack uses a test Drive adapter and local SMTP sink by
+default; the Drive-unavailable banner is tested with a 503 response. Folder, file and upload flows
+mock Drive endpoints in the browser (`src/mocks/drive.mock.ts`).
 
 ## Merge gate
 
@@ -170,17 +170,18 @@ keep those private. Only publish sanitized `html`, `test-results`, and `results.
 When the variable is omitted, paths default to an OS-temp directory namespaced by checkout.
 No reports, traces, login state, or test database are written into the repository.
 
-For quotation execution email QA, set `GEN_AIR_EMAIL_QA=true` only on the isolated local stack.
-This enables a test Drive adapter and local SMTP sink. The backend runs with test-only allowlisted
-addresses, empty Drive credentials, and no SMTP credentials. Raw test messages remain under the
-private artifact directory and must not be uploaded. `GEN_AIR_QA_PORT_OFFSET` shifts the app,
-database, Places, and SMTP ports when another local stack is active.
+For quotation execution email QA, the isolated stack enables its test Drive adapter and local SMTP
+sink by default. Set `GEN_AIR_EMAIL_QA=false` to disable them for a targeted check. The backend
+runs with test-only allowlisted addresses, empty Drive credentials, and no SMTP credentials. Raw
+test messages remain under the private artifact directory and must not be uploaded.
+`GEN_AIR_QA_PORT_OFFSET` shifts the app, database, Places, and SMTP ports when another local stack
+is active.
 
 ```bash
 export GEN_AIR_BACKEND_DIR=/absolute/path/to/reviewed/backend
 export GEN_AIR_FRONTEND_DIR=/absolute/path/to/reviewed/frontend
 export GEN_AIR_ARTIFACTS_DIR="$(mktemp -d /tmp/genair-email-qa.XXXXXX)"
-GEN_AIR_EMAIL_QA=true GEN_AIR_QA_PORT_OFFSET=100 npx playwright test tests/tasks/quotation-execution-email.spec.ts --project=chromium --retries=0
+GEN_AIR_QA_PORT_OFFSET=100 npx playwright test tests/tasks/quotation-execution-email.spec.ts --project=chromium --retries=0
 ```
 
 The JSON report supplies machine-readable outcomes; HTML and retained traces/screenshots explain
