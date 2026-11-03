@@ -13,7 +13,6 @@ import {
 
 import type { Page } from "@playwright/test";
 import type { TGenAirApi } from "../../src/api/gen-air-api.ts";
-import { API_PATHS } from "../../src/constants/api.constant.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { MIME_TYPES } from "../../src/constants/domain.constant.ts";
 import { createProjectPage } from "../../src/pages/project.page.ts";
@@ -24,6 +23,7 @@ import { USER_ROLE_VALUES } from "../../src/constants/user-role.constant.ts";
 import { getAuthStatePath } from "../../src/utilities/auth-state.utility.ts";
 import { HTTP_STATUS, HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts";
+import { API_PATHS, API_PROXY_PREFIX } from "../../src/constants/api.constant.ts";
 import { DRIVE_COPY, PROJECT_PAGE_COPY } from "../../src/constants/copy.constant.ts";
 import { APARTMENT_DESIGN_COPY } from "../../src/constants/apartment-design.constant.ts";
 
@@ -39,9 +39,18 @@ const BLOCKED_FILE = {
   mimeType: MIME_TYPES.BINARY,
 };
 
-test("the Drive-unavailable banner shows when Drive is not configured", async ({ page, api }) => {
+test("the Drive-unavailable banner shows when Drive cannot be reached", async ({ page, api }) => {
   const project = await seedStandaloneProject(api, await seedCustomer(api));
   const projectPage = createProjectPage(page);
+
+  await page.route(
+    `**${API_PROXY_PREFIX}${API_PATHS.PROJECT_DRIVE}/${project.id}/contents**`,
+    route =>
+      route.fulfill({
+        status: HTTP_STATUS.SERVICE_UNAVAILABLE,
+        json: { message: "Drive is unavailable" },
+      }),
+  );
 
   await projectPage.goto(project.id);
 
@@ -169,12 +178,13 @@ for (const [kind, createScenario] of Object.entries(DRIVE_SCENARIOS)) {
           .slice(0, Array.from(element.parentElement?.children ?? []).indexOf(element))
           .map(section => section.textContent ?? ""),
       }));
-      expect(placement.index).toBe(kind === "apartment" ? 3 : 1);
+      expect(placement.index).toBe(kind === "apartment" ? 4 : 1);
       if (kind === "apartment") {
         expect(placement.precedingSections[1]).toContain(APARTMENT_DESIGN_COPY.END_CUSTOMER);
         expect(placement.precedingSections[1]).toContain(APARTMENT_DESIGN_COPY.CONTACT_TEAM);
         expect(placement.precedingSections[1]).toContain(APARTMENT_DESIGN_COPY.INHERITED_TITLE);
         expect(placement.precedingSections[2]).toContain(APARTMENT_DESIGN_COPY.COMMERCIAL_TITLE);
+        expect(placement.precedingSections[3]).toContain("מסמך משותף מפרויקט האב");
       }
       expect(Math.abs(placement.width - placement.headerWidth)).toBeLessThan(2);
       const fullFolder = projectPage.driveFolder(MOCK_DRIVE_FOLDERS.WITH_FILES.name);

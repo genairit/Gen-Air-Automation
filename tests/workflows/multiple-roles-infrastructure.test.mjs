@@ -25,14 +25,16 @@ const PORT_ENVIRONMENT = [
   "GEN_AIR_FRONTEND_PORT",
   "GEN_AIR_DATABASE_PORT",
   "GEN_AIR_FAKE_PLACES_PORT",
+  "GEN_AIR_SMTP_PORT",
+  "GEN_AIR_QA_PORT_OFFSET",
 ];
 const environmentModule = new URL("../../src/constants/environment.constant.ts", import.meta.url)
   .href;
-const readConfiguredPorts = overrides => {
+const runEnvironmentProbe = overrides => {
   const environment = Object.fromEntries(
     Object.entries(process.env).filter(([key]) => !PORT_ENVIRONMENT.includes(key)),
   );
-  const child = spawnSync(
+  return spawnSync(
     process.execPath,
     [
       "--input-type=module",
@@ -41,22 +43,57 @@ const readConfiguredPorts = overrides => {
     ],
     { encoding: "utf8", env: { ...environment, ...overrides } },
   );
+};
+const readConfiguredPorts = overrides => {
+  const child = runEnvironmentProbe(overrides);
   assert.equal(child.status, 0, child.stderr);
   return JSON.parse(child.stdout);
 };
 
-test("configured ports keep established defaults and accept all four isolated overrides", () => {
+test("configured ports keep established defaults and accept all five isolated overrides", () => {
   assert.deepEqual(readConfiguredPorts({}), {
     BACKEND: 3100,
     FRONTEND: 5180,
     DATABASE: 54329,
     FAKE_PLACES: 4100,
+    SMTP: 2525,
   });
   assert.deepEqual(
     readConfiguredPorts(
-      Object.fromEntries(PORT_ENVIRONMENT.map((key, index) => [key, String(6000 + index)])),
+      Object.fromEntries(
+        PORT_ENVIRONMENT.filter(key => key !== "GEN_AIR_QA_PORT_OFFSET").map((key, index) => [
+          key,
+          String(6000 + index),
+        ]),
+      ),
     ),
-    { BACKEND: 6000, FRONTEND: 6001, DATABASE: 6002, FAKE_PLACES: 6003 },
+    { BACKEND: 6000, FRONTEND: 6001, DATABASE: 6002, FAKE_PLACES: 6003, SMTP: 6004 },
+  );
+});
+
+for (const offset of ["invalid", "0.5", "20000", "-5000"]) {
+  test(`invalid or out-of-range resolved dev offset rejects ${offset}`, () => {
+    const child = runEnvironmentProbe({ GEN_AIR_QA_PORT_OFFSET: offset });
+    assert.notEqual(child.status, 0);
+    assert.match(child.stderr, /must be an integer port between 1024 and 65535/);
+  });
+}
+
+test("dev port offset applies to every service while explicit role overrides take precedence", () => {
+  assert.deepEqual(readConfiguredPorts({ GEN_AIR_QA_PORT_OFFSET: "100" }), {
+    BACKEND: 3200,
+    FRONTEND: 5280,
+    DATABASE: 54429,
+    FAKE_PLACES: 4200,
+    SMTP: 2625,
+  });
+  assert.deepEqual(
+    readConfiguredPorts({
+      GEN_AIR_QA_PORT_OFFSET: "100",
+      GEN_AIR_BACKEND_PORT: "3218",
+      GEN_AIR_SMTP_PORT: "2626",
+    }),
+    { BACKEND: 3218, FRONTEND: 5280, DATABASE: 54429, FAKE_PLACES: 4200, SMTP: 2626 },
   );
 });
 

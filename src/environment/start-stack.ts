@@ -1,15 +1,18 @@
 import type { Server } from "node:http";
+import type { SMTPServer } from "smtp-server";
 import type EmbeddedPostgres from "embedded-postgres";
 import type { ChildProcess } from "node:child_process";
 import { startTestDatabase } from "./test-database.ts";
-import { PORTS } from "../constants/environment.constant.ts";
+import { startFakeSmtpServer } from "./fake-smtp-server.ts";
 import { createLogger } from "../utilities/logger.utility.ts";
 import { startFakePlacesServer } from "./fake-places-server.ts";
 import { buildBackend, startBackend } from "./backend-process.ts";
+import { PORTS, EMAIL_QA_ENABLED } from "../constants/environment.constant.ts";
 
 interface IStack {
   fakePlaces: Server;
   backend: ChildProcess;
+  smtp: SMTPServer | null;
   database: EmbeddedPostgres;
 }
 
@@ -23,6 +26,7 @@ const stopStack = async (stack: IStack, exitCode: number) => {
   try {
     stack.backend.kill();
     stack.fakePlaces.close();
+    stack.smtp?.close();
     await stack.database.stop();
     process.exitCode = exitCode;
   } catch (error) {
@@ -43,11 +47,12 @@ const registerShutdown = (stack: IStack) => {
 const startStack = async () => {
   buildBackend();
 
+  const smtp = EMAIL_QA_ENABLED ? await startFakeSmtpServer() : null;
   const database = await startTestDatabase();
   const fakePlaces = await startFakePlacesServer(PORTS.FAKE_PLACES);
   const backend = await startBackend();
 
-  registerShutdown({ backend, database, fakePlaces });
+  registerShutdown({ backend, database, fakePlaces, smtp });
   logger.info("Database, fake Places and backend are running");
 };
 
