@@ -9,6 +9,8 @@ const REPOSITORIES_ROOT = resolve(AUTOMATION_ROOT, "..");
 
 export const IS_CI = process.env.CI === "true";
 export const EMAIL_QA_ENABLED = process.env.GEN_AIR_EMAIL_QA !== "false";
+export const IS_SPRINT_ALMON_CLEANUP_ENABLED =
+  process.env.GEN_AIR_TEST_SPRINT_ALMON_CLEANUP === "true";
 
 export const APP_DIRECTORIES = {
   BACKEND: process.env.GEN_AIR_BACKEND_DIR ?? resolve(REPOSITORIES_ROOT, "Gen-Air-Backend"),

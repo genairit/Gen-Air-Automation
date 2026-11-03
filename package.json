@@ -17,6 +17,7 @@
     "node": ">=24"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.14",
     "@playwright/test": "1.63.0",
     "@types/mailparser": "^3.9.0",
     "@types/node": "24.19.1",
@@ -26,6 +27,7 @@
     "exceljs": "^4.4.0",
     "mailparser": "^3.14.1",
     "pg": "8.23.0",
+    "pgsql-parser": "^18.3.2",
     "prettier": "3.9.9",
     "prettier-plugin-pyramid-imports": "1.0.1",
     "prettier-plugin-pyramid-interface-keys": "1.0.1",

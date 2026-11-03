@@ -1,22 +1,21 @@
-import {
-  PAYMENT_TERMS,
-  PROJECT_TYPE_NAMES,
-  PAYMENT_TERMS_LABELS,
-} from "../../src/constants/domain.constant.ts";
-
 import type { Page } from "@playwright/test";
 import { API_PATHS } from "../../src/constants/api.constant.ts";
+import { isRecord } from "../../src/utilities/guard.utility.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { URLS } from "../../src/constants/environment.constant.ts";
 import { createDeferred } from "../../src/utilities/deferred.utility.ts";
 import { PROJECT_FORM_COPY } from "../../src/constants/copy.constant.ts";
 import { FAKE_PLACES } from "../../src/constants/fake-places.constant.ts";
+import { PROJECT_TYPE_NAMES } from "../../src/constants/domain.constant.ts";
 import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { LOCAL_STORAGE_KEYS } from "../../src/constants/storage.constant.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { buildEditProjectRoute } from "../../src/utilities/route.utility.ts";
 import { ROUTE_PATTERNS } from "../../src/constants/route-patterns.constant.ts";
 import { seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts";
+import { PAYMENT_DEFAULT_COPY } from "../../src/constants/payment-default.constant.ts";
+import { expectFieldsAbsent } from "../../src/utilities/response-assertion.utility.ts";
+import { RETIRED_PROJECT_DRAFT_PAYMENT_FIELDS } from "../../src/constants/payment-default.constant.ts";
 
 const readDraft = async (page: Page, userId: string): Promise<string | null> =>
   page.evaluate(
@@ -48,7 +47,6 @@ test("pending address verification preserves later form changes and successful c
       place: FAKE_PLACES[1],
       customerName: customer.name,
       projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL,
-      paymentTermsLabel: PAYMENT_TERMS_LABELS.MILESTONES_NET_60,
     });
     await intercepted.promise;
     await expect(form.addressVerified).toHaveCount(0);
@@ -60,8 +58,8 @@ test("pending address verification preserves later form changes and successful c
     await expect(form.contactNameInput).toHaveCount(0);
     await expect(form.contactPhoneInput).toHaveCount(0);
     await expect(
-      page.getByRole("radio", { name: PAYMENT_TERMS_LABELS.MILESTONES_NET_60 }),
-    ).toBeChecked();
+      page.getByRole("heading", { name: PAYMENT_DEFAULT_COPY.EDIT, exact: true }),
+    ).toHaveCount(0);
     await form.createButton.click();
     await expect(page).toHaveURL(ROUTE_PATTERNS.PROJECT);
     await expect(page.getByRole("heading", { name })).toBeVisible();
@@ -77,7 +75,6 @@ test("pending address verification preserves later form changes and successful c
       contactPhone: null,
       contactRole: null,
       customerId: customer.id,
-      paymentTerms: PAYMENT_TERMS.MILESTONES_NET_60,
     });
     await expect.poll(() => readDraft(page, api.session.user.id)).toBeNull();
     await form.goto();
@@ -101,15 +98,20 @@ test("draft reload restores allowed values, omits private details and discard re
     place: FAKE_PLACES[1],
     customerName: customer.name,
     projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL,
-    paymentTermsLabel: PAYMENT_TERMS_LABELS.MILESTONES_NET_60,
   });
   await expect(form.addressVerified).toBeVisible();
   await expect.poll(() => readDraft(page, api.session.user.id)).toContain(name);
   const draft = await readDraft(page, api.session.user.id);
   const projectType = await api.findProjectType(PROJECT_TYPE_NAMES.COMMERCIAL);
-  expect(JSON.parse(draft ?? "null")).toMatchObject({
-    values: { name, typeId: projectType.id, terms: PAYMENT_TERMS.MILESTONES_NET_60 },
+  const parsedDraft: unknown = JSON.parse(draft ?? "null");
+  if (!isRecord(parsedDraft) || !isRecord(parsedDraft.values)) {
+    throw new Error("Expected saved project draft values");
+  }
+
+  expect(parsedDraft).toMatchObject({
+    values: { name, typeId: projectType.id },
   });
+  expectFieldsAbsent(parsedDraft.values, RETIRED_PROJECT_DRAFT_PAYMENT_FIELDS);
   expect(draft).not.toContain(customer.contactName);
   expect(draft).not.toContain(customer.taxId);
   expect(draft).not.toContain(customer.name);
@@ -119,8 +121,8 @@ test("draft reload restores allowed values, omits private details and discard re
   await expect(page.getByText(PROJECT_FORM_COPY.DRAFT_RESTORED, { exact: true })).toBeVisible();
   await expect(form.nameInput).toHaveValue(name);
   await expect(
-    page.getByRole("radio", { name: PAYMENT_TERMS_LABELS.MILESTONES_NET_60 }),
-  ).toBeChecked();
+    page.getByRole("heading", { name: PAYMENT_DEFAULT_COPY.EDIT, exact: true }),
+  ).toHaveCount(0);
   await expect(form.contactNameInput).toHaveCount(0);
   await expect(form.contactPhoneInput).toHaveCount(0);
   await expect(form.addressInput).toHaveValue("");

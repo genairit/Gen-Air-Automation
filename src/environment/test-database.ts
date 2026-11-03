@@ -1,8 +1,14 @@
 import {
+  preparePaymentCleanupStage,
+  preparePaymentPreservingStage,
+} from "./payment-terms-cleanup.ts";
+
+import {
   PORTS,
   TEST_DATABASE,
   APP_DIRECTORIES,
   AUTOMATION_DIRECTORIES,
+  IS_SPRINT_ALMON_CLEANUP_ENABLED,
 } from "../constants/environment.constant.ts";
 
 import type pg from "pg";
@@ -48,7 +54,10 @@ const applyMigrations = async (client: pg.Client) => {
     await client.query(migration);
   }
 
-  await applyStagedMigrations(MIGRATIONS_DIRECTORY, client);
+  const prepareStage = IS_SPRINT_ALMON_CLEANUP_ENABLED
+    ? preparePaymentCleanupStage
+    : preparePaymentPreservingStage;
+  await applyStagedMigrations(MIGRATIONS_DIRECTORY, client, prepareStage);
 };
 
 const seedTestUsers = async (client: pg.Client) => {

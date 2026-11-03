@@ -1,6 +1,12 @@
 import { expect, type APIResponse } from "@playwright/test";
 import { HTTP_STATUS } from "../constants/http.constant.ts";
 
+export const expectFieldsAbsent = (value: unknown, fields: readonly string[]): void => {
+  for (const field of fields) {
+    expect(value).not.toHaveProperty(field);
+  }
+};
+
 export const expectResponseStatus = async (response: APIResponse, status: number) =>
   expect(response.status(), await response.text()).toBe(status);
 

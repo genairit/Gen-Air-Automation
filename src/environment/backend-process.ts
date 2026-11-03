@@ -12,6 +12,7 @@ import {
 import { join } from "node:path";
 import { mkdir } from "node:fs/promises";
 import { spawn, spawnSync } from "node:child_process";
+import { buildNodePreloadOptions } from "../utilities/node-preload.utility.ts";
 
 const BACKEND_ENTRY = join(APP_DIRECTORIES.BACKEND, "dist", "main.js");
 
@@ -44,7 +45,7 @@ const buildBackendEnvironment = () => ({
   SMTP_FROM: EMAIL_QA_ENABLED ? "qa-sender@example.test" : "",
   SMTP_USER: "",
   SMTP_PASSWORD: "",
-  NODE_OPTIONS: EMAIL_QA_ENABLED ? `--import=${DRIVE_PRELOAD}` : "",
+  NODE_OPTIONS: EMAIL_QA_ENABLED ? buildNodePreloadOptions(DRIVE_PRELOAD) : "",
   GEN_AIR_EMAIL_QA_FAIL_LOGO_MARKER: join(AUTOMATION_DIRECTORIES.MAIL, "fail-logo"),
 });
 

@@ -6,7 +6,13 @@ interface IStageExecutor {
   query: (sql: string) => Promise<unknown>;
 }
 
-export const applyStagedMigrations = async (directory: string, database: IStageExecutor) => {
+type TStageTransform = (migration: string, sprint: string, stage: string) => string;
+
+export const applyStagedMigrations = async (
+  directory: string,
+  database: IStageExecutor,
+  transform: TStageTransform = migration => migration,
+) => {
   const entries = await readdir(directory, { withFileTypes: true });
   const sprints = entries
     .filter(entry => entry.isDirectory() && entry.name.startsWith("sprint-"))
@@ -16,7 +22,8 @@ export const applyStagedMigrations = async (directory: string, database: IStageE
   for (const sprint of sprints) {
     for (const stage of Object.values(MIGRATION_STAGES)) {
       try {
-        await database.query(await readFile(join(directory, sprint, stage), "utf8"));
+        const migration = await readFile(join(directory, sprint, stage), "utf8");
+        await database.query(transform(migration, sprint, stage));
         await database.query("COMMIT");
       } catch (error) {
         await database.query("ROLLBACK");
