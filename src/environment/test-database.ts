@@ -47,6 +47,20 @@ const listMigrationFiles = async () => {
   return fileNames.filter(fileName => fileName.endsWith(SQL_EXTENSION)).sort(compareMigrationFiles);
 };
 
+const prepareDataApiRoles = async (client: pg.Client) => {
+  const result = await client.query<{ rolname: string }>(
+    "SELECT rolname FROM pg_roles WHERE rolname = ANY($1)",
+    [TEST_DATABASE.DATA_API_ROLES],
+  );
+  const existing = new Set(result.rows.map(row => row.rolname));
+
+  for (const role of TEST_DATABASE.DATA_API_ROLES) {
+    if (!existing.has(role)) {
+      await client.query(`CREATE ROLE ${role} NOLOGIN`);
+    }
+  }
+};
+
 const applyMigrations = async (client: pg.Client) => {
   for (const fileName of await listMigrationFiles()) {
     const migration = await readFile(join(MIGRATIONS_DIRECTORY, fileName), "utf8");
@@ -81,6 +95,7 @@ const prepareSchema = async (server: EmbeddedPostgres) => {
   await client.connect();
 
   try {
+    await prepareDataApiRoles(client);
     await applyMigrations(client);
     await seedTestUsers(client);
   } finally {

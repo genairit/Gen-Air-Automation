@@ -16,7 +16,9 @@ export interface IEmployeeFormInput {
   name: string;
   email: string;
   phone: string;
+  password: string;
   role: UserRoleType;
+  passwordConfirmation?: string;
   assignedRoles?: UserRoleType[];
 }
 
@@ -24,6 +26,8 @@ export const createEmployeesPage = (page: Page) => {
   const form = findMainContent(page);
   const searchBox = page.getByPlaceholder(EMPLOYEES_COPY.SEARCH_PLACEHOLDER);
   const addButton = page.getByRole("button", { name: EMPLOYEES_COPY.ADD_EMPLOYEE });
+  const passwordInput = form.locator('input[type="password"]').first();
+  const passwordConfirmationInput = form.locator('input[type="password"]').last();
   const roleOptions = form.getByRole("checkbox");
   const roleCheckbox = (role: UserRoleType) =>
     form.getByRole("checkbox", { name: USER_ROLE_LABELS[role], exact: true });
@@ -34,14 +38,20 @@ export const createEmployeesPage = (page: Page) => {
 
   const roleTab = (role: UserRoleType) => findCountedTab(page, USER_ROLE_PLURAL_LABELS[role]);
 
-  const addEmployee = async (input: IEmployeeFormInput) => {
+  const fillEmployee = async (input: IEmployeeFormInput) => {
     const assignedRoles = input.assignedRoles ?? [input.role];
     await form.getByPlaceholder(EMPLOYEES_COPY.NAME_PLACEHOLDER).fill(input.name);
     await form.getByPlaceholder(EMPLOYEES_COPY.EMAIL_PLACEHOLDER).fill(input.email);
     await form.getByPlaceholder(EMPLOYEES_COPY.PHONE_PLACEHOLDER).fill(input.phone);
+    await passwordInput.fill(input.password);
+    await passwordConfirmationInput.fill(input.passwordConfirmation ?? input.password);
     for (const role of USER_ROLE_VALUES) {
       await roleCheckbox(role).setChecked(assignedRoles.includes(role));
     }
+  };
+
+  const addEmployee = async (input: IEmployeeFormInput) => {
+    await fillEmployee(input);
     await addButton.click();
   };
 
@@ -51,12 +61,15 @@ export const createEmployeesPage = (page: Page) => {
   return {
     searchBox,
     addButton,
+    passwordInput,
+    passwordConfirmationInput,
     roleCheckbox,
     roleOptions,
     goto,
     findRow,
     roleTab,
     addEmployee,
+    fillEmployee,
     deleteEmployee,
   };
 };

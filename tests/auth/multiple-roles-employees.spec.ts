@@ -8,6 +8,7 @@ import {
   createUniqueName,
   createUniqueEmail,
   createMobilePhone,
+  createUniquePassword,
 } from "../../src/utilities/test-data.utility.ts";
 
 import {
@@ -41,6 +42,7 @@ test("admin creates a multi-role account and the server activates the first assi
     name: createUniqueName("עובד רב תפקידים"),
     email: createUniqueEmail("multi-role"),
     phone: createMobilePhone(),
+    password: createUniquePassword(),
   };
   const before = await api.readRoleCounts();
   const employees = createEmployeesPage(page);
@@ -48,7 +50,7 @@ test("admin creates a multi-role account and the server activates the first assi
   await employees.addEmployee(employee);
   await employees.searchBox.fill(employee.email);
   await expect(employees.findRow(employee.email)).toBeVisible();
-  const actor = await apiAs({ email: employee.email, password: "temp1234" });
+  const actor = await apiAs({ email: employee.email, password: employee.password });
   expect(actor.session.user.role).toBe(ENGINEER);
   expect([...actor.session.user.assignedRoles].sort()).toEqual([ENGINEER, FINANCE].sort());
   const after = await api.readRoleCounts();

@@ -8,6 +8,7 @@ import {
   createUniqueName,
   createMobilePhone,
   createUniqueEmail,
+  createUniquePassword,
 } from "../../src/utilities/test-data.utility.ts";
 
 import {
@@ -105,6 +106,7 @@ test("employee form stays readable and actionable at 390px", async ({ page }, te
   const employee = {
     role: USER_ROLES.ENGINEER,
     phone: createMobilePhone(),
+    password: createUniquePassword(),
     name: createUniqueName("עובד נייד"),
     email: createUniqueEmail("mobile-employee"),
   };
@@ -150,6 +152,7 @@ test("create form blocks empty roles and keeps entered values after a request re
   const employee = {
     role: USER_ROLES.FINANCE,
     phone: createMobilePhone(),
+    password: createUniquePassword(),
     name: createUniqueName("עובד שגיאת שרת"),
     email: createUniqueEmail("rejected-employee"),
   };

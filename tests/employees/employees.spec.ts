@@ -2,6 +2,7 @@ import {
   createUniqueName,
   createMobilePhone,
   createUniqueEmail,
+  createUniquePassword,
 } from "../../src/utilities/test-data.utility.ts";
 
 import {
@@ -32,6 +33,7 @@ for (const role of USER_ROLE_VALUES) {
     const employee = {
       role,
       phone: createMobilePhone(),
+      password: createUniquePassword(),
       name: createUniqueName(NEW_EMPLOYEE_PREFIXES.NAME),
       email: createUniqueEmail(NEW_EMPLOYEE_PREFIXES.EMAIL),
     };
@@ -57,6 +59,37 @@ test("the role picker offers exactly the six roles", async ({ page }) => {
   for (const role of USER_ROLE_VALUES) {
     await expect(employeesPage.roleCheckbox(role)).toHaveAccessibleName(USER_ROLE_LABELS[role]);
   }
+});
+
+test("employee creation requires matching chosen password and the new account can use it", async ({
+  page,
+  apiAs,
+}) => {
+  const employeesPage = createEmployeesPage(page);
+  const employee = {
+    role: USER_ROLES.SECRETARY,
+    phone: createMobilePhone(),
+    password: createUniquePassword(),
+    name: createUniqueName(NEW_EMPLOYEE_PREFIXES.NAME),
+    email: createUniqueEmail(NEW_EMPLOYEE_PREFIXES.EMAIL),
+  };
+
+  await employeesPage.goto();
+  await expect(employeesPage.passwordInput).toBeVisible();
+  await expect(employeesPage.passwordConfirmationInput).toBeVisible();
+  await employeesPage.fillEmployee({
+    ...employee,
+    passwordConfirmation: `${employee.password}x`,
+  });
+
+  await expect(employeesPage.addButton).toBeDisabled();
+  await employeesPage.passwordConfirmationInput.fill(employee.password);
+  await expect(employeesPage.addButton).toBeEnabled();
+  await employeesPage.addButton.click();
+
+  await expect(employeesPage.findRow(employee.email)).toBeVisible();
+  const actor = await apiAs(employee);
+  expect(actor.session.user.email).toBe(employee.email);
 });
 
 test("the role filters narrow the table to each of the six roles", async ({ page, api }) => {
@@ -149,7 +182,7 @@ test("employee edit and delete actions fit inside their table cell on desktop an
 test.describe("signed out", () => {
   test.use({ storageState: EMPTY_AUTH_STATE });
 
-  test("a newly added employee can log in with the temporary password", async ({ page, api }) => {
+  test("a seeded employee can log in with its assigned password", async ({ page, api }) => {
     const employee = await seedUser(api, USER_ROLES.INSTALLER);
     const loginPage = createLoginPage(page);
 
