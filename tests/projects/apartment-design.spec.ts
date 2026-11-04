@@ -31,6 +31,7 @@ import { SEED_VALUES } from "../../src/constants/seed.constant.ts";
 import { buildTaskRoute } from "../../src/utilities/route.utility.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
+import { AUTOCOMPLETE_COPY } from "../../src/constants/copy.constant.ts";
 import { buildProjectPath } from "../../src/utilities/api-path.utility.ts";
 import { buildApartmentsPath } from "../../src/utilities/api-path.utility.ts";
 import { CUSTOMER_SYNC_STATUSES } from "../../src/constants/domain.constant.ts";
@@ -263,6 +264,32 @@ test("creation adds an apartment-only team member and persists its assignment", 
     hasOwnTeam: true,
     members: [expect.objectContaining({ userId: engineer.id, role: USER_ROLES.ENGINEER })],
   });
+});
+
+test("team search clear keeps the picker open and restores unfiltered options", async ({
+  page,
+  api,
+}) => {
+  const { building } = await scenario(api);
+  const engineer = await seedUser(api, USER_ROLES.ENGINEER);
+  const installer = await seedUser(api, USER_ROLES.INSTALLER);
+  const form = createApartmentDesignPage(page);
+
+  await form.gotoCreate(building.id);
+  await form.draftTeam().getByRole("button", { name: COPY.OVERRIDE, exact: true }).click();
+
+  const trigger = page.getByPlaceholder(COPY.ADD_MEMBER).first();
+  await expect(trigger).toHaveCSS("cursor", "pointer");
+  await trigger.click();
+
+  const query = page.getByPlaceholder(COPY.ADD_MEMBER).last();
+  await query.fill(engineer.firstName);
+  await expect(page.getByRole("option").filter({ hasText: engineer.firstName })).toBeVisible();
+  await expect(page.getByRole("option").filter({ hasText: installer.firstName })).toHaveCount(0);
+  await page.getByRole("button", { name: AUTOCOMPLETE_COPY.CLEAR_SELECTION, exact: true }).click();
+
+  await expect(query).toHaveValue("");
+  await expect(page.getByRole("option").filter({ hasText: installer.firstName })).toBeVisible();
 });
 
 test("apartment creation and detail omit payment controls, displays and parent inheritance", async ({

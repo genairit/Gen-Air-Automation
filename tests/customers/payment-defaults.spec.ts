@@ -116,6 +116,11 @@ test("read-only customer viewers cannot edit a default through UI or API", async
   await page.goto(buildCustomerRoute(customer.id));
   const payment = createCustomerPaymentDefaultPage(page);
   await expect(payment.field(COPY.EDIT)).toBeDisabled();
+  const disabledField = payment.field(COPY.EDIT).locator("xpath=../..");
+  await expect(disabledField).toHaveCSS("cursor", "default");
+  await disabledField.click({ position: { x: 6, y: 27 } });
+  await expect(payment.field(COPY.EDIT)).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("option")).toHaveCount(0);
   await expect(payment.saveButton).toHaveCount(0);
   const viewer = await apiAs(credentials);
   expect(
@@ -128,4 +133,20 @@ test("read-only customer viewers cannot edit a default through UI or API", async
   expect(
     await (await api.send(HTTP_METHODS.GET, buildCustomerPath(customer.id))).json(),
   ).toMatchObject({ paymentTerms: null });
+});
+
+test("payment dropdown opens from its field edge with a pointer cursor on the first click", async ({
+  page,
+}) => {
+  const payment = createCustomerPaymentDefaultPage(page);
+
+  await createCustomerFormPage(page).goto();
+
+  const field = payment.field(COPY.CREATE);
+  const trigger = field.locator("xpath=../..");
+  await expect(field).toHaveCSS("cursor", "pointer");
+  await expect(trigger).toHaveCSS("cursor", "pointer");
+  await trigger.click({ position: { x: 6, y: 27 } });
+  await expect(field).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("option")).toHaveCount(PAYMENT_DEFAULT_OPTIONS.length + 1);
 });

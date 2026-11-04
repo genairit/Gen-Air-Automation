@@ -10,6 +10,10 @@ const SHARED_COPY = {
   TASK_DESCRIPTION_PLACEHOLDER: "פרט מה צריך לעשות, מה כבר ידוע ומה מצופה כתוצאה",
 } as const;
 
+export const AUTOCOMPLETE_COPY = {
+  CLEAR_SELECTION: "נקה בחירה",
+} as const;
+
 export const LOGIN_COPY = {
   TITLE: "התחברות למערכת",
   SUBMIT: "התחבר למערכת",
@@ -121,6 +125,7 @@ export const TASKS_COPY = {
 
 export const EMPLOYEES_COPY = {
   ROLE_LABEL: "תפקידים משויכים",
+  EDIT_EMPLOYEE: "עריכת עובד",
   ADD_TITLE: "הוספת עובד / משתמש חדש",
   ACCOUNT_SECTION: "פרטי חשבון",
   ACCESS_SECTION: "גישה ותפקידים",
