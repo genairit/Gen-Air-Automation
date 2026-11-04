@@ -1,11 +1,11 @@
 import { devices } from "@playwright/test";
+import { seedUser } from "../../src/api/seed-data.ts";
 import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { createTaskFormPage } from "../../src/pages/tasks.page.ts";
 import { formatFullName } from "../../src/utilities/user.utility.ts";
 import { TASK_FORM_COPY } from "../../src/constants/copy.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
-import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 
 const { defaultBrowserType: _browserType, ...PHONE } = devices["Pixel 7"];
 
@@ -87,10 +87,12 @@ test.describe("mobile option activation", () => {
   test("dragging across an option preserves the selection and tapping changes it", async ({
     page,
     context,
+    api,
   }) => {
     const form = createTaskFormPage(page);
     const picker = form.assigneePicker;
-    const engineerName = formatFullName(TEST_USERS[USER_ROLES.ENGINEER]);
+    const engineer = await seedUser(api, USER_ROLES.ENGINEER);
+    const engineerName = formatFullName(engineer);
 
     await form.goto();
     await expect(picker).toHaveValue(TASK_FORM_COPY.POOL_OPTION);
