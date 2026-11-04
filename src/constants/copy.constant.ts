@@ -164,6 +164,7 @@ export const PROJECT_FORM_COPY = {
 
 export const PROJECT_PAGE_COPY = {
   STAGE_PREFIX: "שלב:",
+  STAGE_TITLE: "שלב הפרויקט",
   EDIT: "עריכת פרויקט",
   NEW_TASK: "+ משימה חדשה",
   NOT_FOUND: "הפרויקט לא נמצא",

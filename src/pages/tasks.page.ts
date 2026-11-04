@@ -70,12 +70,7 @@ export const createTasksPage = (page: Page) => {
 
   const findRow = (text: string) => findTableRow(page, text);
 
-  const statusPicker = (taskTitle: string) => findRow(taskTitle).getByRole("combobox");
-
-  const changeStatus = (taskTitle: string, statusName: string) =>
-    selectOption(page, statusPicker(taskTitle), statusName);
-
-  return { searchBox, newTaskButton, goto, tab, findRow, statusPicker, changeStatus };
+  return { searchBox, newTaskButton, goto, tab, findRow };
 };
 
 export const createTaskFormPage = (page: Page) => {

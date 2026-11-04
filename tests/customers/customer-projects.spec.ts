@@ -5,11 +5,13 @@ import {
 
 import { join } from "node:path";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
-import { selectOption } from "../../src/pages/select.component.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
+import { createProjectPage } from "../../src/pages/project.page.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
+import { createApartmentPage } from "../../src/pages/apartment.page.ts";
 import { createCustomersPage } from "../../src/pages/customers.page.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
+import { PROJECT_PAGE_COPY } from "../../src/constants/copy.constant.ts";
 import { createDeferred } from "../../src/utilities/deferred.utility.ts";
 import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
@@ -20,6 +22,67 @@ import { scopedApartmentNumber } from "../../src/utilities/apartment-fixture.uti
 import { updateProjectRelationFixture } from "../../src/environment/customer-projects-data.ts";
 import { seedCustomer, seedBuilding, seedStandaloneProject } from "../../src/api/seed-data.ts";
 import { createCustomerProjectsComponent } from "../../src/pages/customer-projects.component.ts";
+
+test("customer project rows and mobile cards open details without inline stage editing", async ({
+  api,
+  page,
+}) => {
+  const customer = await seedCustomer(api);
+  const project = await seedStandaloneProject(api, customer);
+  const card = createCustomerProjectsComponent(page);
+  const projectPage = createProjectPage(page);
+
+  await page.setViewportSize(CUSTOMER_PROJECTS_VIEWPORTS.DESKTOP);
+  await card.goto(customer.id);
+  await expect(card.link(project.name)).toBeVisible();
+  await expect(card.region.getByRole("combobox")).toHaveCount(0);
+  await card.link(project.name).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${project.id}$`));
+  await projectPage.changeStage(PROJECT_STATUS_NAMES.PENDING);
+  await expect
+    .poll(async () => (await api.getProject(project.id)).stage.name)
+    .toBe(PROJECT_STATUS_NAMES.PENDING);
+
+  await page.setViewportSize(CUSTOMER_PROJECTS_VIEWPORTS.MOBILE);
+  await card.goto(customer.id);
+  const mobileCard = card.region.getByRole("button", { name: project.name }).locator("..");
+  await expect(
+    mobileCard.getByText(`${PROJECT_PAGE_COPY.STAGE_PREFIX} ${PROJECT_STATUS_NAMES.PENDING}`, {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(mobileCard.getByRole("combobox")).toHaveCount(0);
+  await mobileCard
+    .getByText(`${PROJECT_PAGE_COPY.STAGE_PREFIX} ${PROJECT_STATUS_NAMES.PENDING}`, { exact: true })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${project.id}$`));
+});
+
+test("a customer apartment row opens its detail page with stage tabs", async ({ api, page }) => {
+  const customer = await seedCustomer(api);
+  const other = await seedCustomer(api);
+  const building = await seedBuilding(api, customer);
+  const apartmentBuilding = await seedBuilding(api, other);
+  const apartment = await api.createApartment(apartmentBuilding.id, {
+    customerId: customer.id,
+    customerFloor: 1,
+    customerApartment: scopedApartmentNumber("101"),
+  });
+  const card = createCustomerProjectsComponent(page);
+
+  await page.setViewportSize(CUSTOMER_PROJECTS_VIEWPORTS.DESKTOP);
+  await card.goto(customer.id);
+  await expect(card.region.getByRole("combobox")).toHaveCount(0);
+  await card.link(building.name).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${building.id}$`));
+
+  await card.goto(customer.id);
+  await card.link(apartment.name).click();
+  await expect(page).toHaveURL(
+    new RegExp(`/projects/${apartmentBuilding.id}/apartments/${apartment.id}$`),
+  );
+  await expect(createApartmentPage(page).stageTab(PROJECT_STATUS_NAMES.DRAFT)).toBeVisible();
+});
 
 test("customer card follows grouping, five statuses, root/apartment navigation and mobile design", async ({
   api,
@@ -46,6 +109,7 @@ test("customer card follows grouping, five statuses, root/apartment navigation a
   await page.setViewportSize(CUSTOMER_PROJECTS_VIEWPORTS.DESKTOP);
   await card.goto(customer.id);
   await expect(card.region.getByRole("link")).toHaveCount(3);
+  await expect(card.region.getByRole("combobox")).toHaveCount(0);
   await expect(card.region.getByText("1 דירות", { exact: true })).toBeVisible();
   await expect(
     card.region.getByText(`${foreign.name} · ${foreign.code} · קומה 2`, { exact: true }),
@@ -67,6 +131,15 @@ test("customer card follows grouping, five statuses, root/apartment navigation a
   await page.setViewportSize(CUSTOMER_PROJECTS_VIEWPORTS.MOBILE);
   await card.goto(customer.id);
   await expect(card.region.getByRole("link")).toHaveCount(3);
+  await expect(
+    card.region
+      .getByRole("button", { name: project.name })
+      .locator("..")
+      .getByText(`${PROJECT_PAGE_COPY.STAGE_PREFIX} ${PROJECT_STATUS_NAMES.DRAFT}`, {
+        exact: true,
+      }),
+  ).toBeVisible();
+  await expect(card.region.getByRole("combobox")).toHaveCount(0);
   await card.region.screenshot({
     path: join(AUTOMATION_DIRECTORIES.RESULTS, "customer-projects-mobile.png"),
   });
@@ -109,7 +182,7 @@ test("initial eight rows, bounded continuation, search/status reset and empty cu
   await expect(card.region.getByRole("link")).toHaveCount(0);
 });
 
-test("empty/no-match states, long names and server-backed status mutation refresh related counts", async ({
+test("empty/no-match states, long names and detail-page stage change refresh related counts", async ({
   api,
   page,
 }) => {
@@ -129,12 +202,18 @@ test("empty/no-match states, long names and server-backed status mutation refres
     .click();
   await expect(card.link(longName)).toBeVisible();
   const done = await api.findProjectStage(PROJECT_STATUS_NAMES.DONE);
-  await selectOption(page, card.region.getByRole("combobox"), done.name);
+  await expect(card.region.getByRole("combobox")).toHaveCount(0);
+  await card.link(longName).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${project.id}$`));
+  const projectPage = createProjectPage(page);
+  await projectPage.changeStage(done.name);
   await expect.poll(async () => (await api.getProject(project.id)).stage.id).toBe(done.id);
+  await card.goto(customer.id);
   await card.tab(PROJECT_STATUS_NAMES.DONE).click();
   await expect(card.region.getByRole("link")).toHaveCount(1);
   await page.reload();
-  await expect(card.region.getByRole("combobox")).toHaveValue(done.name);
+  await expect(card.link(longName)).toBeVisible();
+  await expect(card.region.getByRole("combobox")).toHaveCount(0);
   await page.setViewportSize(CUSTOMER_PROJECTS_VIEWPORTS.MOBILE);
   await expect(card.link(longName)).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -195,7 +274,10 @@ test("read and status grants are independent and role revocation changes visible
       async () => {
         await viewer.reload();
         await expect(card.region.getByRole("link")).toHaveCount(1);
-        await expect(card.region.getByRole("combobox")).toBeDisabled();
+        await expect(card.region.getByRole("combobox")).toHaveCount(0);
+        await card.region.getByRole("link").click();
+        await expect(createProjectPage(viewer).stagePicker).toHaveCount(0);
+        await card.goto(customer.id);
         await withRolePermissions(
           USER_ROLES.ENGINEER,
           [
@@ -205,11 +287,15 @@ test("read and status grants are independent and role revocation changes visible
           ],
           async () => {
             await viewer.reload();
-            await expect(card.region.getByRole("combobox")).toBeEnabled();
+            await card.region.getByRole("link").click();
+            await expect(createProjectPage(viewer).stagePicker).toBeEnabled();
+            await card.goto(customer.id);
           },
         );
         await viewer.reload();
-        await expect(card.region.getByRole("combobox")).toBeDisabled();
+        await card.region.getByRole("link").click();
+        await expect(createProjectPage(viewer).stagePicker).toHaveCount(0);
+        await card.goto(customer.id);
       },
     );
     await viewer.reload();

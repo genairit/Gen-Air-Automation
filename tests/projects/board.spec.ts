@@ -11,6 +11,7 @@ import { readTabCount } from "../../src/pages/tab.component.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { createProjectPage } from "../../src/pages/project.page.ts";
+import { PROJECT_PAGE_COPY } from "../../src/constants/copy.constant.ts";
 import { buildProjectRoute } from "../../src/utilities/route.utility.ts";
 import { expectSingleResultRow } from "../../src/pages/table.component.ts";
 import { PROJECT_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
@@ -49,7 +50,7 @@ test("the board lists buildings but not their apartments", async ({ page, api })
   await expect(boardPage.findRow(apartment.code)).toHaveCount(0);
 });
 
-test("change a project status from the board and see it in the tabs and the timeline", async ({
+test("open a project from the board, change its stage in details, and see the board tab and timeline update", async ({
   page,
   api,
 }) => {
@@ -68,11 +69,24 @@ test("change a project status from the board and see it in the tabs and the time
   await boardPage.goto();
   await boardPage.searchBox.fill(project.name);
   await expectSingleResultRow(page);
-  await boardPage.changeStatus(project.name, PROJECT_STATUS_NAMES.IN_PROGRESS);
+  await expect(boardPage.findRow(project.name).getByRole("combobox")).toHaveCount(0);
+  await boardPage.findRow(project.name).click();
+  await expect(page).toHaveURL(buildProjectRoute(project.id));
+  await projectPage.changeStage(PROJECT_STATUS_NAMES.IN_PROGRESS);
+  await expect(projectPage.stagePicker).toHaveValue(PROJECT_STATUS_NAMES.IN_PROGRESS);
+  await expect
+    .poll(async () => (await api.getProject(project.id)).stage.name)
+    .toBe(PROJECT_STATUS_NAMES.IN_PROGRESS);
 
-  await expect(boardPage.findRow(project.name).getByRole("combobox")).toHaveValue(
-    PROJECT_STATUS_NAMES.IN_PROGRESS,
+  const timelineEntries = projectPage.timeline.getByRole("listitem");
+
+  await expect(timelineEntries).toHaveCount(TIMELINE_ENTRIES_AFTER_ONE_CHANGE);
+  await expect(timelineEntries.filter({ hasText: PROJECT_STATUS_NAMES.IN_PROGRESS })).toHaveCount(
+    1,
   );
+
+  await boardPage.goto();
+  await boardPage.searchBox.fill(project.name);
 
   const filteredCount = await api.countProjectsInStage(
     PROJECT_STATUS_NAMES.IN_PROGRESS,
@@ -94,15 +108,6 @@ test("change a project status from the board and see it in the tabs and the time
   await expect.poll(() => readTabCount(inProgressTab)).toBe(globalCount);
   await expect(boardPage.findRow(project.name)).toBeVisible();
   await expect(boardPage.findRow(unrelatedProject.name)).toBeVisible();
-
-  await projectPage.goto(project.id);
-
-  const timelineEntries = projectPage.timeline.getByRole("listitem");
-
-  await expect(timelineEntries).toHaveCount(TIMELINE_ENTRIES_AFTER_ONE_CHANGE);
-  await expect(timelineEntries.filter({ hasText: PROJECT_STATUS_NAMES.IN_PROGRESS })).toHaveCount(
-    1,
-  );
 });
 
 test("clicking a board row opens the project page", async ({ page, api }) => {
@@ -127,5 +132,18 @@ test.describe("mobile layout", () => {
     await boardPage.searchBox.fill(project.name);
 
     await expect(page.getByText(project.name)).toBeVisible();
+    await expect(
+      page
+        .getByRole("button", { name: project.name })
+        .locator("..")
+        .getByText(`${PROJECT_PAGE_COPY.STAGE_PREFIX} ${PROJECT_STATUS_NAMES.DRAFT}`, {
+          exact: true,
+        }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: project.name }).locator("..").getByRole("combobox"),
+    ).toHaveCount(0);
+    await page.getByText(project.name).click();
+    await expect(page).toHaveURL(buildProjectRoute(project.id));
   });
 });
