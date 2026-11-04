@@ -15,6 +15,8 @@ import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { createLoginPage } from "../../src/pages/login.page.ts";
 import { readTabCount } from "../../src/pages/tab.component.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
+import { VIEWPORTS } from "../../src/constants/viewport.constant.ts";
+import { EMPLOYEES_COPY } from "../../src/constants/copy.constant.ts";
 import { createEmployeesPage } from "../../src/pages/employees.page.ts";
 import { expectSingleResultRow } from "../../src/pages/table.component.ts";
 import { EMPTY_AUTH_STATE } from "../../src/constants/auth-state.constant.ts";
@@ -102,6 +104,46 @@ test("search narrows the employees table", async ({ page, api }) => {
 
   await expect(employeesPage.findRow(employee.email)).toBeVisible();
   await expectSingleResultRow(page);
+});
+
+test("employee edit and delete actions fit inside their table cell on desktop and mobile", async ({
+  page,
+  api,
+}) => {
+  const employee = await seedUser(api, USER_ROLES.PROJECT_MANAGER);
+  const employeesPage = createEmployeesPage(page);
+
+  await employeesPage.goto();
+  await employeesPage.searchBox.fill(employee.email);
+
+  const actionCell = employeesPage.findRow(employee.email).getByRole("cell").last();
+  const actions = [EMPLOYEES_COPY.EDIT_EMPLOYEE, EMPLOYEES_COPY.DELETE_EMPLOYEE];
+
+  for (const viewport of [null, VIEWPORTS.MOBILE]) {
+    if (viewport) {
+      await page.setViewportSize(viewport);
+    }
+
+    await actionCell.scrollIntoViewIfNeeded();
+    const cellBounds = await actionCell.boundingBox();
+
+    if (!cellBounds) {
+      throw new Error("Employee action cell is not visible");
+    }
+
+    for (const name of actions) {
+      const button = actionCell.getByRole("button", { name });
+      const bounds = await button.boundingBox();
+
+      await expect(button).toBeVisible();
+      if (!bounds) {
+        throw new Error(`${name} is not visible`);
+      }
+
+      expect(bounds.x).toBeGreaterThanOrEqual(cellBounds.x);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(cellBounds.x + cellBounds.width);
+    }
+  }
 });
 
 test.describe("signed out", () => {
