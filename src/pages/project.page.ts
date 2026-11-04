@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { findTableRow } from "./table.component.ts";
 import { findCountedTab } from "./tab.component.ts";
+import { selectOption } from "./select.component.ts";
 import { findListUnderTitle } from "./field.component.ts";
 import { PROJECT_PAGE_COPY } from "../constants/copy.constant.ts";
 import { buildProjectRoute } from "../utilities/route.utility.ts";
@@ -26,6 +27,10 @@ export const createProjectPage = (page: Page) => {
 
   const statusTab = (statusName: string) => findCountedTab(page, statusName);
 
+  const stagePicker = page.getByRole("combobox", { name: PROJECT_PAGE_COPY.STAGE_TITLE });
+
+  const changeStage = (stageName: string) => selectOption(page, stagePicker, stageName);
+
   return {
     driveCard,
     driveLogo: driveCard.locator('img[src*="/gdrive"][aria-hidden="true"]'),
@@ -38,6 +43,8 @@ export const createProjectPage = (page: Page) => {
     goto,
     heading,
     statusTab,
+    stagePicker,
+    changeStage,
     driveFolder,
     findApartmentRow,
   };

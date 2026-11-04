@@ -13,6 +13,7 @@ import {
   TASK_STATUS_NAMES,
 } from "../../src/constants/domain.constant.ts";
 
+import { devices } from "@playwright/test";
 import type { Page, Locator } from "@playwright/test";
 import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { createBoardPage } from "../../src/pages/board.page.ts";
@@ -30,6 +31,8 @@ import { ROUTE_PATTERNS } from "../../src/constants/route-patterns.constant.ts";
 import { readTabCount, expectTabSelected } from "../../src/pages/tab.component.ts";
 import { USER_ROLES, USER_ROLE_VALUES } from "../../src/constants/user-role.constant.ts";
 import { createTaskPage, createTasksPage, createTaskFormPage } from "../../src/pages/tasks.page.ts";
+
+const { defaultBrowserType: _browserType, ...PHONE } = devices["Pixel 7"];
 
 const ENGINEER = TEST_USERS[USER_ROLES.ENGINEER];
 
@@ -248,7 +251,11 @@ test.describe("as an engineer", () => {
     await expectSingleResultRow(page);
   });
 
-  test("change a task status from my tasks list", async ({ page, api, apiAs }) => {
+  test("open a task from my tasks and change its status in details", async ({
+    page,
+    api,
+    apiAs,
+  }) => {
     const engineerApi = await apiAs(ENGINEER);
     const { task } = await seedTaskScenario(api, engineerApi.session.user.id);
     const tasksPage = createTasksPage(page);
@@ -261,10 +268,40 @@ test.describe("as an engineer", () => {
     await tasksPage.searchBox.fill(task.title);
     await filteredTasks;
     await expectSingleResultRow(page);
-    await tasksPage.changeStatus(task.title, TASK_STATUS_NAMES.IN_REVIEW);
+    await expect(tasksPage.findRow(task.title).getByRole("combobox")).toHaveCount(0);
+    await tasksPage.findRow(task.title).click();
+    await expect(page).toHaveURL(new RegExp(`/tasks/${task.id}$`));
+    const taskPage = createTaskPage(page);
+    await taskPage.statusTab(TASK_STATUS_NAMES.IN_REVIEW).click();
+    await expectTabSelected(taskPage.statusTab(TASK_STATUS_NAMES.IN_REVIEW));
+    await expect
+      .poll(async () => (await engineerApi.getTask(task.id)).status)
+      .toBe(TASK_STATUSES.IN_REVIEW);
+    await tasksPage.goto();
     await tasksPage.tab(TASK_STATUS_NAMES.IN_REVIEW).click();
 
     await expect(tasksPage.findRow(task.title)).toBeVisible();
+  });
+
+  test.describe("mobile tasks", () => {
+    test.use(PHONE);
+
+    test("a task card opens details without an inline status control", async ({
+      page,
+      api,
+      apiAs,
+    }) => {
+      const engineerApi = await apiAs(ENGINEER);
+      const { task } = await seedTaskScenario(api, engineerApi.session.user.id);
+      const tasksPage = createTasksPage(page);
+
+      await tasksPage.goto();
+      await tasksPage.searchBox.fill(task.title);
+      await expect(page.getByText(task.title)).toBeVisible();
+      await expect(page.getByRole("combobox")).toHaveCount(0);
+      await page.getByText(task.title).click();
+      await expect(page).toHaveURL(new RegExp(`/tasks/${task.id}$`));
+    });
   });
 
   test("claim an open-pool task and find it in my tasks", async ({ page, api }) => {
