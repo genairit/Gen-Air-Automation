@@ -44,6 +44,7 @@ export default defineConfig({
     {
       command: "npm run stack",
       reuseExistingServer: false,
+      gracefulShutdown: { signal: "SIGTERM", timeout: STACK_TIMEOUTS.SHUTDOWN_MS },
       url: URLS.BACKEND,
       stdout: "pipe",
       timeout: STACK_TIMEOUTS.SERVER_START_MS,

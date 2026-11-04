@@ -15,6 +15,19 @@ import { createUniqueEmail, createUniquePassword } from "../../src/utilities/tes
 
 const WRONG_PASSWORD = "NotThePassword123!";
 
+const clearDisposableLoginAttempts = async () => {
+  const database = createTestDatabaseClient();
+  await database.connect();
+  try {
+    await database.query("DELETE FROM public.auth_login_attempts");
+  } finally {
+    await database.end();
+  }
+};
+
+test.beforeAll(clearDisposableLoginAttempts);
+test.afterEach(clearDisposableLoginAttempts);
+
 const login = (request: APIRequestContext, email: string, cookie?: string) =>
   request.post(API_PATHS.LOGIN, {
     data: { email, password: WRONG_PASSWORD, rememberMe: false },
@@ -67,6 +80,30 @@ test("separate signed callers cannot bypass the account login limit", async ({ p
     expect((await login(request, email, invalidCookie)).status()).toBe(
       HTTP_STATUS.TOO_MANY_REQUESTS,
     );
+  } finally {
+    await request.dispose();
+  }
+});
+
+test("distinct callers and accounts reach the global login circuit breaker", async ({
+  playwright,
+}) => {
+  const request = await playwright.request.newContext({ baseURL: URLS.BACKEND });
+
+  try {
+    const first = await login(request, createUniqueEmail("login-global-limit"));
+    expect(first.status()).toBe(HTTP_STATUS.UNAUTHORIZED);
+    const cookieName = readClientCookie(first.headers()["set-cookie"] ?? "").split("=")[0];
+    const invalidCookie = cookieName + "=invalid";
+
+    for (const attempt of Array.from({ length: AUTH_SECURITY.GLOBAL_FAILURE_LIMIT - 1 }).keys()) {
+      const response = await login(request, createUniqueEmail("login-global-limit"), invalidCookie);
+      expect(response.status(), "global attempt " + attempt).toBe(HTTP_STATUS.UNAUTHORIZED);
+    }
+
+    expect(
+      (await login(request, createUniqueEmail("login-global-limit"), invalidCookie)).status(),
+    ).toBe(HTTP_STATUS.TOO_MANY_REQUESTS);
   } finally {
     await request.dispose();
   }

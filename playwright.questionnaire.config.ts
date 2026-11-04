@@ -28,6 +28,7 @@ export default defineConfig({
   webServer: [
     {
       command: "npm run stack",
+      gracefulShutdown: { signal: "SIGTERM", timeout: STACK_TIMEOUTS.SHUTDOWN_MS },
       url: URLS.BACKEND,
       reuseExistingServer: false,
       timeout: STACK_TIMEOUTS.SERVER_START_MS,
