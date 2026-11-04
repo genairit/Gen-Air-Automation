@@ -46,6 +46,9 @@ const buildBackendEnvironment = () => ({
   SMTP_FROM: EMAIL_QA_ENABLED ? "qa-sender@example.test" : "",
   SMTP_USER: "",
   SMTP_PASSWORD: "",
+  ...(EMAIL_QA_ENABLED
+    ? { NODE_EXTRA_CA_CERTS: join(AUTOMATION_DIRECTORIES.SMTP_TLS, "cert.pem") }
+    : {}),
   NODE_OPTIONS: EMAIL_QA_ENABLED ? buildNodePreloadOptions(DRIVE_PRELOAD) : "",
   GEN_AIR_EMAIL_QA_FAIL_LOGO_MARKER: join(AUTOMATION_DIRECTORIES.MAIL, "fail-logo"),
 });

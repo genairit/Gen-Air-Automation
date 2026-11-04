@@ -158,7 +158,7 @@ for (const width of WIDTHS) {
       if (name === "building") {
         await expect(
           page.getByRole("button", { name: "ייבוא דירות מאקסל", exact: true }),
-        ).toHaveCSS("background-color", "rgb(245, 245, 247)");
+        ).toHaveCSS("background-color", "rgb(255, 255, 255)");
       }
       await page.screenshot({
         path: test.info().outputPath(`${name}-${width}.png`),

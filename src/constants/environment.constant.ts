@@ -30,6 +30,7 @@ export const AUTOMATION_DIRECTORIES = {
   RESULTS: resolve(ARTIFACTS_ROOT, "test-results"),
   DATABASE: resolve(ARTIFACTS_ROOT, "database"),
   MAIL: resolve(ARTIFACTS_ROOT, "mail"),
+  SMTP_TLS: resolve(ARTIFACTS_ROOT, "smtp-tls"),
 } as const;
 
 export const PORTS = {
