@@ -30,6 +30,7 @@ export const AUTOMATION_DIRECTORIES = {
   RESULTS: resolve(ARTIFACTS_ROOT, "test-results"),
   DATABASE: resolve(ARTIFACTS_ROOT, "database"),
   MAIL: resolve(ARTIFACTS_ROOT, "mail"),
+  SMTP_TLS: resolve(ARTIFACTS_ROOT, "smtp-tls"),
 } as const;
 
 export const PORTS = {
@@ -70,6 +71,7 @@ export const URLS = {
 export const TEST_DATABASE = {
   FLAGS: ["-c", "unix_socket_directories="],
   INIT_FLAGS: ["--encoding=UTF8"],
+  DATA_API_ROLES: ["postgres", "anon", "authenticated"],
   NAME: "gen_air_e2e",
   USER: "gen_air",
   PASSWORD: "gen_air",
@@ -78,10 +80,12 @@ export const TEST_DATABASE = {
 export const TEST_SECRETS = {
   JWT: "gen-air-automation-test-only-secret",
   PLACES_API_KEY: "fake-places-key",
+  QUESTIONNAIRE_CLIENT: "gen-air-automation-questionnaire-client-test-secret",
 } as const;
 
 export const STACK_TIMEOUTS = {
   SERVER_START_MS: 4 * TIME_UNITS.MINUTE_MS,
+  SHUTDOWN_MS: 30 * TIME_UNITS.SECOND_MS,
   TEST_MS: TIME_UNITS.MINUTE_MS,
   EXPECT_MS: 10 * TIME_UNITS.SECOND_MS,
 } as const;

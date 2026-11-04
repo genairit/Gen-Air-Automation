@@ -140,7 +140,9 @@ export const EMPLOYEES_COPY = {
 export const SETTINGS_COPY = {
   UPDATE_PASSWORD: "עדכן סיסמה",
   STAGES_TITLE: "סטטוסי פרויקט קבועים",
-  PASSWORD_UPDATED: "הסיסמה עודכנה בהצלחה",
+  PASSWORD_CHANGED_SIGN_IN_AGAIN: "הסיסמה עודכנה. יש להתחבר מחדש עם הסיסמה החדשה.",
+  CURRENT_PASSWORD_INCORRECT: "הסיסמה הנוכחית שגויה",
+  CURRENT_PASSWORD_PLACEHOLDER: "הזן סיסמה נוכחית",
   NEW_PASSWORD_PLACEHOLDER: "הזן סיסמה חדשה",
   CONFIRM_PASSWORD_PLACEHOLDER: "חזור על הסיסמה",
 } as const;

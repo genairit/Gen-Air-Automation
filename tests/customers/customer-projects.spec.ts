@@ -115,7 +115,7 @@ test("customer card follows grouping, five statuses, root/apartment navigation a
     card.region.getByText(`${foreign.name} · ${foreign.code} · קומה 2`, { exact: true }),
   ).toBeVisible();
   for (const status of Object.values(PROJECT_STATUS_NAMES)) {
-    await expect(card.tab(status)).toBeVisible();
+    await expect(card.statusFilter(status)).toBeVisible();
   }
   await card.region.screenshot({
     path: join(AUTOMATION_DIRECTORIES.RESULTS, "customer-projects-desktop.png"),
@@ -175,7 +175,7 @@ test("initial eight rows, bounded continuation, search/status reset and empty cu
   await expect(card.region.getByRole("link")).toHaveCount(1);
   await expect(card.link(first.name)).toBeVisible();
   await card.search.fill("");
-  await card.tab(PROJECT_STATUS_NAMES.PENDING).click();
+  await card.statusFilter(PROJECT_STATUS_NAMES.PENDING).click();
   await expect(card.region.getByRole("link")).toHaveCount(1);
   await card.goto(empty.id);
   await expect(card.region.getByText(CUSTOMER_PROJECTS_COPY.EMPTY, { exact: true })).toBeVisible();
@@ -209,7 +209,7 @@ test("empty/no-match states, long names and detail-page stage change refresh rel
   await projectPage.changeStage(done.name);
   await expect.poll(async () => (await api.getProject(project.id)).stage.id).toBe(done.id);
   await card.goto(customer.id);
-  await card.tab(PROJECT_STATUS_NAMES.DONE).click();
+  await card.statusFilter(PROJECT_STATUS_NAMES.DONE).click();
   await expect(card.region.getByRole("link")).toHaveCount(1);
   await page.reload();
   await expect(card.link(longName)).toBeVisible();

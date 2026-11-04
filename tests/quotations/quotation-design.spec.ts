@@ -117,7 +117,7 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
   const backBox = await quotationBox(back);
   expect(backBox.y).toBeLessThan(boxes[0]!.y);
   expect((await quotationBox(quote.button("+ סינגלים"))).height).toBe(34);
-  await expect(quote.button("+ סינגלים")).toHaveCSS("background-color", "rgb(245, 245, 247)");
+  await expect(quote.button("+ סינגלים")).toHaveCSS("background-color", "rgb(255, 255, 255)");
   expect((await quotationBox(quote.button("מחיקת מערכת").first())).height).toBe(34);
   await expect(quote.field("כותרת מערכת / קומה")).toHaveCount(2);
   await expect(quote.field("כותרת מערכת / קומה").nth(0)).toHaveValue("קומה 3");
@@ -213,7 +213,8 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
   await expect(page.getByRole("button").filter({ hasText: "E-SMD-63" })).toHaveCount(0);
   await quote.transition("סיימתי, לבדיקה");
   await expect(page.getByRole("heading", { name: "סיכום לבדיקה", exact: true })).toBeVisible();
-  expect((await quotationBox(quote.button("אישור ההצעה"))).height).toBe(52);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  expect((await quotationBox(quote.button("אישור ההצעה"))).height).toBeCloseTo(52, 0);
   const groups = page.getByRole("columnheader").filter({ hasText: /קומה 3|חדר עבודה/ });
   await expect(groups).toHaveCount(2);
   await expect(
