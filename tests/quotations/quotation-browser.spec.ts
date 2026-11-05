@@ -28,7 +28,6 @@ const NOTE = "הערה לתנאי התשלום (להצעה זו בלבד)";
 const getQuote = async (api: Parameters<typeof createQuotation>[0], id: string) =>
   quotationDocument(await api.send(HTTP_METHODS.GET, `/quotation/${id}`));
 
-// Real backend/database for all business behavior; only explicit transport-failure test intercepts PUT.
 test("customer-first creation, optional project, local payments and RTL desktop/mobile persist", async ({
   page,
   api,
@@ -150,6 +149,77 @@ test("catalogue filters, repeated independent snapshots, section ordering and se
       .find(line => line.catalogueItemId === item.id)!.quotedPrice,
   ).toBe("10.0050");
   expect((await getQuote(api, initial.id)).id).toBe(initial.id);
+});
+
+test("autosave keeps row focus and add-item draft while later edits persist", async ({
+  page,
+  api,
+}) => {
+  const item = await createCatalogueFixture({
+    systemType: QUOTATION.SYSTEM.VRF,
+    equipmentRole: QUOTATION.ROLE.INDOOR,
+  });
+  const customer = await seedCustomer(api);
+  const initial = await createQuotation(api, customer.id);
+  const quote = createQuotationPage(page);
+  await quote.goto(initial.id);
+  await quote.select("חברת מיזוג", QUOTATION.BRAND);
+  await quote.saved(() => quote.button("+ מערכת VRF").click());
+  await quote.add(item.sku);
+  const row = page.locator('[data-role="indoor"]');
+  const location = row.getByLabel("מיקום", { exact: true });
+  await expect(row.getByText("מיקום היחידה", { exact: true })).toBeVisible();
+  await expect(row.getByText("מעגל", { exact: true })).toBeVisible();
+  await expect(page.getByText("חברת מיזוג (לכל ההצעה)", { exact: true })).toBeVisible();
+  await expect(quote.field("חברת מיזוג")).toHaveCount(1);
+  await quote.field("כמות להוספה").fill("3");
+
+  const release = { resolve: () => {} };
+  const saveGate = new Promise<void>(resolve => {
+    release.resolve = resolve;
+  });
+  const routeState = { held: false };
+  await page.route(`**/quotation/${initial.id}`, async route => {
+    if (route.request().method() === HTTP_METHODS.PUT && !routeState.held) {
+      routeState.held = true;
+      await saveGate;
+    }
+    await route.continue();
+  });
+  try {
+    const firstRequest = page.waitForRequest(
+      request => request.method() === HTTP_METHODS.PUT && request.url().endsWith(initial.id),
+    );
+    const firstSave = page.waitForResponse(
+      response =>
+        response.request().method() === HTTP_METHODS.PUT && response.url().endsWith(initial.id),
+    );
+    await location.fill("Kitchen");
+    await firstRequest;
+    await expect.poll(() => routeState.held).toBe(true);
+    await expect(location).toBeEnabled();
+    await expect(location).toBeFocused();
+    await expect(quote.field("כמות להוספה")).toHaveValue("3");
+    const secondSave = page.waitForResponse(
+      response =>
+        response.request().method() === HTTP_METHODS.PUT &&
+        response.url().endsWith(initial.id) &&
+        response.request().postData()?.includes("Bedroom") === true,
+    );
+    await location.fill("Bedroom");
+    await expect(location).toHaveValue("Bedroom");
+    release.resolve();
+    expect((await firstSave).status()).toBe(200);
+    await expect(location).toBeFocused();
+    expect((await secondSave).status()).toBe(200);
+    await expect
+      .poll(async () => (await getQuote(api, initial.id)).sections[0]?.items[0]?.location)
+      .toBe("Bedroom");
+    await page.reload();
+    await expect(location).toHaveValue("Bedroom");
+  } finally {
+    release.resolve();
+  }
 });
 
 test("required warnings block approval, explicit self approval and repeated reopen/review remain durable", async ({
