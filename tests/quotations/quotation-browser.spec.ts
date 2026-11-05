@@ -168,6 +168,7 @@ test("autosave keeps row focus and add-item draft while later edits persist", as
   await quote.add(item.sku);
   const row = page.locator('[data-role="indoor"]');
   const location = row.getByLabel("מיקום", { exact: true });
+  const circuit = row.getByLabel("מעגל", { exact: true });
   await expect(row.getByText("מיקום היחידה", { exact: true })).toBeVisible();
   await expect(row.getByText("מעגל", { exact: true })).toBeVisible();
   await expect(page.getByText("חברת מיזוג (לכל ההצעה)", { exact: true })).toBeVisible();
@@ -200,6 +201,8 @@ test("autosave keeps row focus and add-item draft while later edits persist", as
     await expect(location).toBeEnabled();
     await expect(location).toBeFocused();
     await expect(quote.field("כמות להוספה")).toHaveValue("3");
+    await circuit.selectOption("B");
+    await expect(circuit).toHaveValue("B");
     const secondSave = page.waitForResponse(
       response =>
         response.request().method() === HTTP_METHODS.PUT &&
@@ -215,8 +218,12 @@ test("autosave keeps row focus and add-item draft while later edits persist", as
     await expect
       .poll(async () => (await getQuote(api, initial.id)).sections[0]?.items[0]?.location)
       .toBe("Bedroom");
+    await expect
+      .poll(async () => (await getQuote(api, initial.id)).sections[0]?.items[0]?.circuit)
+      .toBe("B");
     await page.reload();
     await expect(location).toHaveValue("Bedroom");
+    await expect(circuit).toHaveValue("B");
   } finally {
     release.resolve();
   }
