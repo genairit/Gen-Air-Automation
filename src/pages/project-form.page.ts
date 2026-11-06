@@ -56,7 +56,8 @@ export const createProjectFormPage = (page: Page) => {
 
   const chooseAddress = async (place: IFakePlace) => {
     await addressInput.fill(place.mainText);
-    await page.getByRole("option").filter({ hasText: place.mainText }).click();
+    const name = [place.mainText, place.secondaryText].filter(Boolean).join(" ");
+    await page.getByRole("option", { name, exact: true }).click();
   };
 
   const chooseCustomer = async (customerName: string) => {
