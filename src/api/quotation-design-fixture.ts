@@ -88,6 +88,7 @@ export const seedQuotationDesign = async (api: TGenAirApi) => {
     ...quotationWrite(initial),
     projectId: project.id,
     brand: QUOTATION.BRAND,
+    paymentTerms: null,
     paymentSchedule: [
       { percent: "30", text: "במועד החתימה על החוזה / הזמנה" },
       { percent: "60", text: "במועד אספקת המאיידים" },
