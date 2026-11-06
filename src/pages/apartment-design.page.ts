@@ -1,18 +1,11 @@
-import type { Page, Locator } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { findCardByTitle } from "./card.component.ts";
 import { findFieldByTitle } from "./field.component.ts";
-import { escapeRegex } from "../utilities/regex.utility.ts";
 import { APARTMENT_COPY } from "../constants/copy.constant.ts";
 import { ROUTE_SEGMENTS } from "../constants/routes.constant.ts";
 import { buildProjectRoute } from "../utilities/route.utility.ts";
 import { APARTMENT_DESIGN_DATA as DATA } from "../constants/apartment-design.constant.ts";
 import { APARTMENT_DESIGN_COPY as COPY } from "../constants/apartment-design.constant.ts";
-
-const SECTION_XPATH = "xpath=ancestor::div[.//button][1]";
-export const findApartmentSection = (page: Page, title: string): Locator =>
-  page
-    .locator("b")
-    .filter({ hasText: new RegExp(`^${escapeRegex(title)}$`) })
-    .locator(SECTION_XPATH);
 
 export const createApartmentDesignPage = (page: Page) => {
   const gotoCreate = (buildingId: string) =>
@@ -29,8 +22,8 @@ export const createApartmentDesignPage = (page: Page) => {
     await search.fill(name);
     await page.getByRole("option").filter({ hasText: name }).click();
   };
-  const teamCard = () => findApartmentSection(page, COPY.CONTACT_TEAM);
-  const draftTeam = () => findApartmentSection(page, COPY.TEAM_TITLE);
+  const teamCard = () => findCardByTitle(page, COPY.CONTACT_TEAM);
+  const draftTeam = () => findCardByTitle(page, COPY.TEAM_TITLE);
   const selectMember = async (name: string) => {
     await page.getByPlaceholder(COPY.ADD_MEMBER).first().click();
     await page.getByPlaceholder(COPY.ADD_MEMBER).last().fill(name);

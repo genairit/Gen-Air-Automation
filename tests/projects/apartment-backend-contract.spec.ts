@@ -31,10 +31,12 @@ import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts"
 import { seedBuilding, seedCustomer, seedUser } from "../../src/api/seed-data.ts";
 import { LEGACY_APARTMENT } from "../../src/constants/apartment-backend.constant.ts";
 import type { IProject, ICustomer } from "../../src/interfaces/entities.interface.ts";
+import { expectFieldsAbsent } from "../../src/utilities/response-assertion.utility.ts";
 import { createApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { scopedApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { USER_ROLES, USER_ROLE_VALUES } from "../../src/constants/user-role.constant.ts";
 import { verifyApartmentMigration } from "../../src/environment/apartment-migration-check.ts";
+import { RETIRED_PROJECT_PAYMENT_FIELDS } from "../../src/constants/payment-default.constant.ts";
 
 const MISSING_ID = "00000000-0000-4000-8000-000000000000";
 const MEMBER_ROLE = USER_ROLES.ENGINEER;
@@ -246,28 +248,18 @@ test("team inheritance follows parent changes, explicit empty overrides stay emp
   );
 });
 
-test("creation payment terms can override the parent while unset terms continue to inherit", async ({
+test("apartments have no payment fields and reject retired creation and update inputs", async ({
   api,
 }) => {
   const { building, customer } = await scenario(api);
-  const inherited = await create(api, building, customer);
-  const overridden = await create(api, building, customer, {
-    paymentTerms: PAYMENT_TERMS.OTHER,
-    paymentTermsNote: "Apartment specific payment agreement",
-  });
-  expect(await read(api, overridden.id)).toMatchObject({
-    paymentTerms: PAYMENT_TERMS.OTHER,
-    paymentTermsNote: "Apartment specific payment agreement",
-  });
-  await update(api, building.id, { paymentTerms: PAYMENT_TERMS.TWELVE_PREPAID_CHECKS });
-  expect(await read(api, inherited.id)).toMatchObject({
-    paymentTerms: PAYMENT_TERMS.TWELVE_PREPAID_CHECKS,
-  });
-  expect(await read(api, overridden.id)).toMatchObject({ paymentTerms: PAYMENT_TERMS.OTHER });
+  const apartment = await create(api, building, customer);
+  const stored = await read(api, apartment.id);
+  expectFieldsAbsent(stored, RETIRED_PROJECT_PAYMENT_FIELDS);
   for (const changes of [
     { paymentTerms: PAYMENT_TERMS.PREPAID },
-    { paymentTerms: PAYMENT_TERMS.OTHER },
     { paymentTermsNote: "Note without choosing terms" },
+    { paymentTerms: null, paymentTermsNote: null },
+    { hasOwnPaymentTerms: true },
   ]) {
     await expectBadRequest(
       await api.send(
@@ -275,6 +267,12 @@ test("creation payment terms can override the parent while unset terms continue 
         buildApartmentsPath(building.id),
         input(customer.id, changes),
       ),
+    );
+    await expectBadRequest(
+      await api.send(HTTP_METHODS.PATCH, buildProjectPath(apartment.id), changes),
+    );
+    await expectBadRequest(
+      await api.send(HTTP_METHODS.PATCH, buildProjectPath(building.id), changes),
     );
   }
 });

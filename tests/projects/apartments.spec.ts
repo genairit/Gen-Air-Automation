@@ -1,9 +1,3 @@
-import {
-  formatStageLabel,
-  formatBuildingLink,
-  formatApartmentName,
-} from "../../src/utilities/apartment.utility.ts";
-
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { SEED_VALUES } from "../../src/constants/seed.constant.ts";
 import { createProjectPage } from "../../src/pages/project.page.ts";
@@ -13,6 +7,7 @@ import { readTabCount, expectTabSelected } from "../../src/pages/tab.component.t
 import { seedBuilding, seedCustomer, seedApartment } from "../../src/api/seed-data.ts";
 import { createApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { createApartmentPage, createApartmentFormPage } from "../../src/pages/apartment.page.ts";
+import { formatBuildingLink, formatApartmentName } from "../../src/utilities/apartment.utility.ts";
 
 const NEW_APARTMENT = {
   floor: "4",
@@ -73,7 +68,7 @@ test("change an apartment stage independently of its building", async ({ page, a
   await expect
     .poll(() => readTabCount(projectPage.statusTab(PROJECT_STATUS_NAMES.IN_PROGRESS)))
     .toBe(SINGLE_APARTMENT_COUNT);
-  await expect(page.getByText(formatStageLabel(PROJECT_STATUS_NAMES.DRAFT))).toBeVisible();
+  await expect(projectPage.stagePicker).toHaveValue(PROJECT_STATUS_NAMES.DRAFT);
 });
 
 test("save notes on an apartment", async ({ page, api }) => {

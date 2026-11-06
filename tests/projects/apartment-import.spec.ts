@@ -28,7 +28,7 @@ test("selecting XLSX immediately imports and finish refreshes the building", asy
   await expect(dialog).toHaveCSS("border-radius", "28px");
   const fileInput = dialog.locator('input[type="file"]');
   await expect(fileInput.locator("..")).toHaveCSS("border-style", "dashed");
-  await expect(fileInput.locator("..")).toHaveCSS("border-radius", "24px");
+  await expect(fileInput.locator("..")).toHaveCSS("border-radius", "22px");
   const chooserEvent = page.waitForEvent("filechooser");
   await fileInput.click();
   const row = buildImportRow(buildCustomerInput(), scopedApartmentNumber("17"));

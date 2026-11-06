@@ -2,6 +2,7 @@ import type { Locator } from "@playwright/test";
 import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { createBoardPage } from "../../src/pages/board.page.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
+import { createProjectPage } from "../../src/pages/project.page.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { ROLE_ACCESS } from "../../src/constants/role-access.constant.ts";
 import { TASK_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
@@ -78,14 +79,20 @@ for (const role of USER_ROLE_VALUES) {
       await expectVisibility(!access.canEditProject, formPage.editDenied);
     });
 
-    test("the board status control is enabled only when allowed", async ({ page, api }) => {
+    test("the board row opens a project whose detail stage control follows permission", async ({
+      page,
+      api,
+    }) => {
       const project = await seedStandaloneProject(api, await seedCustomer(api));
       const boardPage = createBoardPage(page);
+      const projectPage = createProjectPage(page);
 
       await boardPage.goto();
       await boardPage.searchBox.fill(project.name);
-
-      await expectEnabled(access.canMoveProjectStage, boardPage.statusPicker(project.name));
+      await expect(boardPage.findRow(project.name).getByRole("combobox")).toHaveCount(0);
+      await boardPage.findRow(project.name).click();
+      await expect(projectPage.heading(project.name)).toBeVisible();
+      await expectVisibility(access.canMoveProjectStage, projectPage.stagePicker);
     });
 
     test("customers page shows customer creation only when allowed", async ({ page }) => {
@@ -142,7 +149,7 @@ for (const role of USER_ROLE_VALUES) {
       );
     });
 
-    test("my tasks list enables the status control only when allowed", async ({
+    test("my tasks list opens details without a row status control", async ({
       page,
       api,
       apiAs,
@@ -155,7 +162,13 @@ for (const role of USER_ROLE_VALUES) {
       await tasksPage.goto();
       await tasksPage.searchBox.fill(task.title);
 
-      await expectEnabled(access.canChangeTaskStatus, tasksPage.statusPicker(task.title));
+      await expect(tasksPage.findRow(task.title).getByRole("combobox")).toHaveCount(0);
+      await tasksPage.findRow(task.title).click();
+      await expect(page.getByRole("heading", { name: task.title })).toBeVisible();
+      await expectEnabled(
+        access.canChangeTaskStatus,
+        createTaskPage(page).statusTab(TASK_STATUS_NAMES.IN_PROGRESS),
+      );
     });
   });
 }

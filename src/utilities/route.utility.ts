@@ -5,6 +5,9 @@ const joinPath = (...segments: string[]) => segments.join("/");
 export const buildCustomerRoute = (customerId: string): string =>
   joinPath(ROUTES.CUSTOMERS, customerId);
 
+export const buildQuotationRoute = (quotationId: string): string =>
+  joinPath(ROUTES.QUOTATIONS, quotationId);
+
 export const buildProjectRoute = (projectId: string): string =>
   joinPath(ROUTES.PROJECTS, projectId);
 

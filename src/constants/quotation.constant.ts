@@ -24,6 +24,7 @@ export const QUOTATION_PERMISSIONS = {
   READ: "quotations.read",
   CREATE: "quotations.create",
   UPDATE: "quotations.update",
+  DELETE: "quotations.delete",
   APPROVE: "quotations.approve",
   CATALOGUE_MANAGE: "catalogue.manage",
 } as const;

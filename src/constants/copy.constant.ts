@@ -10,6 +10,10 @@ const SHARED_COPY = {
   TASK_DESCRIPTION_PLACEHOLDER: "פרט מה צריך לעשות, מה כבר ידוע ומה מצופה כתוצאה",
 } as const;
 
+export const AUTOCOMPLETE_COPY = {
+  CLEAR_SELECTION: "נקה בחירה",
+} as const;
+
 export const LOGIN_COPY = {
   TITLE: "התחברות למערכת",
   SUBMIT: "התחבר למערכת",
@@ -120,7 +124,11 @@ export const TASKS_COPY = {
 } as const;
 
 export const EMPLOYEES_COPY = {
-  ROLE_LABEL: "תפקיד והרשאה",
+  ROLE_LABEL: "תפקידים משויכים",
+  EDIT_EMPLOYEE: "עריכת עובד",
+  ADD_TITLE: "הוספת עובד / משתמש חדש",
+  ACCOUNT_SECTION: "פרטי חשבון",
+  ACCESS_SECTION: "גישה ותפקידים",
   DELETE_EMPLOYEE: "מחיקת עובד",
   NAME_PLACEHOLDER: "לדוגמה: יובל אל",
   PHONE_PLACEHOLDER: "0500000000",
@@ -132,7 +140,9 @@ export const EMPLOYEES_COPY = {
 export const SETTINGS_COPY = {
   UPDATE_PASSWORD: "עדכן סיסמה",
   STAGES_TITLE: "סטטוסי פרויקט קבועים",
-  PASSWORD_UPDATED: "הסיסמה עודכנה בהצלחה",
+  PASSWORD_CHANGED_SIGN_IN_AGAIN: "הסיסמה עודכנה. יש להתחבר מחדש עם הסיסמה החדשה.",
+  CURRENT_PASSWORD_INCORRECT: "הסיסמה הנוכחית שגויה",
+  CURRENT_PASSWORD_PLACEHOLDER: "הזן סיסמה נוכחית",
   NEW_PASSWORD_PLACEHOLDER: "הזן סיסמה חדשה",
   CONFIRM_PASSWORD_PLACEHOLDER: "חזור על הסיסמה",
 } as const;
@@ -156,6 +166,7 @@ export const PROJECT_FORM_COPY = {
 
 export const PROJECT_PAGE_COPY = {
   STAGE_PREFIX: "שלב:",
+  STAGE_TITLE: "שלב הפרויקט",
   EDIT: "עריכת פרויקט",
   NEW_TASK: "+ משימה חדשה",
   NOT_FOUND: "הפרויקט לא נמצא",
@@ -218,7 +229,6 @@ export const TASK_FORM_COPY = {
   POOL_OPTION: "מאגר פתוח — כל מהנדס יכול למשוך",
   SAVE: "שמור משימה",
   DUE_DATE: "תאריך יעד",
-  ASSIGNEE_PLACEHOLDER: "בחר...",
   TITLE_PLACEHOLDER: "לדוגמה: תיאום ביקור באתר",
   DESCRIPTION_PLACEHOLDER: SHARED_COPY.TASK_DESCRIPTION_PLACEHOLDER,
 } as const;

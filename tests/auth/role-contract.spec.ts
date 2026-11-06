@@ -36,7 +36,8 @@ const sortRoles = (roles: readonly string[]) => [...roles].sort();
 test("role counts report exactly the six roles", async ({ api }) => {
   const counts = await api.readRoleCounts();
 
-  expect(sortRoles(Object.keys(counts))).toEqual(sortRoles(USER_ROLE_VALUES));
+  expect(sortRoles(Object.keys(counts))).toEqual(sortRoles([...USER_ROLE_VALUES, "total"]));
+  expect(counts.total).toBeGreaterThanOrEqual(USER_ROLE_VALUES.length);
   for (const role of USER_ROLE_VALUES) {
     expect(counts[role]).toBeGreaterThanOrEqual(1);
   }
@@ -53,7 +54,10 @@ for (const role of USER_ROLE_VALUES) {
 }
 
 test("creating an employee with the retired lead_installer role is rejected", async ({ api }) => {
-  const input = { ...buildUserInput(USER_ROLES.INSTALLER), role: RETIRED_ROLES.LEAD_INSTALLER };
+  const input = {
+    ...buildUserInput(USER_ROLES.INSTALLER),
+    assignedRoles: [RETIRED_ROLES.LEAD_INSTALLER],
+  };
 
   await expectBadRequest(await api.send(HTTP_METHODS.POST, API_PATHS.USER, input));
 });

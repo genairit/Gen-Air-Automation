@@ -6,20 +6,29 @@ import {
   PROJECT_MEMBER_ROLES,
 } from "../../src/constants/user-role.constant.ts";
 
+import {
+  PAYMENT_DEFAULT_PATTERNS,
+  RETIRED_PROJECT_PAYMENT_FIELDS,
+} from "../../src/constants/payment-default.constant.ts";
+
 import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { createBoardPage } from "../../src/pages/board.page.ts";
+import { API_PATHS } from "../../src/constants/api.constant.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { escapeRegex } from "../../src/utilities/regex.utility.ts";
+import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { formatFullName } from "../../src/utilities/user.utility.ts";
 import { FAKE_PLACES } from "../../src/constants/fake-places.constant.ts";
+import { buildProjectPath } from "../../src/utilities/api-path.utility.ts";
 import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
+import { PROJECT_TYPE_NAMES } from "../../src/constants/domain.constant.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { ROUTE_PATTERNS } from "../../src/constants/route-patterns.constant.ts";
 import { PROJECT_DRAFT_VERSIONS } from "../../src/constants/storage.constant.ts";
 import { buildProjectDraftKey } from "../../src/utilities/auth-state.utility.ts";
+import { expectFieldsAbsent } from "../../src/utilities/response-assertion.utility.ts";
 import { seedUser, seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts";
 import { buildEditProjectRoute, readLastPathSegment } from "../../src/utilities/route.utility.ts";
-import { PROJECT_TYPE_NAMES, PAYMENT_TERMS_LABELS } from "../../src/constants/domain.constant.ts";
 
 const PROJECT_NAME_PREFIXES = {
   NEW: "פרויקט חדש",
@@ -42,20 +51,34 @@ test("create a project with a verified address and see it on the board", async (
     place: FAKE_PLACES[1],
     customerName: customer.name,
     projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL,
-    paymentTermsLabel: PAYMENT_TERMS_LABELS.MILESTONES_NET_60,
   });
 
   await expect(formPage.addressVerified).toBeVisible();
-
+  await expect(page.getByRole("radio")).toHaveCount(0);
+  const creation = page.waitForRequest(
+    request => request.method() === HTTP_METHODS.POST && request.url().endsWith(API_PATHS.PROJECT),
+  );
   await formPage.createButton.click();
-
+  const payload: unknown = (await creation).postDataJSON();
+  expectFieldsAbsent(payload, RETIRED_PROJECT_PAYMENT_FIELDS);
   await expect(page).toHaveURL(ROUTE_PATTERNS.PROJECT);
   await expect(page.getByRole("heading", { name: projectName })).toBeVisible();
+  await expect(page.getByText(PAYMENT_DEFAULT_PATTERNS.SECTION)).toHaveCount(0);
+  const project = await api.getProject(readLastPathSegment(page.url()));
+  expectFieldsAbsent(project, RETIRED_PROJECT_PAYMENT_FIELDS);
 
   await boardPage.goto();
   await boardPage.searchBox.fill(projectName);
 
   await expect(boardPage.findRow(projectName)).toBeVisible();
+});
+
+test("the project draft banner no longer advertises retired payment storage", async ({ page }) => {
+  const formPage = createProjectFormPage(page);
+  await formPage.goto();
+  await formPage.nameInput.fill(createUniqueName(PROJECT_NAME_PREFIXES.DRAFT));
+  await expect(page.getByRole("status")).toBeVisible();
+  await expect(page.getByText(PAYMENT_DEFAULT_PATTERNS.SECTION)).toHaveCount(0);
 });
 
 test("the create button stays disabled until the required fields are filled", async ({ page }) => {
@@ -74,8 +97,16 @@ test("edit a project name and see the change on its page", async ({ page, api })
   const renamedProject = createUniqueName(PROJECT_NAME_PREFIXES.RENAMED);
 
   await page.goto(buildEditProjectRoute(project.id));
+  await expect(page.getByText(PAYMENT_DEFAULT_PATTERNS.SECTION)).toHaveCount(0);
   await formPage.nameInput.fill(renamedProject);
+  const edit = page.waitForRequest(
+    request =>
+      request.method() === HTTP_METHODS.PATCH &&
+      request.url().endsWith(buildProjectPath(project.id)),
+  );
   await formPage.saveButton.click();
+  const payload: unknown = (await edit).postDataJSON();
+  expectFieldsAbsent(payload, RETIRED_PROJECT_PAYMENT_FIELDS);
 
   await expect(page).toHaveURL(ROUTE_PATTERNS.PROJECT);
   await expect(page.getByRole("heading", { name: renamedProject })).toBeVisible();
@@ -147,7 +178,6 @@ test("create a project with every member slot filled and see the team on the edi
     place: FAKE_PLACES[1],
     customerName: customer.name,
     projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL,
-    paymentTermsLabel: PAYMENT_TERMS_LABELS.MILESTONES_NET_60,
   });
   for (const member of members) {
     await formPage.chooseMember(member.role, formatFullName(member.user));

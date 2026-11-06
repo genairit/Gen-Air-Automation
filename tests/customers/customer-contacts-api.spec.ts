@@ -44,8 +44,6 @@ test("contact migration starts empty despite existing customer and project conta
     expect((await database.query("SELECT contact_name FROM projects")).rows).toEqual([
       { contact_name: "Old site contact" },
     ]);
-    await database.query("CREATE ROLE anon NOLOGIN");
-    await database.query("CREATE ROLE authenticated NOLOGIN");
     await database.query(await readFile(join(MIGRATIONS_DIRECTORY, CONTACT_MIGRATION), "utf8"));
     expect((await database.query("SELECT * FROM customer_contacts")).rows).toEqual([]);
     expect(
@@ -88,8 +86,6 @@ test("contact migration starts empty despite existing customer and project conta
   } finally {
     await database.end();
     await owner.query(`DROP DATABASE ${name} WITH (FORCE)`);
-    await owner.query("DROP ROLE IF EXISTS anon");
-    await owner.query("DROP ROLE IF EXISTS authenticated");
     await owner.end();
   }
 });

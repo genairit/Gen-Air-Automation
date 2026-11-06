@@ -6,6 +6,7 @@ import {
 
 import {
   URLS,
+  TEST_SECRETS,
   STACK_TIMEOUTS,
   APP_DIRECTORIES,
   AUTOMATION_DIRECTORIES,
@@ -27,6 +28,7 @@ export default defineConfig({
   webServer: [
     {
       command: "npm run stack",
+      gracefulShutdown: { signal: "SIGTERM", timeout: STACK_TIMEOUTS.SHUTDOWN_MS },
       url: URLS.BACKEND,
       reuseExistingServer: false,
       timeout: STACK_TIMEOUTS.SERVER_START_MS,
@@ -36,7 +38,11 @@ export default defineConfig({
       cwd: join(APP_DIRECTORIES.BACKEND, "apps/questionnaire"),
       url: `${QUESTIONNAIRE.CLIENT_ORIGIN}/health`,
       reuseExistingServer: false,
-      env: { BACKEND_URL: URLS.BACKEND, PORT: String(QUESTIONNAIRE.CLIENT_PORT) },
+      env: {
+        BACKEND_URL: URLS.BACKEND,
+        PORT: String(QUESTIONNAIRE.CLIENT_PORT),
+        QUESTIONNAIRE_CLIENT_SECRET: TEST_SECRETS.QUESTIONNAIRE_CLIENT,
+      },
     },
   ],
 });

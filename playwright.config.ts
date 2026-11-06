@@ -43,14 +43,15 @@ export default defineConfig({
   webServer: [
     {
       command: "npm run stack",
-      reuseExistingServer: !IS_CI,
+      reuseExistingServer: false,
+      gracefulShutdown: { signal: "SIGTERM", timeout: STACK_TIMEOUTS.SHUTDOWN_MS },
       url: URLS.BACKEND,
       stdout: "pipe",
       timeout: STACK_TIMEOUTS.SERVER_START_MS,
     },
     {
       url: URLS.FRONTEND,
-      reuseExistingServer: !IS_CI,
+      reuseExistingServer: false,
       cwd: APP_DIRECTORIES.FRONTEND,
       timeout: STACK_TIMEOUTS.SERVER_START_MS,
       env: { VITE_BACKEND_URL: URLS.BACKEND },
