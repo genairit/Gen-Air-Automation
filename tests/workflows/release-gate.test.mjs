@@ -304,9 +304,9 @@ test("test → main cannot prepare, run or publish backend compatibility", async
 test("full gate has a bounded suite budget and retains evidence on failure", () => {
   const job = readWorkflow("../../.github/workflows/e2e.yml").jobs.playwright;
   const suite = job.steps.find(step => step.id === "suite");
-  assert.equal(job["timeout-minutes"], 45);
-  assert.equal(suite["timeout-minutes"], 41);
-  assert.equal(suite.run, "npx playwright test --global-timeout=2400000");
+  assert.equal(job["timeout-minutes"], 90);
+  assert.equal(suite["timeout-minutes"], 76);
+  assert.equal(suite.run, "npx playwright test --global-timeout=4500000");
   assert.ok(suite["timeout-minutes"] < job["timeout-minutes"]);
   const upload = job.steps.find(step => step.uses?.startsWith("actions/upload-artifact@"));
   assert.equal(upload.if, "${{ always() }}");
