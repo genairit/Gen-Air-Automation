@@ -128,12 +128,20 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
   await expect(page.getByText(/מעגל קומה 3 · A · יחס/)).toBeVisible();
   await expect(page.getByText("פנים 55700 BTU", { exact: true })).toBeVisible();
   await expect(page.getByText("מעבה 52886 BTU", { exact: true })).toBeVisible();
-  await expectSameQuotationRow([
-    quote.field("מיקום").first(),
+  const equipmentRow = await expectSameQuotationRow([
     quote.field("תיאור בהצעה").first(),
     quote.field(quantityLabel).first(),
     quote.field("מחיר ליחידה").first(),
   ]);
+  const location = quote.field("מיקום").first();
+  const locationGroup = location.locator("..");
+  const locationCaption = locationGroup.getByText("מיקום היחידה", { exact: true });
+  const captionBox = await quotationBox(locationCaption);
+  const locationBox = await quotationBox(location);
+  const locationGroupBox = await quotationBox(locationGroup);
+  expect(Math.abs(locationGroupBox.y - equipmentRow[0]!.y)).toBeLessThanOrEqual(16);
+  expect(locationBox.y).toBeGreaterThan(captionBox.y + captionBox.height);
+  expect(locationBox.height).toBeLessThanOrEqual(42);
   await expect(page.getByText("מחיר ליחידה (בהצעה)", { exact: true })).toHaveCount(5);
   await expect(page.getByText("מטרים", { exact: true })).toBeVisible();
   await expect(page.getByText("פריט", { exact: true })).toHaveCount(2);
@@ -156,8 +164,9 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
   expect(controlBox.y).toBeLessThan(nextParentBox.y);
   await expect(page.getByRole("button").filter({ hasText: "E-SMD-63" })).toHaveCount(0);
   const chips = page.getByRole("radiogroup", { name: "תנאי תשלום", exact: true });
-  await expect(chips.getByRole("radio")).toHaveCount(5);
-  await expect(chips.getByRole("radio", { name: "תשלום מראש", exact: true })).toBeChecked();
+  await expect(chips.getByRole("radio")).toHaveCount(6);
+  await expect(chips.getByRole("radio", { name: "לפי שלבי תשלום", exact: true })).toBeChecked();
+  await expect(chips.getByRole("radio", { name: "תשלום מראש", exact: true })).not.toBeChecked();
   await expect(quote.field("אחוז מהסכום")).toHaveCount(3);
   await expectSameQuotationRow([
     quote.field("אחוז מהסכום").first(),
@@ -169,6 +178,7 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
   await page.setViewportSize({ width: 390, height: 1100 });
   await expectQuotationWithinViewport(page, [
     ...metadata,
+    location,
     quote.field(quantityLabel).first(),
     quote.field("מחיר ליחידה").first(),
     quote.field("תיאור בקר בהצעה").first(),
