@@ -174,6 +174,7 @@ test("required warnings block approval, self approval works and reopening preser
     value: await saveQuotation(api, quote.id, {
       ...quotationWrite(quote),
       brand: QUOTATION.BRAND,
+      paymentTerms: PAYMENT_TERMS.PREPAID,
       sections: [{ ...section(item.id), items: [draftLine(item.id, "0")] }],
     }),
   };
@@ -429,7 +430,7 @@ test("VRF engineering checks remain required for headers, controls, missing side
     value: await saveQuotation(api, quote.id, {
       ...quotationWrite(quote),
       brand: QUOTATION.BRAND,
-      paymentTerms: PAYMENT_TERMS.OTHER,
+      paymentTerms: null,
       paymentTermsNote: "",
       paymentSchedule: [{ percent: "90", text: "First" }],
       sections: [
@@ -443,7 +444,7 @@ test("VRF engineering checks remain required for headers, controls, missing side
     }),
   };
   const textsState = { value: currentState.value.warnings.map(warning => warning.text).join("\n") };
-  for (const text of ["חנוכיות", "טרמוסטט", "דיוורסיטי", "12%", "פירוט", "90%"])
+  for (const text of ["חנוכיות", "טרמוסטט", "דיוורסיטי", "12%", "90%"])
     expect(textsState.value).toContain(text);
   const inputState = { value: quotationWrite(currentState.value) };
   inputState.value.sections[0]!.items = [indoorLine];
@@ -468,7 +469,7 @@ test("VRF engineering checks remain required for headers, controls, missing side
     capacityBtu: null,
   });
   inputState.value = quotationWrite(currentState.value);
-  inputState.value.paymentTerms = PAYMENT_TERMS.PREPAID;
+  inputState.value.paymentTerms = null;
   inputState.value.paymentSchedule = [{ percent: "100", text: "All" }];
   inputState.value.sections[0]!.items = [
     { ...indoorLine, requestedCapacityBtu: 24000 },
@@ -478,8 +479,82 @@ test("VRF engineering checks remain required for headers, controls, missing side
   ];
   currentState.value = await saveQuotation(api, quote.id, inputState.value);
   textsState.value = currentState.value.warnings.map(warning => warning.text).join("\n");
-  for (const text of ["חנוכיות", "טרמוסטט", "דיוורסיטי", "12%", "פירוט", "90%"])
+  for (const text of ["חנוכיות", "טרמוסטט", "דיוורסיטי", "12%", "90%"])
     expect(textsState.value).not.toContain(text);
+});
+
+test("conflicting and incomplete payment modes reject approval even after warnings are acknowledged", async ({
+  api,
+}) => {
+  const customer = await seedCustomer(api);
+  const item = await createCatalogueFixture();
+  const cases = [
+    {
+      name: "fixed term with stages",
+      paymentTerms: PAYMENT_TERMS.PREPAID,
+      paymentSchedule: [
+        { percent: "30", text: "Deposit" },
+        { percent: "70", text: "Delivery" },
+      ],
+      warning: "נבחרו גם תנאי תשלום קבועים וגם שלבי תשלום",
+    },
+    {
+      name: "stages below 100 percent",
+      paymentTerms: null,
+      paymentSchedule: [{ percent: "30", text: "Deposit" }],
+      warning: "30% במקום 100%",
+    },
+    {
+      name: "stage missing milestone",
+      paymentTerms: null,
+      paymentSchedule: [{ percent: "100", text: "" }],
+      warning: "יש לתאר את מועד התשלום של כל שלב",
+    },
+    {
+      name: "no payment selection",
+      paymentTerms: null,
+      paymentSchedule: [],
+      warning: "לא נבחרו תנאי תשלום",
+    },
+  ] as const;
+  for (const payment of cases) {
+    const quote = await createQuotation(api, customer.id);
+    const saved = await saveQuotation(api, quote.id, {
+      ...quotationWrite(quote),
+      brand: QUOTATION.BRAND,
+      sections: [section(item.id)],
+      paymentTerms: payment.paymentTerms,
+      paymentSchedule: [...payment.paymentSchedule],
+    });
+    expect(saved.warnings.map(warning => warning.text).join("\n"), payment.name).toContain(
+      payment.warning,
+    );
+    const review = await quotationDocument(
+      await api.send(HTTP_METHODS.POST, `/quotation/${quote.id}/review`, {
+        version: saved.version,
+        status: QUOTATION.STATUS.REVIEW,
+      }),
+    );
+    const acknowledged = await quotationDocument(
+      await api.send(HTTP_METHODS.POST, `/quotation/${quote.id}/warnings`, {
+        version: review.version,
+        warningKeys: review.warnings.map(warning => warning.key),
+      }),
+    );
+    expect(
+      acknowledged.warnings.every(warning => warning.acknowledged),
+      payment.name,
+    ).toBe(true);
+    const approval = await api.send(HTTP_METHODS.POST, `/quotation/${quote.id}/review`, {
+      version: acknowledged.version,
+      status: QUOTATION.STATUS.APPROVED,
+    });
+    expect(approval.status(), payment.name).toBe(400);
+    expect(
+      (await quotationDocument(await api.send(HTTP_METHODS.GET, `/quotation/${quote.id}`))).status,
+      payment.name,
+    ).toBe(QUOTATION.STATUS.REVIEW);
+  }
 });
 
 test("MULTI piping and less-useful are required; GEN does not invent piping requirements", async ({

@@ -6,7 +6,9 @@ import {
 
 import { test, expect } from "@playwright/test";
 import { QUESTIONNAIRE } from "../../src/constants/questionnaire.constant.ts";
+import { AUTH_SECURITY } from "../../src/constants/auth-security.constant.ts";
 import { createTestDatabaseClient } from "../../src/environment/test-database-client.ts";
+import { parseSignedClientCookie } from "../../src/utilities/anonymous-client.utility.ts";
 
 const state = { questionnaireId: "" };
 
@@ -67,6 +69,100 @@ test("no public response read/list exists and CRM authentication remains require
     (await request.get(`${QUESTIONNAIRE.BACKEND_ORIGIN}${QUESTIONNAIRE.SUBMIT_PATH}`)).status(),
   ).toBe(404);
   expect((await request.get(`${QUESTIONNAIRE.BACKEND_ORIGIN}/customer`)).status()).toBe(401);
+});
+
+test("questionnaire proxy forwards API requests, limits a signed caller, and grants no CRM access", async ({
+  request,
+}) => {
+  const first = await request.get(`${QUESTIONNAIRE.CLIENT_ORIGIN}/health`);
+  expect(first.status()).toBe(200);
+  const setCookie = first.headers()["set-cookie"] ?? "";
+  for (const attribute of AUTH_SECURITY.COOKIE_ATTRIBUTES) {
+    expect(setCookie).toContain(attribute);
+  }
+  const cookie = parseSignedClientCookie(setCookie);
+  const cookieName = cookie.split("=")[0];
+
+  const proxyDefinition = await request.get(
+    `${QUESTIONNAIRE.CLIENT_ORIGIN}${QUESTIONNAIRE.GET_PATH}`,
+    {
+      headers: { Cookie: cookie },
+    },
+  );
+  expect(proxyDefinition.status()).toBe(200);
+  expect(await proxyDefinition.json()).toMatchObject({ id: state.questionnaireId });
+  expect(proxyDefinition.headers()["set-cookie"]).toBeUndefined();
+
+  const input = submissionInput(state.questionnaireId);
+  const proxiedSubmission = await request.post(
+    `${QUESTIONNAIRE.CLIENT_ORIGIN}${QUESTIONNAIRE.SUBMIT_PATH}`,
+    { headers: { Cookie: cookie }, data: input },
+  );
+  expect(proxiedSubmission.status()).toBe(201);
+  expect(await readQuestionnaireSubmissions(input.fullName)).toHaveLength(1);
+
+  const accepted = await request.get(`${QUESTIONNAIRE.BACKEND_ORIGIN}${QUESTIONNAIRE.GET_PATH}`, {
+    headers: { Cookie: cookie },
+  });
+  expect(accepted.status()).toBe(200);
+  expect(accepted.headers()["set-cookie"]).toBeUndefined();
+
+  const rejected = await request.get(`${QUESTIONNAIRE.BACKEND_ORIGIN}${QUESTIONNAIRE.GET_PATH}`, {
+    headers: { Cookie: `${cookieName}=forged` },
+  });
+  expect(rejected.status()).toBe(200);
+  expect(parseSignedClientCookie(rejected.headers()["set-cookie"] ?? "")).not.toBe(cookie);
+
+  expect(
+    (
+      await request.get(`${QUESTIONNAIRE.BACKEND_ORIGIN}/customer`, {
+        headers: { Cookie: cookie },
+      })
+    ).status(),
+  ).toBe(401);
+  expect((await request.get(`${QUESTIONNAIRE.CLIENT_ORIGIN}/customer`)).status()).toBe(404);
+
+  const remainingProxyAttempts = Array.from(
+    { length: QUESTIONNAIRE.PROXY_REQUESTS_PER_WINDOW - 2 },
+    (_, index) => index + 2,
+  );
+  for (const attempt of remainingProxyAttempts) {
+    const response = await request.get(`${QUESTIONNAIRE.CLIENT_ORIGIN}${QUESTIONNAIRE.GET_PATH}`, {
+      headers: { Cookie: cookie },
+    });
+    expect(response.status(), `proxy request ${attempt + 1}`).toBe(200);
+  }
+  const limited = await request.get(`${QUESTIONNAIRE.CLIENT_ORIGIN}${QUESTIONNAIRE.GET_PATH}`, {
+    headers: { Cookie: cookie },
+  });
+  expect(limited.status()).toBe(429);
+  const other = await request.get(`${QUESTIONNAIRE.CLIENT_ORIGIN}${QUESTIONNAIRE.GET_PATH}`, {
+    headers: { Cookie: `${cookieName}=invalid` },
+  });
+  expect(other.status()).toBe(200);
+  expect(parseSignedClientCookie(other.headers()["set-cookie"] ?? "")).not.toBe(cookie);
+});
+
+test("backend questionnaire reads are limited per signed caller", async ({ request }) => {
+  const endpoint = `${QUESTIONNAIRE.BACKEND_ORIGIN}${QUESTIONNAIRE.GET_PATH}`;
+  const first = await request.get(endpoint);
+  expect(first.status()).toBe(200);
+  const cookie = parseSignedClientCookie(first.headers()["set-cookie"] ?? "");
+
+  const remainingBackendAttempts = Array.from(
+    { length: QUESTIONNAIRE.BACKEND_READS_PER_WINDOW - 1 },
+    (_, index) => index + 1,
+  );
+  for (const attempt of remainingBackendAttempts) {
+    const response = await request.get(endpoint, { headers: { Cookie: cookie } });
+    expect(response.status(), `backend request ${attempt + 1}`).toBe(200);
+  }
+  expect((await request.get(endpoint, { headers: { Cookie: cookie } })).status()).toBe(429);
+  const other = await request.get(endpoint, {
+    headers: { Cookie: `${cookie.split("=")[0]}=invalid` },
+  });
+  expect(other.status()).toBe(200);
+  expect(parseSignedClientCookie(other.headers()["set-cookie"] ?? "")).not.toBe(cookie);
 });
 
 test("concurrent duplicate requests create one durable row", async ({ request }) => {

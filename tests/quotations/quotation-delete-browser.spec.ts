@@ -2,6 +2,7 @@ import {
   quotationBox,
   expectQuotationDeleteFooter,
   expectQuotationWithinViewport,
+  QUOTATION_DELETE_HORIZONTAL_INSET,
 } from "../../src/utilities/quotation-layout.utility.ts";
 
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
@@ -35,7 +36,7 @@ for (const status of Object.values(QUOTATION.STATUS)) {
     const remove = quote.button("מחיקת ההצעה");
     await expect(remove).toBeEnabled();
     expect((await quotationBox(remove)).height).toBe(44);
-    await expect(remove).toHaveCSS("background-color", "rgb(245, 245, 247)");
+    await expect(remove).toHaveCSS("background-color", "rgb(255, 255, 255)");
     for (const width of [1440, 1100]) {
       await page.setViewportSize({ width, height: 1100 });
       const footer = await expectQuotationDeleteFooter(page, remove);
@@ -49,7 +50,7 @@ for (const status of Object.values(QUOTATION.STATUS)) {
       page.getByText(`למחוק את ${quotation.number}? אי אפשר לשחזר דרך האפליקציה.`, { exact: true }),
     ).toBeVisible();
     expect((await quotationBox(confirm)).height).toBe(38);
-    await expect(confirm).toHaveCSS("background-color", "rgb(30, 32, 34)");
+    await expect(confirm).toHaveCSS("background-color", "rgb(15, 23, 42)");
     expect(deletions).toEqual([]);
     await quote.button("ביטול").click();
     await expect(remove).toBeVisible();
@@ -58,13 +59,16 @@ for (const status of Object.values(QUOTATION.STATUS)) {
         .version,
     ).toBe(quotation.version);
     await page.setViewportSize({ width: 390, height: 1100 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await expectQuotationWithinViewport(page, [remove]);
     const mobileAction = await quotationBox(remove);
     const mobileCard = await quotationBox(remove.locator(".."));
     const mobileReview = await quotationBox(
       page.getByRole("heading", { name: "בדיקה ואישור", exact: true }).locator(".."),
     );
-    expect(Math.abs(mobileAction.width - (mobileCard.width - 40))).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(mobileAction.width - (mobileCard.width - QUOTATION_DELETE_HORIZONTAL_INSET)),
+    ).toBeLessThanOrEqual(1);
     expect(mobileCard.y).toBeGreaterThanOrEqual(mobileReview.y + mobileReview.height + 23);
     await remove.scrollIntoViewIfNeeded();
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));

@@ -1,5 +1,48 @@
 import type { IFakePlace } from "../interfaces/fake-place.interface.ts";
 
+export const SERVICE_AREA_PLACES = {
+  ALMON: {
+    city: "עלמון",
+    countryCode: "PS",
+    mainText: "עלמון",
+    placeId: "fake_place_almon",
+    secondaryText: "ענתות",
+    formattedAddress: "עלמון, ענתות",
+  },
+  ANATOT: {
+    city: "ענתות",
+    countryCode: "PS",
+    mainText: "ענתות",
+    placeId: "fake_place_anatot",
+    secondaryText: "עלמון",
+    formattedAddress: "ענתות, עלמון",
+  },
+  UNSUPPORTED: {
+    city: "עמאן",
+    countryCode: "JO",
+    mainText: "עמאן",
+    placeId: "fake_place_outside_service_area",
+    secondaryText: "JO",
+    formattedAddress: "עמאן, JO",
+  },
+  NO_COUNTRY: {
+    city: "ללא מדינה",
+    countryCode: "",
+    mainText: "ללא מדינה",
+    placeId: "fake_place_without_country",
+    secondaryText: "",
+    formattedAddress: "כתובת ללא מדינה",
+  },
+  NO_CITY: {
+    city: "",
+    countryCode: "PS",
+    mainText: "כביש ללא יישוב",
+    placeId: "fake_place_service_area_road",
+    secondaryText: "PS",
+    formattedAddress: "כביש ללא יישוב, PS",
+  },
+} as const satisfies Record<string, IFakePlace>;
+
 export const FAKE_PLACES: IFakePlace[] = [
   {
     city: "תל אביב-יפו",

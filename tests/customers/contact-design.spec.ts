@@ -19,6 +19,7 @@ import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
 import { FAKE_PLACES } from "../../src/constants/fake-places.constant.ts";
+import { PROJECT_TYPE_NAMES } from "../../src/constants/domain.constant.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { contactsPath } from "../../src/utilities/apartment-import.utility.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
@@ -26,7 +27,6 @@ import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts"
 import { API_PATHS, API_PROXY_PREFIX } from "../../src/constants/api.constant.ts";
 import { setIncompleteProjectContact } from "../../src/environment/contact-layout-data.ts";
 import { buildApartmentRoute, buildCustomerRoute } from "../../src/utilities/route.utility.ts";
-import { PROJECT_TYPE_NAMES, PAYMENT_TERMS_LABELS } from "../../src/constants/domain.constant.ts";
 
 const CONTACT_SUMMARY = "אנשי קשר · מתוך כרטיס הלקוח";
 const LEGACY_CONTACT_FIELDS = ["contactName", "contactPhone", "contactRole"] as const;
@@ -44,7 +44,6 @@ test("both project form modes use customer-owned contact chips and never submit 
     place: FAKE_PLACES[1],
     customerName: customer.name,
     projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL,
-    paymentTermsLabel: PAYMENT_TERMS_LABELS.MILESTONES_NET_60,
   });
   await expect(page.getByText(CONTACT_SUMMARY, { exact: true })).toBeVisible();
   await expect(page.getByText(customer.contactName, { exact: true })).toBeVisible();

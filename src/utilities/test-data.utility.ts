@@ -12,6 +12,8 @@ export const createSequenceNumber = (): number => {
 export const createUniqueName = (prefix: string): string =>
   `${prefix} ${runId}-${createSequenceNumber()}`;
 
+export const createUniquePassword = (): string => `AutomationQA${runId}${createSequenceNumber()}!`;
+
 export const buildTestEmail = (localPart: string): string =>
   `${localPart}@${TEST_DATA_FORMATS.EMAIL_DOMAIN}`;
 

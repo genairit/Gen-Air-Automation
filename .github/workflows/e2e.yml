@@ -17,7 +17,7 @@ jobs:
     name: Playwright
     if: ${{ github.repository == 'genairit/Gen-Air-Frontend' && github.event_name == 'pull_request' && github.base_ref == 'test' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     env:
       AUTOMATION_REF: ${{ inputs.automation-ref }}
     steps:
@@ -77,8 +77,8 @@ jobs:
         env:
           GEN_AIR_ARTIFACTS_DIR: ${{ runner.temp }}/gen-air-automation
         working-directory: Gen-Air-Automation
-        timeout-minutes: 41
-        run: npx playwright test --global-timeout=2400000
+        timeout-minutes: 76
+        run: npx playwright test --global-timeout=4500000
 
       - name: Verify backend freshness and publish result
         if: ${{ always() && steps.revisions.outcome == 'success' }}

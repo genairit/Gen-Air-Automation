@@ -13,7 +13,6 @@ export interface IProjectFormInput {
   place: IFakePlace;
   customerName: string;
   projectTypeName: string;
-  paymentTermsLabel: string;
 }
 
 export const createProjectFormPage = (page: Page) => {
@@ -57,7 +56,8 @@ export const createProjectFormPage = (page: Page) => {
 
   const chooseAddress = async (place: IFakePlace) => {
     await addressInput.fill(place.mainText);
-    await page.getByRole("option").filter({ hasText: place.mainText }).click();
+    const name = [place.mainText, place.secondaryText].filter(Boolean).join(" ");
+    await page.getByRole("option", { name, exact: true }).click();
   };
 
   const chooseCustomer = async (customerName: string) => {
@@ -70,7 +70,6 @@ export const createProjectFormPage = (page: Page) => {
     await chooseProjectType(input.projectTypeName);
     await chooseAddress(input.place);
     await chooseCustomer(input.customerName);
-    await form.getByRole("radio", { name: input.paymentTermsLabel }).check();
   };
 
   return {

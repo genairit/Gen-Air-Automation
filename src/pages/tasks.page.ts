@@ -70,12 +70,7 @@ export const createTasksPage = (page: Page) => {
 
   const findRow = (text: string) => findTableRow(page, text);
 
-  const statusPicker = (taskTitle: string) => findRow(taskTitle).getByRole("combobox");
-
-  const changeStatus = (taskTitle: string, statusName: string) =>
-    selectOption(page, statusPicker(taskTitle), statusName);
-
-  return { searchBox, newTaskButton, goto, tab, findRow, statusPicker, changeStatus };
+  return { searchBox, newTaskButton, goto, tab, findRow };
 };
 
 export const createTaskFormPage = (page: Page) => {
@@ -85,7 +80,9 @@ export const createTaskFormPage = (page: Page) => {
   const linkPlaceholder = form.getByText(TASK_LINK_COPY.NO_KIND, { exact: true });
   const undoButton = form.getByRole("button", { name: TASK_LINK_COPY.UNDO, exact: true });
   const dismissButton = form.getByRole("button", { name: TASK_LINK_COPY.DISMISS, exact: true });
-  const assigneePicker = form.getByRole("combobox", { name: TASK_FORM_COPY.ASSIGNEE_PLACEHOLDER });
+  const assigneePicker = form.getByRole("combobox", {
+    name: buildStartPattern(TASK_COPY.ASSIGNEE),
+  });
 
   const goto = () => page.goto(ROUTES.NEW_TASK);
 

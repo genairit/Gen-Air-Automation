@@ -1,3 +1,4 @@
+import type { UserRoleType } from "../constants/user-role.constant.ts";
 import type { TaskType, TaskStatusType } from "../constants/domain.constant.ts";
 
 export interface IEntityReference {
@@ -44,6 +45,7 @@ export interface IProjectMember {
 
 export interface IUserRecord extends IUser {
   role: string;
+  assignedRoles: UserRoleType[];
 }
 
 export interface IProjectType extends IEntityReference {
@@ -94,6 +96,7 @@ export interface ITaskCounts {
 export interface IAuthorizedUser extends IUser {
   role: string;
   permissions: string[];
+  assignedRoles: UserRoleType[];
 }
 
 export interface IDetailedTaskPage {

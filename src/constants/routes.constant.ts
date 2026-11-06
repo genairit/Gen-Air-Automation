@@ -2,6 +2,8 @@ export const ROUTES = {
   BOARD: "/",
   TASKS: "/tasks",
   LOGIN: "/login",
+  COMPONENTS: "/components",
+  QUOTATIONS: "/quotations",
   PROJECTS: "/projects",
   SETTINGS: "/settings",
   NEW_TASK: "/tasks/new",

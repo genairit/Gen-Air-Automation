@@ -10,10 +10,14 @@ export const API_SEGMENTS = {
 
 export const API_PATHS = {
   USER: "/user",
+  MY_USER: "/user/me",
+  MY_PASSWORD: "/user/me/password",
+  SWITCH_ROLE: "/auth/role",
   TASK: "/task",
   PROJECT: "/project",
   LOGIN: "/auth/login",
   CUSTOMER: "/customer",
+  QUOTATION: "/quotation",
   TASK_COUNTS: "/task/counts",
   PROJECT_TYPE: "/project-type",
   PROJECT_MEMBERS: "/project-member/by-project",

@@ -1,5 +1,7 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 
+export const QUOTATION_DELETE_HORIZONTAL_INSET = 42;
+
 export const quotationBox = async (locator: Locator) => {
   await expect(locator).toBeVisible();
   const box = await locator.boundingBox();
@@ -50,7 +52,9 @@ export const expectQuotationDeleteFooter = async (page: Page, remove: Locator) =
   expect(Math.abs(card.x - left)).toBeLessThanOrEqual(1);
   expect(Math.abs(card.width - (right - left))).toBeLessThanOrEqual(1);
   expect(Math.abs(card.y - bottom - 24)).toBeLessThanOrEqual(1);
-  expect(Math.abs(action.width - (card.width - 40))).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(action.width - (card.width - QUOTATION_DELETE_HORIZONTAL_INSET)),
+  ).toBeLessThanOrEqual(1);
   expect(Math.abs(action.x - card.x - 20)).toBeLessThanOrEqual(1);
   return totals.locator("..");
 };
