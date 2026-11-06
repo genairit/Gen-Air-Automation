@@ -26,6 +26,11 @@ test("filter tabs move their blue selection and support keyboard navigation", as
     "background-color",
     "rgb(225, 237, 250)",
   );
+  await expect(filters).toHaveCSS("box-shadow", /rgb\(226, 232, 240\).*inset/);
+  await expect(all.locator('[aria-hidden="true"]')).toHaveCSS(
+    "box-shadow",
+    /rgb\(22, 104, 189\).*inset/,
+  );
 
   await admins.click();
 
@@ -62,23 +67,67 @@ test("Smartbase selection controls update their visible state", async ({ page })
   await expect(section.getByText("7 / 12")).toBeVisible();
 });
 
-test("cards lift on hover and stay still with reduced motion", async ({ page }) => {
+test("static cards stay still while clickable cards lift with motion enabled", async ({ page }) => {
   await page.goto(ROUTES.COMPONENTS);
 
   const section = page.locator("section").filter({
     has: page.getByRole("heading", { name: "כפתורים" }),
   });
-  const card = section.locator("section").first();
+  const staticCard = section.locator("section").first();
+  const projectCard = page.locator('section[aria-label="מגדלי שלום שלב ב׳"]');
 
-  await card.hover();
+  await staticCard.hover();
+  await expect(staticCard).toHaveCSS("transform", "none");
+
+  await projectCard.hover();
   await expect
-    .poll(() => card.evaluate(element => getComputedStyle(element).transform))
+    .poll(() => projectCard.evaluate(element => getComputedStyle(element).transform))
     .not.toBe("none");
 
   await page.emulateMedia({ reducedMotion: "reduce" });
 
-  await expect(card).toHaveCSS("transform", "none");
-  await expect(card).toHaveCSS("transition-property", "none");
+  await expect(projectCard).toHaveCSS("transform", "none");
+  await expect(projectCard).toHaveCSS("transition-property", "none");
+});
+
+test("repeated table rows keep a fine edge without a raised shadow", async ({ page }) => {
+  await page.goto(ROUTES.COMPONENTS);
+
+  const section = page.locator("section").filter({
+    has: page.getByRole("heading", { name: "טבלת נתונים — עובדים" }),
+  });
+  const row = section.getByRole("row").nth(1);
+
+  await expect(row).toBeVisible();
+  await expect(row).toHaveCSS("box-shadow", "none");
+  await expect(row).toHaveCSS("border-top-color", "rgb(226, 232, 240)");
+});
+
+test("selected filter stays inside the 390px viewport", async ({ page }) => {
+  const viewport = { width: 390, height: 844 };
+
+  await page.setViewportSize(viewport);
+  await page.goto(ROUTES.COMPONENTS);
+
+  const section = page.locator("section").filter({
+    has: page.getByRole("heading", { name: "תגיות, סטטוסים וטאבים" }),
+  });
+  const selected = section.getByRole("button", { name: "הכל 48" });
+
+  await expect(selected).toBeVisible();
+  await expect(selected.locator('[aria-hidden="true"]')).toHaveCSS(
+    "box-shadow",
+    /rgb\(22, 104, 189\).*inset/,
+  );
+
+  const bounds = await selected.boundingBox();
+
+  if (!bounds) {
+    throw new Error("Selected filter is not laid out");
+  }
+
+  expect(bounds.x).toBeGreaterThanOrEqual(0);
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
 });
 
 test.describe("mobile option activation", () => {
