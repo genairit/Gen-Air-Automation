@@ -156,8 +156,9 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
   expect(controlBox.y).toBeLessThan(nextParentBox.y);
   await expect(page.getByRole("button").filter({ hasText: "E-SMD-63" })).toHaveCount(0);
   const chips = page.getByRole("radiogroup", { name: "תנאי תשלום", exact: true });
-  await expect(chips.getByRole("radio")).toHaveCount(5);
-  await expect(chips.getByRole("radio", { name: "תשלום מראש", exact: true })).toBeChecked();
+  await expect(chips.getByRole("radio")).toHaveCount(6);
+  await expect(chips.getByRole("radio", { name: "לפי שלבי תשלום", exact: true })).toBeChecked();
+  await expect(chips.getByRole("radio", { name: "תשלום מראש", exact: true })).not.toBeChecked();
   await expect(quote.field("אחוז מהסכום")).toHaveCount(3);
   await expectSameQuotationRow([
     quote.field("אחוז מהסכום").first(),
