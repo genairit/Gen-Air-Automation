@@ -244,6 +244,9 @@ test("required warnings block approval, explicit self approval and repeated reop
   await quote.saved(() => quote.button("הוסף שלב תשלום").click());
   await quote.fill("אחוז מהסכום", "50");
   await quote.fill("מועד / אבן דרך", "Deposit");
+  await quote.saved(() => quote.button("הוסף שלב תשלום").click());
+  await quote.fill("אחוז מהסכום", "50", 1);
+  await quote.fill("מועד / אבן דרך", "Delivery", 1);
   await quote.transition("סיימתי, לבדיקה");
   await expect(page.getByRole("heading", { name: "סיכום לבדיקה" })).toBeVisible();
   await expect(page.getByRole("cell", { name: item.sku, exact: true })).toBeVisible();
@@ -274,7 +277,7 @@ test("required warnings block approval, explicit self approval and repeated reop
     await quote.transition("סיימתי, לבדיקה");
     await expect(page.getByRole("heading", { name: "סיכום לבדיקה" })).toBeVisible();
     await quote.button("עריכה").click();
-    await expect(quote.field("אחוז מהסכום")).toBeVisible();
+    await expect(quote.field("אחוז מהסכום").first()).toBeVisible();
     await quote.transition("חזרה לטיוטה");
     await expect(quote.field(NOTES)).toHaveValue(`Cycle ${cycle}`);
     await quote.transition("סיימתי, לבדיקה");
@@ -283,6 +286,123 @@ test("required warnings block approval, explicit self approval and repeated reop
     await quote.transition("אישור ההצעה");
   }
   expect((await getQuote(api, initial.id)).id).toBe(initial.id);
+});
+
+test("payment stages replace fixed terms, survive reload and require confirmation before removal", async ({
+  page,
+  api,
+}) => {
+  const customer = await api.createCustomer({
+    ...buildCustomerInput(),
+    paymentTerms: PAYMENT_TERMS.PREPAID,
+  });
+  const initial = await createQuotation(api, customer.id);
+  const item = await createCatalogueFixture();
+  const quote = createQuotationPage(page);
+  await quote.goto(initial.id);
+  await quote.select("חברת מיזוג", QUOTATION.BRAND);
+  await quote.saved(() => quote.button("+ סינגלים").click());
+  await quote.add(item.sku);
+  await expect(page.getByRole("radio", { name: "תשלום מראש", exact: true })).toBeChecked();
+  await quote.saved(() => quote.button("הוסף שלב תשלום").click());
+  await expect(page.getByRole("radio", { name: "לפי שלבי תשלום", exact: true })).toBeChecked();
+  await expect(page.getByRole("radio", { name: "תשלום מראש", exact: true })).not.toBeChecked();
+  await quote.fill("אחוז מהסכום", "30");
+  await quote.fill("מועד / אבן דרך", "Deposit");
+  await quote.saved(() => quote.button("הוסף שלב תשלום").click());
+  await quote.fill("אחוז מהסכום", "70", 1);
+  await quote.fill("מועד / אבן דרך", "Delivery", 1);
+  expect((await getQuote(api, initial.id)).paymentTerms).toBeNull();
+  expect((await getQuote(api, initial.id)).paymentSchedule).toEqual([
+    { percent: "30", text: "Deposit" },
+    { percent: "70", text: "Delivery" },
+  ]);
+  await page.reload();
+  await expect(page.getByRole("radio", { name: "לפי שלבי תשלום", exact: true })).toBeChecked();
+  await expect(quote.field("מועד / אבן דרך").nth(0)).toHaveValue("Deposit");
+  await expect(quote.field("מועד / אבן דרך").nth(1)).toHaveValue("Delivery");
+  await quote.transition("סיימתי, לבדיקה");
+  await expect(page.getByText("תנאי תשלום: לפי שלבי תשלום", { exact: true })).toBeVisible();
+  await expect(page.getByText("30% Deposit · 70% Delivery", { exact: true })).toBeVisible();
+  await quote.transition("חזרה לטיוטה");
+  await page.getByRole("radio", { name: "תשלום מראש", exact: true }).click();
+  await expect(quote.button("מחק שלבים ובחר תנאים")).toBeVisible();
+  await quote.button("ביטול").click();
+  await expect(page.getByRole("radio", { name: "לפי שלבי תשלום", exact: true })).toBeChecked();
+  expect((await getQuote(api, initial.id)).paymentSchedule).toHaveLength(2);
+  await page.getByRole("radio", { name: "תשלום מראש", exact: true }).click();
+  await quote.saved(() => quote.button("מחק שלבים ובחר תנאים").click());
+  await expect(page.getByRole("radio", { name: "תשלום מראש", exact: true })).toBeChecked();
+  expect((await getQuote(api, initial.id)).paymentSchedule).toEqual([]);
+  await page.reload();
+  await expect(page.getByRole("radio", { name: "תשלום מראש", exact: true })).toBeChecked();
+  await expect(quote.field("מועד / אבן דרך")).toHaveCount(0);
+});
+
+test("legacy conflicting payment data is flagged in editor and review and cannot be approved", async ({
+  page,
+  api,
+}) => {
+  const item = await createCatalogueFixture();
+  const initial = await createQuotation(api, (await seedCustomer(api)).id);
+  const quote = createQuotationPage(page);
+  await quote.goto(initial.id);
+  await quote.select("חברת מיזוג", QUOTATION.BRAND);
+  await quote.saved(() => quote.button("+ סינגלים").click());
+  await quote.add(item.sku);
+  const current = await getQuote(api, initial.id);
+  await saveQuotation(api, initial.id, {
+    ...quotationWrite(current),
+    paymentTerms: PAYMENT_TERMS.PREPAID,
+    paymentSchedule: [
+      { percent: "30", text: "Deposit" },
+      { percent: "70", text: "Delivery" },
+    ],
+  });
+  await page.reload();
+  await expect(page.getByRole("alert")).toContainText("נבחרו גם תנאי תשלום קבועים וגם שלבים");
+  await expect(page.getByRole("radio", { name: "תשלום מראש", exact: true })).not.toBeChecked();
+  await expect(page.getByRole("radio", { name: "לפי שלבי תשלום", exact: true })).not.toBeChecked();
+  await quote.transition("סיימתי, לבדיקה");
+  await expect(
+    page.getByText("תנאי תשלום: יש לבחור בין תנאי תשלום קבועים לשלבי תשלום", { exact: true }),
+  ).toBeVisible();
+  await quote.acknowledge();
+  const approval = page.waitForResponse(
+    response =>
+      response.url().endsWith("/review") && response.request().method() === HTTP_METHODS.POST,
+  );
+  await quote.button("אישור ההצעה").click();
+  expect((await approval).status()).toBe(400);
+  expect((await getQuote(api, initial.id)).status).toBe(QUOTATION.STATUS.REVIEW);
+});
+
+test("incomplete payment stages show guidance and remain unapprovable after acknowledgement", async ({
+  page,
+  api,
+}) => {
+  const item = await createCatalogueFixture();
+  const initial = await createQuotation(api, (await seedCustomer(api)).id);
+  const quote = createQuotationPage(page);
+  await quote.goto(initial.id);
+  await quote.select("חברת מיזוג", QUOTATION.BRAND);
+  await quote.saved(() => quote.button("+ סינגלים").click());
+  await quote.add(item.sku);
+  await quote.saved(() => quote.button("הוסף שלב תשלום").click());
+  await quote.fill("אחוז מהסכום", "30");
+  await quote.fill("מועד / אבן דרך", "Deposit");
+  await expect(
+    page.getByText("כדי לאשר את ההצעה, תארו כל שלב והשלימו את האחוזים ל־100%."),
+  ).toBeVisible();
+  await quote.transition("סיימתי, לבדיקה");
+  await quote.acknowledge();
+  const approval = page.waitForResponse(
+    response =>
+      response.url().endsWith("/review") && response.request().method() === HTTP_METHODS.POST,
+  );
+  await quote.button("אישור ההצעה").click();
+  expect((await approval).status()).toBe(400);
+  expect((await getQuote(api, initial.id)).status).toBe(QUOTATION.STATUS.REVIEW);
 });
 
 test("transport failure keeps unsaved edit, retry persists; actual version conflict reloads server value", async ({
