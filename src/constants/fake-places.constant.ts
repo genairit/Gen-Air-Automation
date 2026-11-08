@@ -1,6 +1,16 @@
 import type { IFakePlace } from "../interfaces/fake-place.interface.ts";
 
 export const SERVICE_AREA_PLACES = {
+  JERUSALEM_PARAN: {
+    city: "ירושלים",
+    mainText: "פארן 1",
+    placeId:
+      "EhVQYXJhbiBTdCAxLCBKZXJ1c2FsZW0iMBIuChQKEglpo8HD8SkDFRH3SsOEUFmb3xABKhQKEgkdc1_d7ykDFRHeHDw7HZSj-A",
+    secondaryText: "ירושלים",
+    formattedAddress: "פארן 1, ירושלים",
+    countryCode: null,
+    location: { latitude: 31.8012148, longitude: 35.2299901 },
+  },
   ALMON: {
     city: "עלמון",
     countryCode: "PS",

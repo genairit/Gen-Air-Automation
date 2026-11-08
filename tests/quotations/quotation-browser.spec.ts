@@ -151,6 +151,49 @@ test("catalogue filters, repeated independent snapshots, section ordering and se
   expect((await getQuote(api, initial.id)).id).toBe(initial.id);
 });
 
+test("catalogue selection focuses the added quantity and keeps BTU paired on mobile", async ({
+  page,
+  api,
+}) => {
+  const item = await createCatalogueFixture();
+  const customer = await seedCustomer(api);
+  const initial = await createQuotation(api, customer.id);
+  const quote = createQuotationPage(page);
+  await quote.goto(initial.id);
+  await quote.select("חברת מיזוג", QUOTATION.BRAND);
+  await quote.saved(() => quote.button("+ סינגלים").click());
+
+  await quote.field("חיפוש פריט בקטלוג").fill(item.sku);
+  const result = page.getByRole("button").filter({ hasText: item.sku }).first();
+  await expect(result).toBeVisible();
+  await result.scrollIntoViewIfNeeded();
+  const scrollBefore = await page.evaluate(() => scrollY);
+  await quote.saved(() => result.click());
+  const firstQuantity = quote.field("כמות (יח׳)").first();
+  await expect(firstQuantity).toBeFocused();
+  await expect(firstQuantity).toBeInViewport();
+  const scrollAfter = await page.evaluate(() => scrollY);
+  const viewportHeight = await page.evaluate(() => innerHeight);
+  expect(Math.abs(scrollAfter - scrollBefore)).toBeLessThan(viewportHeight / 2);
+  await quote.saved(() => firstQuantity.press("3"));
+  await expect(firstQuantity).toHaveValue(/^3(?:\.0+)?$/);
+  await expect(firstQuantity).toBeFocused();
+  expect((await getQuote(api, initial.id)).sections[0]!.items[0]!.quantity).toBe("3.0000");
+
+  await quote.field("חיפוש פריט בקטלוג").fill(item.sku);
+  const keyboardResult = page.getByRole("button").filter({ hasText: item.sku }).first();
+  await expect(keyboardResult).toBeVisible();
+  await keyboardResult.focus();
+  await quote.saved(() => keyboardResult.press("Enter"));
+  await expect(quote.field("כמות (יח׳)").last()).toBeFocused();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const btuPair = page.locator('[class*="btuPair"]').filter({ hasText: "BTU" }).first();
+  await expect(btuPair).toContainText("24,000 BTU");
+  await expect(btuPair).toHaveCSS("white-space", "nowrap");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
 test("autosave keeps row focus and add-item draft while later edits persist", async ({
   page,
   api,

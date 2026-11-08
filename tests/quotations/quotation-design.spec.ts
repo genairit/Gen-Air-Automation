@@ -176,6 +176,8 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
   expect(scheduleBox.height).toBeLessThanOrEqual(42);
   await captureQuotationScreenshot(page, testInfo.outputPath("quotation-editor-desktop-1440.png"));
   await page.setViewportSize({ width: 390, height: 1100 });
+  await expect(page.getByText("55700 BTU", { exact: true })).toHaveCSS("white-space", "nowrap");
+  await expect(page.getByText("52886 BTU", { exact: true })).toHaveCSS("white-space", "nowrap");
   await expectQuotationWithinViewport(page, [
     ...metadata,
     location,

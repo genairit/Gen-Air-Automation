@@ -2,7 +2,8 @@ export interface IFakePlace {
   city: string;
   placeId: string;
   mainText: string;
-  countryCode?: string;
   secondaryText: string;
   formattedAddress: string;
+  countryCode?: string | null;
+  location?: { latitude: number; longitude: number };
 }

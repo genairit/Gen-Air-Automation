@@ -16,7 +16,12 @@ const ADDRESS_PATHS = {
   PLACES: "/address/places",
 } as const;
 
-for (const place of [SERVICE_AREA_PLACES.ALMON, SERVICE_AREA_PLACES.ANATOT, FAKE_PLACES[0]]) {
+for (const place of [
+  SERVICE_AREA_PLACES.ALMON,
+  SERVICE_AREA_PLACES.ANATOT,
+  SERVICE_AREA_PLACES.JERUSALEM_PARAN,
+  FAKE_PLACES[0],
+]) {
   test(`verified ${place.mainText} selection creates and retains the project address`, async ({
     page,
     api,
