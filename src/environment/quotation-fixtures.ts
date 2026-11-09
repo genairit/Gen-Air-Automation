@@ -99,3 +99,16 @@ export const softDeleteQuotationFixture = async (id: string) => {
     await database.end();
   }
 };
+
+export const setQuotationWarningScopeFixture = async (id: string, version: number) => {
+  const database = createTestDatabaseClient();
+  await database.connect();
+  try {
+    await database.query("UPDATE quotations SET warning_scope_version=$1 WHERE id=$2", [
+      version,
+      id,
+    ]);
+  } finally {
+    await database.end();
+  }
+};
