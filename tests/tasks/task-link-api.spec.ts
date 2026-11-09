@@ -10,20 +10,25 @@ import {
   buildUnlinkedTaskInput,
 } from "../../src/api/seed-data.ts";
 
+import {
+  TASK_TYPES,
+  TASK_STATUSES,
+  PROJECT_STATUS_NAMES,
+} from "../../src/constants/domain.constant.ts";
+
 import { test, expect } from "../../src/fixtures/api.fixture.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { buildTaskPath } from "../../src/utilities/api-path.utility.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
 import { buildImportRow } from "../../src/utilities/apartment-import.utility.ts";
-import { TASK_TYPES, TASK_STATUSES } from "../../src/constants/domain.constant.ts";
 import { uploadApartments, readBuildingApartments } from "../../src/api/apartment-import.api.ts";
 
 const expectPair = async (
   api: Parameters<typeof seedCustomer>[0],
   project: { id: string; name: string },
 ) => {
-  expect((await api.getProject(project.id)).stage.name).toBe("טיוטה");
+  expect((await api.getProject(project.id)).stage.name).toBe(PROJECT_STATUS_NAMES.NOT_STARTED);
   const tasks = (await api.getProjectTasks(project.id)).items;
   expect(tasks).toHaveLength(2);
   expect(tasks.map(task => task.taskType).sort()).toEqual([
@@ -53,7 +58,7 @@ const expectPair = async (
   return tasks;
 };
 
-test("normal projects and manually created apartments start Draft with the exact mandatory pair and histories", async ({
+test("normal projects and manually created apartments start Not Started with the exact mandatory pair and histories", async ({
   api,
 }) => {
   const customer = await seedCustomer(api);
