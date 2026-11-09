@@ -84,7 +84,13 @@ export const createCustomerFormPage = (page: Page) => {
     name: CUSTOMERS_COPY.BACK_TO_CUSTOMERS,
   });
 
-  const goto = () => page.goto(ROUTES.NEW_CUSTOMER);
+  const gotoSearch = () => page.goto(ROUTES.NEW_CUSTOMER);
+  const goto = async () => {
+    await gotoSearch();
+    await main.getByRole("button", { name: CUSTOMER_FORM_COPY.CREATE, exact: true }).click();
+  };
+  const skipProjects = () =>
+    main.getByRole("button", { name: CUSTOMER_FORM_COPY.SKIP, exact: true }).click();
 
   const field = (name: CustomerFieldType) =>
     main.getByRole("textbox", { name: CUSTOMER_FORM_COPY.FIELDS[name], exact: true });
@@ -119,6 +125,8 @@ export const createCustomerFormPage = (page: Page) => {
     requiredErrors,
     backToCustomersButton,
     goto,
+    gotoSearch,
+    skipProjects,
     fill,
     field,
     chooseType,

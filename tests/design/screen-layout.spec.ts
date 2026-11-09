@@ -76,7 +76,7 @@ const readScreens = (scenario: ILayoutScenario) => ({
   },
   customers: { path: ROUTES.CUSTOMERS, text: "לקוח חדש" },
   customer: { path: buildCustomerRoute(scenario.customer.id), text: scenario.customer.name },
-  newCustomer: { path: ROUTES.NEW_CUSTOMER, text: "זהות הלקוח" },
+  newCustomer: { path: ROUTES.NEW_CUSTOMER, text: "חיפוש לקוח קיים" },
   tasks: { path: ROUTES.TASKS, text: "המשימות שלי" },
   task: { path: buildTaskRoute(scenario.task.id), text: scenario.task.title },
   newTask: { path: ROUTES.NEW_TASK, text: "פרטי המשימה" },

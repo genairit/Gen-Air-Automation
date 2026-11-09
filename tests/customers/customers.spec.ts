@@ -110,6 +110,7 @@ test("create a customer through the form and land on its page", async ({ page })
   await formPage.goto();
   await formPage.fill(toFormInput(customer));
   await formPage.saveButton.click();
+  await formPage.skipProjects();
 
   await expect(page).toHaveURL(ROUTE_PATTERNS.CUSTOMER);
   await expect(page.getByRole("heading", { name: customer.name })).toBeVisible();
@@ -128,7 +129,7 @@ test("the customer form refuses to save with an invalid field", async ({ page })
   await expect(page).toHaveURL(ROUTES.NEW_CUSTOMER);
 });
 
-test("the header new-customer button has the add icon, is not full width and opens the form", async ({
+test("the header new-customer button has the add icon, is not full width and opens customer search", async ({
   page,
 }) => {
   const customersPage = createCustomersPage(page);
@@ -153,6 +154,7 @@ test("the header new-customer button has the add icon, is not full width and ope
   await customersPage.newCustomerButton.click();
 
   await expect(page).toHaveURL(ROUTES.NEW_CUSTOMER);
+  await expect(page.getByRole("heading", { name: "חיפוש לקוח קיים" })).toBeVisible();
 });
 
 test("the new-customer form shows the approved identity, contact and summary cards", async ({
@@ -194,7 +196,7 @@ test("the new-customer form shows the approved identity, contact and summary car
   }
 });
 
-test("fields show no error on load and an empty save flags six fields without sending a request", async ({
+test("fields show no error on load and an empty save flags identity fields without sending a request", async ({
   page,
 }) => {
   const formPage = createCustomerFormPage(page);
@@ -208,8 +210,10 @@ test("fields show no error on load and an empty save flags six fields without se
 
   await formPage.saveButton.click();
 
-  await expect(formPage.errorBanner).toHaveText(formatFieldErrorCount(CUSTOMER_FIELD_NAMES.length));
-  await expect(formPage.requiredErrors).toHaveCount(CUSTOMER_FIELD_NAMES.length);
+  await expect(formPage.errorBanner).toHaveText(
+    formatFieldErrorCount(CUSTOMER_IDENTITY_FIELD_NAMES.length),
+  );
+  await expect(formPage.requiredErrors).toHaveCount(CUSTOMER_IDENTITY_FIELD_NAMES.length);
   await expect(page).toHaveURL(ROUTES.NEW_CUSTOMER);
   expect(creationRequests).toHaveLength(0);
 });
@@ -229,6 +233,7 @@ test("saving a private client creates a pending customer that the list shows as 
   await expect(formPage.typeSelector).toHaveValue(CUSTOMER_TYPE_LABELS.PRIVATE_CLIENT);
 
   await formPage.saveButton.click();
+  await formPage.skipProjects();
 
   await expect(page).toHaveURL(ROUTE_PATTERNS.CUSTOMER);
   await expect(page.getByRole("heading", { name: customer.name })).toBeVisible();
@@ -267,7 +272,7 @@ test("a duplicate tax ID shows the conflict error and keeps the inputs", async (
   }
 });
 
-test("the action row reads cancel then save, and cancel returns to the customers list", async ({
+test("the action row reads cancel then save, and cancel returns to customer search", async ({
   page,
 }) => {
   const formPage = createCustomerFormPage(page);
@@ -286,7 +291,7 @@ test("the action row reads cancel then save, and cancel returns to the customers
 
   await formPage.cancelButton.click();
 
-  await expect(page).toHaveURL(ROUTES.CUSTOMERS);
+  await expect(page.getByRole("heading", { name: "חיפוש לקוח קיים" })).toBeVisible();
 });
 
 test("customers list counts a new customer as pending and finds it by search", async ({
@@ -343,6 +348,7 @@ test("a server failure preserves the customer form and retry persists the custom
   }
 
   await formPage.saveButton.click();
+  await formPage.skipProjects();
 
   await expect(page).toHaveURL(ROUTE_PATTERNS.CUSTOMER);
   await expect(page.getByRole("heading", { name: customer.name })).toBeVisible();

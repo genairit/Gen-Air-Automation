@@ -54,11 +54,13 @@ export const CUSTOMER_FORM_COPY = {
   EYEBROW: "לקוחות",
   TITLE: "לקוח חדש",
   SAVE: "שמור לקוח",
+  SKIP: "דלג",
+  CREATE: "צור לקוח חדש",
   TYPE: "סוג הלקוח",
   SUMMARY: "מה יישמר",
   REQUIRED: "שדה חובה",
   IDENTITY: "זהות הלקוח",
-  CONTACT: "איש קשר ראשון",
+  CONTACT: "איש קשר של הלקוח (לא חובה)",
   CONFLICT_STATUS: "הפעולה מתנגשת בנתונים קיימים",
   DUPLICATE_TAX_ID: "לקוח עם מספר מזהה זה כבר קיים",
   FIELDS: {
@@ -67,7 +69,7 @@ export const CUSTOMER_FORM_COPY = {
     ADDRESS: "כתובת",
     NAME: "שם הלקוח",
     TAX_ID: "ח.פ / ת.פ / ת.ז",
-    CONTACT_NAME: "איש קשר ראשון",
+    CONTACT_NAME: "שם איש הקשר",
   },
 } as const;
 
@@ -92,12 +94,12 @@ export const CUSTOMER_FIELD_PLACEHOLDERS: Record<CustomerFieldType, string> = {
   EMAIL: "name@company.co.il",
   NAME: "בבלי נדל״ן ופיתוח בע״מ",
   CONTACT_NAME: SHARED_COPY.PERSON_NAME_PLACEHOLDER,
-  PHONE: SHARED_COPY.MOBILE_PHONE_PLACEHOLDER,
+  PHONE: "+44 20 7183 8750",
 };
 
 export const CUSTOMER_FIELD_HINTS = {
   TAX_ID: "9 ספרות, נבדק מול ספרת ביקורת",
-  PHONE: "נייד או קווי, עם או בלי מקף",
+  PHONE: "מספר ישראלי מקומי או מספר בינלאומי עם + וקידומת מדינה",
 } as const;
 
 export const CUSTOMER_TYPE_LABELS = {
