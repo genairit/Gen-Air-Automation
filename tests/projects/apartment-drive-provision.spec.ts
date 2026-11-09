@@ -75,6 +75,12 @@ const folderIdByName = (folders: Record<string, unknown>[], name: string): strin
   return folder.id;
 };
 
+const templateFolderNames = (folders: Record<string, unknown>[]): unknown[] =>
+  folders
+    .filter(folder => typeof folder.id !== "string" || !folder.id.startsWith("qa-nested-"))
+    .map(folder => folder.name)
+    .sort();
+
 test("new building and apartment create דיירים hierarchy and full apartment template", async ({
   api,
   page,
@@ -91,7 +97,7 @@ test("new building and apartment create דיירים hierarchy and full apartmen
     apartmentFolderId,
   );
   const apartmentFolders = await contents(api, apartment.id);
-  expect(apartmentFolders.map(folder => folder.name).sort()).toEqual(expectedTemplateFolders);
+  expect(templateFolderNames(apartmentFolders)).toEqual(expectedTemplateFolders);
   expect(apartmentFolders.some(folder => folder.name === "דיירים")).toBe(false);
   expect(await provision(api, building.id)).toBe(buildingFolderId);
   expect(await provision(api, apartment.id)).toBe(apartmentFolderId);
@@ -113,9 +119,7 @@ test("imported apartment provisions once below the building tenant folder", asyn
   const tenantsFolderId = folderIdByName(await contents(api, building.id), "דיירים");
   const tenantFolders = await contents(api, building.id, tenantsFolderId);
   expect(tenantFolders.filter(folder => folder.id === apartmentFolderId)).toHaveLength(1);
-  expect((await contents(api, apartment.id)).map(folder => folder.name).sort()).toEqual(
-    expectedTemplateFolders,
-  );
+  expect(templateFolderNames(await contents(api, apartment.id))).toEqual(expectedTemplateFolders);
   expect((await uploadApartments(api, building.id, [row])).counts.existing).toBe(1);
   expect(await provision(api, apartment.id)).toBe(apartmentFolderId);
   expect(
@@ -163,7 +167,5 @@ test("legacy apartment repair requires reviewed IDs and preserves the folder lin
   expect(
     tenantFolders.filter(folder => folder.id === legacyFolderId && folder.name === apartment.name),
   ).toHaveLength(1);
-  expect((await contents(api, apartment.id)).map(folder => folder.name).sort()).toEqual(
-    expectedTemplateFolders,
-  );
+  expect(templateFolderNames(await contents(api, apartment.id))).toEqual(expectedTemplateFolders);
 });

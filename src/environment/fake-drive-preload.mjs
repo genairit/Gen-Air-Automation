@@ -107,9 +107,7 @@ const fakeMethods = {
       .map(displayItem);
     const projectId = projectIdFrom(id, "qa-project-");
     if (projectId) {
-      return createdMetadata.has(id)
-        ? created
-        : [...created, displayItem(metadata(nestedFolder(projectId)))];
+      return [...created, displayItem(metadata(nestedFolder(projectId)))];
     }
 
     const nestedProjectId = projectIdFrom(id, "qa-nested-");
