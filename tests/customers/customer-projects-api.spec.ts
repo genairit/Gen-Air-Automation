@@ -135,21 +135,28 @@ test("search is literal and server-side; stage counts ignore the selected stage 
   const customer = await seedCustomer(api);
   const exact = await seedStandaloneProject(api, customer);
   const other = await seedStandaloneProject(api, customer);
-  const pending = await api.findProjectStage(PROJECT_STATUS_NAMES.PENDING);
-  const done = await api.findProjectStage(PROJECT_STATUS_NAMES.DONE);
+  const waitingResponse = await api.findProjectStage(PROJECT_STATUS_NAMES.WAITING_RESPONSE);
+  const completedStage = await api.findProjectStage(PROJECT_STATUS_NAMES.COMPLETED);
   await updateProjectRelationFixture(exact.id, { name: createUniqueName("פרויקט %_ ייחודי") });
   expect(
-    (await api.send(HTTP_METHODS.PATCH, `/project/${exact.id}`, { stageId: pending.id })).ok(),
+    (
+      await api.send(HTTP_METHODS.PATCH, `/project/${exact.id}`, { stageId: waitingResponse.id })
+    ).ok(),
   ).toBe(true);
   expect(
-    (await api.send(HTTP_METHODS.PATCH, `/project/${other.id}`, { stageId: done.id })).ok(),
+    (
+      await api.send(HTTP_METHODS.PATCH, `/project/${other.id}`, { stageId: completedStage.id })
+    ).ok(),
   ).toBe(true);
   expect(
     (await readCustomerProjects(api, customer.id, { search: "%_" })).items.map(item => item.id),
   ).toEqual([exact.id]);
-  const filtered = await readCustomerProjects(api, customer.id, { stageId: pending.id });
+  const filtered = await readCustomerProjects(api, customer.id, { stageId: waitingResponse.id });
   expect(filtered.items.map(item => item.id)).toEqual([exact.id]);
-  expect(filtered.counts.byStage).toMatchObject({ [pending.id]: 1, [done.id]: 1 });
+  expect(filtered.counts.byStage).toMatchObject({
+    [waitingResponse.id]: 1,
+    [completedStage.id]: 1,
+  });
   const invalidQueries: Record<string, string>[] = [
     { batchCursor: "bad" },
     { batchSize: "0" },

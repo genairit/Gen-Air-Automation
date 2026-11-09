@@ -13,23 +13,18 @@ const NEW_PASSWORD = "Changed456!";
 const MISMATCHED_CONFIRMATION = `${NEW_PASSWORD}x`;
 const WRONG_CURRENT_PASSWORD = "NotCurrent456!";
 
-const STATUSES_IN_ORDER = new RegExp(
-  [
-    PROJECT_STATUS_NAMES.DRAFT,
-    PROJECT_STATUS_NAMES.PENDING,
-    PROJECT_STATUS_NAMES.IN_PROGRESS,
-    PROJECT_STATUS_NAMES.ON_HOLD,
-    PROJECT_STATUS_NAMES.DONE,
-  ].join(".*"),
-);
+const STATUS_NAMES_IN_ORDER = Object.values(PROJECT_STATUS_NAMES);
+const STATUSES_IN_ORDER = new RegExp(STATUS_NAMES_IN_ORDER.join(".*"));
 
-test("the project statuses card lists the five fixed statuses in order", async ({ page }) => {
+test("the project statuses card lists the four fixed statuses in order", async ({ page, api }) => {
   const settingsPage = createSettingsPage(page);
 
   await settingsPage.goto();
 
   await expect(page.getByText(SETTINGS_COPY.STAGES_TITLE)).toBeVisible();
   await expect(findMainContent(page)).toContainText(STATUSES_IN_ORDER);
+  const statuses = await api.getProjectStages();
+  expect(statuses.map(status => status.name)).toEqual(STATUS_NAMES_IN_ORDER);
 });
 
 test("mismatched passwords keep the update button disabled", async ({ page }) => {
