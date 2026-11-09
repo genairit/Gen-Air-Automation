@@ -51,6 +51,7 @@ const buildBackendEnvironment = () => ({
     : {}),
   NODE_OPTIONS: EMAIL_QA_ENABLED ? buildNodePreloadOptions(DRIVE_PRELOAD) : "",
   GEN_AIR_EMAIL_QA_FAIL_LOGO_MARKER: join(AUTOMATION_DIRECTORIES.MAIL, "fail-logo"),
+  GEN_AIR_FAKE_DRIVE_STATE_DIR: join(AUTOMATION_DIRECTORIES.DATABASE, "fake-drive"),
 });
 
 export const buildBackend = () => {
