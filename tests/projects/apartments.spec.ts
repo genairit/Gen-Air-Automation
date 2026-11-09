@@ -1,6 +1,7 @@
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { SEED_VALUES } from "../../src/constants/seed.constant.ts";
 import { createProjectPage } from "../../src/pages/project.page.ts";
+import { findCardByTitle } from "../../src/pages/card.component.ts";
 import { buildApartmentRoute } from "../../src/utilities/route.utility.ts";
 import { PROJECT_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
 import { readTabCount, expectTabSelected } from "../../src/pages/tab.component.ts";
@@ -48,7 +49,11 @@ test("an apartment page shows its contact and the values inherited from the buil
   await apartmentPage.goto(building.id, apartment.id);
 
   await expect(page.getByText(apartment.code)).toBeVisible();
-  await expect(page.getByText(SEED_VALUES.CUSTOMER_CONTACT_NAME)).toBeVisible();
+  await expect(
+    findCardByTitle(page, "אנשי קשר וצוות").getByText(SEED_VALUES.CUSTOMER_CONTACT_NAME, {
+      exact: true,
+    }),
+  ).toBeVisible();
   await expect(page.getByRole("link", { name: formatBuildingLink(building.name) })).toBeVisible();
 });
 
