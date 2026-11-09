@@ -158,10 +158,20 @@ export const PROJECT_FORM_COPY = {
   EDIT_DENIED: "אין הרשאה לעריכת פרויקטים",
   ADDRESS: "כתובת הפרויקט",
   NAME: "שם הפרויקט / כותרת הנדסית",
+  NOTES_LABEL: "הערות כלליות",
+  NOTES_TITLE: "הערות כלליות לבניין",
   ADDRESS_VERIFIED: "כתובת מאומתת ע״י Google Maps",
   CONTACT_NAME_PLACEHOLDER: SHARED_COPY.PERSON_NAME_PLACEHOLDER,
   CONTACT_PHONE_PLACEHOLDER: SHARED_COPY.MOBILE_PHONE_PLACEHOLDER,
   CUSTOMER_SEARCH_PLACEHOLDER: "חיפוש לקוח לפי שם, ח.פ, איש קשר או טלפון...",
+} as const;
+
+export const BUILDING_NOTES_COPY = {
+  PARENT_CARD: "הערות הפרויקט האב",
+  APARTMENT_CARD: "הערות הדירה",
+  NO_NOTES: "אין הערות לבניין",
+  INHERITED_BADGE: "קריאה בלבד",
+  TAMA_BADGE: "תמ״א",
 } as const;
 
 export const PROJECT_PAGE_COPY = {
