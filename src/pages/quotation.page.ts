@@ -25,6 +25,8 @@ export const createQuotationPage = (page: Page) => {
     saved(() => field(name).nth(index).fill(value));
   const select = (name: string, value: string, index = 0) =>
     saved(() => field(name).nth(index).selectOption(value));
+  const addBrandTab = (brand: string) =>
+    saved(() => field("הוספת לשונית חברה").selectOption(brand));
   const chooseEntity = async (name: string, label: string) => {
     await field(name).fill(label);
     await page.getByRole("option", { name: label, exact: true }).click();
@@ -67,6 +69,7 @@ export const createQuotationPage = (page: Page) => {
     saved,
     fill,
     select,
+    addBrandTab,
     chooseEntity,
     selectEntity,
     add,

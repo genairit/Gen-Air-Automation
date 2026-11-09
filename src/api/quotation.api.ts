@@ -32,6 +32,7 @@ const isLine = (value: unknown) =>
 const isSection = (value: unknown) =>
   isRecord(value) &&
   strings(value, ["id", "title"]) &&
+  nullableStrings(value, ["brand"]) &&
   Object.values(QUOTATION.SYSTEM).some(system => system === value.systemType) &&
   Array.isArray(value.items) &&
   value.items.every(isLine);
@@ -61,6 +62,9 @@ const isQuotationDocument = (value: unknown): value is IQuotationDocument =>
   ]) &&
   Object.values(QUOTATION.STATUS).some(status => status === value.status) &&
   typeof value.version === "number" &&
+  typeof value.warningScopeVersion === "number" &&
+  Array.isArray(value.brands) &&
+  value.brands.every((brand: unknown) => typeof brand === "string") &&
   Array.isArray(value.sections) &&
   value.sections.every(isSection) &&
   Array.isArray(value.warnings) &&
@@ -115,6 +119,7 @@ export const quotationWrite = (quote: IQuotationDocument): IQuotationWrite => ({
   projectId: quote.projectId,
   date: quote.date,
   brand: quote.brand,
+  ...(quote.brands.length > 1 ? { brands: quote.brands } : {}),
   paymentTerms: quote.paymentTerms,
   paymentTermsNote: quote.paymentTermsNote,
   paymentSchedule: quote.paymentSchedule,
@@ -125,6 +130,7 @@ export const quotationWrite = (quote: IQuotationDocument): IQuotationWrite => ({
     id: section.id,
     title: section.title,
     systemType: section.systemType,
+    brand: section.brand,
     items: section.items.map(item => ({
       id: item.id,
       catalogueItemId: item.catalogueItemId,

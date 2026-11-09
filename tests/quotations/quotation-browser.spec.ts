@@ -97,7 +97,7 @@ test("catalogue filters, repeated independent snapshots, section ordering and se
   const initial = await createQuotation(api, customer.id);
   const quote = createQuotationPage(page);
   await quote.goto(initial.id);
-  await quote.select("חברת מיזוג", QUOTATION.BRAND);
+  await quote.addBrandTab(QUOTATION.BRAND);
   await quote.saved(() => quote.button("+ סינגלים").click());
   await quote.fill("כותרת מערכת / קומה", "First floor");
   await quote.field("סוג ציוד / לחץ").selectOption("עילי");
@@ -160,7 +160,7 @@ test("catalogue selection focuses the added quantity and keeps BTU paired on mob
   const initial = await createQuotation(api, customer.id);
   const quote = createQuotationPage(page);
   await quote.goto(initial.id);
-  await quote.select("חברת מיזוג", QUOTATION.BRAND);
+  await quote.addBrandTab(QUOTATION.BRAND);
   await quote.saved(() => quote.button("+ סינגלים").click());
 
   await quote.field("חיפוש פריט בקטלוג").fill(item.sku);
@@ -206,7 +206,7 @@ test("autosave keeps row focus and add-item draft while later edits persist", as
   const initial = await createQuotation(api, customer.id);
   const quote = createQuotationPage(page);
   await quote.goto(initial.id);
-  await quote.select("חברת מיזוג", QUOTATION.BRAND);
+  await quote.addBrandTab(QUOTATION.BRAND);
   await quote.saved(() => quote.button("+ מערכת VRF").click());
   await quote.add(item.sku);
   const row = page.locator('[data-role="indoor"]');
@@ -214,7 +214,7 @@ test("autosave keeps row focus and add-item draft while later edits persist", as
   const circuit = row.getByLabel("מעגל", { exact: true });
   await expect(row.getByText("מיקום היחידה", { exact: true })).toBeVisible();
   await expect(row.getByText("מעגל", { exact: true })).toBeVisible();
-  await expect(page.getByText("חברת מיזוג (לכל ההצעה)", { exact: true })).toBeVisible();
+  await expect(page.getByText("החלפת החברה בלשונית הקיימת", { exact: true })).toBeVisible();
   await expect(quote.field("חברת מיזוג")).toHaveCount(1);
   await quote.field("כמות להוספה").fill("3");
 
@@ -281,7 +281,7 @@ test("required warnings block approval, explicit self approval and repeated reop
   const quote = createQuotationPage(page);
   await quote.goto(initial.id);
   const item = await createCatalogueFixture();
-  await quote.select("חברת מיזוג", QUOTATION.BRAND);
+  await quote.addBrandTab(QUOTATION.BRAND);
   await quote.saved(() => quote.button("+ סינגלים").click());
   await quote.add(item.sku);
   await quote.saved(() => quote.button("הוסף שלב תשלום").click());
@@ -343,7 +343,7 @@ test("payment stages replace fixed terms, survive reload and require confirmatio
   const item = await createCatalogueFixture();
   const quote = createQuotationPage(page);
   await quote.goto(initial.id);
-  await quote.select("חברת מיזוג", QUOTATION.BRAND);
+  await quote.addBrandTab(QUOTATION.BRAND);
   await quote.saved(() => quote.button("+ סינגלים").click());
   await quote.add(item.sku);
   await expect(page.getByRole("radio", { name: "תשלום מראש", exact: true })).toBeChecked();
@@ -390,7 +390,7 @@ test("legacy conflicting payment data is flagged in editor and review and cannot
   const initial = await createQuotation(api, (await seedCustomer(api)).id);
   const quote = createQuotationPage(page);
   await quote.goto(initial.id);
-  await quote.select("חברת מיזוג", QUOTATION.BRAND);
+  await quote.addBrandTab(QUOTATION.BRAND);
   await quote.saved(() => quote.button("+ סינגלים").click());
   await quote.add(item.sku);
   const current = await getQuote(api, initial.id);
@@ -428,7 +428,7 @@ test("incomplete payment stages show guidance and remain unapprovable after ackn
   const initial = await createQuotation(api, (await seedCustomer(api)).id);
   const quote = createQuotationPage(page);
   await quote.goto(initial.id);
-  await quote.select("חברת מיזוג", QUOTATION.BRAND);
+  await quote.addBrandTab(QUOTATION.BRAND);
   await quote.saved(() => quote.button("+ סינגלים").click());
   await quote.add(item.sku);
   await quote.saved(() => quote.button("הוסף שלב תשלום").click());
@@ -527,7 +527,7 @@ test("private usage ranks genuine selections while capacity filters remain autho
   const initial = await createQuotation(api, customer.id);
   const quote = createQuotationPage(page);
   await quote.goto(initial.id);
-  await quote.select("חברת מיזוג", QUOTATION.BRAND);
+  await quote.addBrandTab(QUOTATION.BRAND);
   await quote.saved(() => quote.button("+ סינגלים").click());
   await quote.add(far.sku);
   await quote.field("חיפוש פריט בקטלוג").fill(prefix);
@@ -577,7 +577,7 @@ test("VRF circuits, included controls, linked accessory quantities and removal s
   const initial = await createQuotation(api, customer.id);
   const quote = createQuotationPage(page);
   await quote.goto(initial.id);
-  await quote.select("חברת מיזוג", QUOTATION.BRAND);
+  await quote.addBrandTab(QUOTATION.BRAND);
   await quote.saved(() => quote.button("+ מערכת VRF").click());
   await quote.add(indoor.sku);
   await expect(page.getByText("כולל שלט במחיר היחידה")).toBeVisible();
@@ -644,7 +644,7 @@ test("brand replacement confirms, preserves placement and quantities, missing ma
   const initial = await createQuotation(api, (await seedCustomer(api)).id);
   const quote = createQuotationPage(page);
   await quote.goto(initial.id);
-  await quote.select("חברת מיזוג", QUOTATION.BRAND);
+  await quote.addBrandTab(QUOTATION.BRAND);
   await quote.saved(() => quote.button("+ סינגלים").click());
   await quote.add(original.sku);
   await quote.fill("מיקום", "Roof office");
@@ -688,7 +688,7 @@ test("pre-add placement and quantities persist while decimal focus edits retain 
   const initial = await createQuotation(api, customer.id);
   const quote = createQuotationPage(page);
   await quote.goto(initial.id);
-  await quote.select("חברת מיזוג", QUOTATION.BRAND);
+  await quote.addBrandTab(QUOTATION.BRAND);
   await quote.saved(() => quote.button("+ מערכת VRF").click());
   await quote.field("כמות להוספה").fill("2");
   await quote.field("מיקום להוספה").fill("QA new room");

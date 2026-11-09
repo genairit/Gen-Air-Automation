@@ -42,6 +42,7 @@ export interface IQuotationLine {
 export interface IQuotationSection {
   id: string;
   title: string;
+  brand: string | null;
   items: IQuotationLine[];
   systemType: QuotationSystemType;
 }
@@ -57,12 +58,14 @@ export interface IQuotationDocument {
   number: string;
   version: number;
   vatRate: string;
+  brands: string[];
   customerId: string;
   internalNotes: string;
   discountPercent: string;
   projectId: string | null;
   paymentTermsNote: string;
   approvedAt: string | null;
+  warningScopeVersion: number;
   paymentTerms: string | null;
   approvedById: string | null;
   status: QuotationStatusType;
@@ -89,6 +92,7 @@ export interface IQuotationWriteSection extends Pick<
   IQuotationSection,
   "id" | "title" | "systemType"
 > {
+  brand?: string | null;
   items: IQuotationWriteLine[];
 }
 export interface IQuotationWrite extends Pick<
@@ -105,5 +109,6 @@ export interface IQuotationWrite extends Pick<
   | "targetPretaxAmount"
   | "internalNotes"
 > {
+  brands?: string[];
   sections: IQuotationWriteSection[];
 }
