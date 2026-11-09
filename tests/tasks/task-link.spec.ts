@@ -10,7 +10,6 @@ import {
 import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { TIME_UNITS } from "../../src/constants/time.constant.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
-import { TASK_TYPES } from "../../src/constants/domain.constant.ts";
 import { createProjectPage } from "../../src/pages/project.page.ts";
 import { VIEWPORTS } from "../../src/constants/viewport.constant.ts";
 import { failApiRequests } from "../../src/mocks/api-request.mock.ts";
@@ -21,6 +20,7 @@ import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { getAuthStatePath } from "../../src/utilities/auth-state.utility.ts";
 import { isTaskCreationRequest } from "../../src/utilities/response.utility.ts";
 import { HTTP_STATUS, HTTP_METHODS } from "../../src/constants/http.constant.ts";
+import { TASK_TYPES, PROJECT_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
 import { TASK_FORM_COPY, TASK_LINK_KIND_COPY } from "../../src/constants/copy.constant.ts";
 import { createTaskFormPage, createTaskPage, createTasksPage } from "../../src/pages/tasks.page.ts";
 
@@ -82,7 +82,9 @@ test("project entry point retains selected project and exposes both automatic ta
   await projectPage.goto(project.id);
   await expect(page.getByText(`הצעת מחיר — ${project.name}`, { exact: true })).toBeVisible();
   await expect(page.getByText(`תכנון — ${project.name}`, { exact: true })).toBeVisible();
-  await expect(page.getByText("טיוטה", { exact: true }).first()).toBeVisible();
+  await expect(
+    page.getByText(PROJECT_STATUS_NAMES.NOT_STARTED, { exact: true }).first(),
+  ).toBeVisible();
   await projectPage.newTaskButton.click();
   const form = createTaskFormPage(page);
   await expect(form.replaceLinkButton(PROJECT)).toBeVisible();
@@ -167,11 +169,9 @@ test("protected task details expose readonly type/resume help and allow optional
   await expect.poll(async () => (await api.getTask(task.id)).dueDate).toBeNull();
 });
 
-test("Settings exposes five fixed project statuses including Draft with no editing controls", async ({
-  page,
-}) => {
+test("Settings exposes four fixed project statuses with no editing controls", async ({ page }) => {
   await page.goto(ROUTES.SETTINGS);
-  for (const label of ["טיוטה", "ממתין", "בעבודה", "להמתין", "הסתיים"]) {
+  for (const label of Object.values(PROJECT_STATUS_NAMES)) {
     await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
   }
   await expect(page.getByRole("button", { name: /הוסף סטטוס|מחק סטטוס/ })).toHaveCount(0);
@@ -251,7 +251,9 @@ for (const viewport of [{ width: 1440, height: 1000 }, VIEWPORTS.MOBILE]) {
     ).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("task.png"), fullPage: true });
     await page.goto(ROUTES.SETTINGS);
-    await expect(page.getByText("טיוטה", { exact: true }).first()).toBeVisible();
+    await expect(
+      page.getByText(PROJECT_STATUS_NAMES.NOT_STARTED, { exact: true }).first(),
+    ).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("settings.png"), fullPage: true });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,

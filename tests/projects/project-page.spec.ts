@@ -57,12 +57,12 @@ test("a building page shows the inherited values and its apartments", async ({ p
   await expect(page.getByText(PROJECT_TYPE_NAMES.RESIDENTIAL_BUILDING)).not.toHaveCount(0);
   await expect(projectPage.addApartmentButton).toBeVisible();
   await expect(projectPage.findApartmentRow(apartment.name)).toBeVisible();
-  await expect(projectPage.stagePicker).toHaveValue(PROJECT_STATUS_NAMES.DRAFT);
-  await projectPage.changeStage(PROJECT_STATUS_NAMES.PENDING);
-  await expect(projectPage.stagePicker).toHaveValue(PROJECT_STATUS_NAMES.PENDING);
+  await expect(projectPage.stagePicker).toHaveValue(PROJECT_STATUS_NAMES.NOT_STARTED);
+  await projectPage.changeStage(PROJECT_STATUS_NAMES.WAITING_RESPONSE);
+  await expect(projectPage.stagePicker).toHaveValue(PROJECT_STATUS_NAMES.WAITING_RESPONSE);
   await expect
     .poll(async () => (await api.getProject(building.id)).stage.name)
-    .toBe(PROJECT_STATUS_NAMES.PENDING);
+    .toBe(PROJECT_STATUS_NAMES.WAITING_RESPONSE);
 });
 
 test("choosing the current project stage does not submit a change", async ({ page, api }) => {
@@ -77,9 +77,9 @@ test("choosing the current project stage does not submit a change", async ({ pag
   });
 
   await projectPage.goto(project.id);
-  await projectPage.changeStage(PROJECT_STATUS_NAMES.DRAFT);
+  await projectPage.changeStage(PROJECT_STATUS_NAMES.NOT_STARTED);
 
-  await expect(projectPage.stagePicker).toHaveValue(PROJECT_STATUS_NAMES.DRAFT);
+  await expect(projectPage.stagePicker).toHaveValue(PROJECT_STATUS_NAMES.NOT_STARTED);
   expect(requests).toEqual([]);
 });
 
@@ -105,8 +105,8 @@ test("a failed project stage change shows an error and leaves the saved stage in
   await projectPage.changeStage(PROJECT_STATUS_NAMES.IN_PROGRESS);
 
   await expect(page.getByRole("alert").filter({ hasText: "Temporary test failure" })).toBeVisible();
-  await expect(projectPage.stagePicker).toHaveValue(PROJECT_STATUS_NAMES.DRAFT);
-  expect((await api.getProject(project.id)).stage.name).toBe(PROJECT_STATUS_NAMES.DRAFT);
+  await expect(projectPage.stagePicker).toHaveValue(PROJECT_STATUS_NAMES.NOT_STARTED);
+  expect((await api.getProject(project.id)).stage.name).toBe(PROJECT_STATUS_NAMES.NOT_STARTED);
 });
 
 test("the edit button on a project page opens the edit form", async ({ page, api }) => {
