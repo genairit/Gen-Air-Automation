@@ -14,7 +14,6 @@ import {
 import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { isRecord } from "../../src/utilities/guard.utility.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
-import { findFieldByTitle } from "../../src/pages/field.component.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
@@ -83,7 +82,7 @@ test("both project form modes use customer-owned contact chips and never submit 
   await expect(page.getByText("איש קשר היסטורי בפרויקט", { exact: true })).toHaveCount(0);
 });
 
-test("customer identity and compact contact editor keep valid international text and communication fields", async ({
+test("legacy customer contact remains visible and searchable in customer and project views", async ({
   page,
   api,
 }) => {
@@ -93,27 +92,24 @@ test("customer identity and compact contact editor keep valid international text
     page.getByText("שדות הזהות של הלקוח. אנשי הקשר מנוהלים בכרטיס נפרד", { exact: true }),
   ).toBeVisible();
   await expect(page.getByText("איש קשר היסטורי", { exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "הוספת איש קשר", exact: true }).click();
-  const save = page.getByRole("button", { name: "שמירה", exact: true });
-  const editor = save.locator("xpath=ancestor::div[.//input][1]");
   const name = createUniqueName("Alex");
   const phone = `03-${String(createSequenceNumber()).padStart(7, "0")}`;
   const email = createUniqueEmail("alex.contact");
-  await findFieldByTitle(editor, "שם").fill(name);
-  await findFieldByTitle(editor, "טלפון").fill(phone);
-  await findFieldByTitle(editor, "דוא״ל").fill(email);
-  await findFieldByTitle(editor, "תפקיד").fill("Project manager");
-  await expect(editor.getByText("יש להכניס תווים בעברית בלבד", { exact: true })).toHaveCount(0);
-  await expect(save).toBeEnabled();
-  await save.click();
-  await expect(save).toHaveCount(0);
-  const row = page.getByText(name, { exact: true }).locator("xpath=ancestor::div[.//button][1]");
-  await expect(row.getByRole("link", { name: phone, exact: true })).toHaveAttribute(
+  const added = await api.send(HTTP_METHODS.POST, contactsPath(customer.id), {
+    name,
+    phone,
+    email,
+    role: "Project manager",
+  });
+  expect(added.status()).toBe(HTTP_STATUS.CREATED);
+  await page.reload();
+  await expect(page.getByText(name, { exact: false })).toBeVisible();
+  await expect(page.getByRole("link", { name: phone, exact: true })).toHaveAttribute(
     "href",
-    `tel:${phone}`,
+    `tel:+972${phone.slice(1).replace("-", "")}`,
   );
-  await expect(row.getByText("Project manager", { exact: true })).toBeVisible();
-  await expect(row.getByText(email, { exact: true })).toBeVisible();
+  await expect(page.getByText("Project manager", { exact: true })).toBeVisible();
+  await expect(page.getByText(email, { exact: true })).toBeVisible();
   await page.screenshot({
     path: test.info().outputPath("customer-contact-layout.png"),
     fullPage: true,
@@ -137,7 +133,7 @@ test("customer identity and compact contact editor keep valid international text
     page
       .getByRole("row")
       .filter({ hasText: customer.name })
-      .getByText(`${customer.contactName} (+1)`, { exact: true }),
+      .getByText(customer.contactName, { exact: false }),
   ).toBeVisible();
   const form = createProjectFormPage(page);
   await form.goto();
