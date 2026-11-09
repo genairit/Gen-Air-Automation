@@ -1,6 +1,7 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 
 export const QUOTATION_DELETE_HORIZONTAL_INSET = 42;
+const QUOTATION_ROW_CENTER_TOLERANCE = 16;
 
 export const quotationBox = async (locator: Locator) => {
   await expect(locator).toBeVisible();
@@ -12,10 +13,18 @@ export const quotationBox = async (locator: Locator) => {
   return box;
 };
 
-export const expectSameQuotationRow = async (locators: Locator[]) => {
-  const boxes = await Promise.all(locators.map(quotationBox));
+const centerSpread = (boxes: Awaited<ReturnType<typeof quotationBox>>[]) => {
   const centers = boxes.map(box => box.y + box.height / 2);
-  expect(Math.max(...centers) - Math.min(...centers)).toBeLessThanOrEqual(16);
+  return Math.max(...centers) - Math.min(...centers);
+};
+
+export const expectSameQuotationRow = async (locators: Locator[]) => {
+  await expect
+    .poll(async () => centerSpread(await Promise.all(locators.map(quotationBox))))
+    .toBeLessThanOrEqual(QUOTATION_ROW_CENTER_TOLERANCE);
+
+  const boxes = await Promise.all(locators.map(quotationBox));
+  expect(centerSpread(boxes)).toBeLessThanOrEqual(QUOTATION_ROW_CENTER_TOLERANCE);
   return boxes;
 };
 
