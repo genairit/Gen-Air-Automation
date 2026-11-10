@@ -38,6 +38,14 @@ const isSection = (value: unknown) =>
   value.items.every(isLine);
 const isWarning = (value: unknown) =>
   isRecord(value) && strings(value, ["key", "text"]) && typeof value.acknowledged === "boolean";
+const isCancellation = (value: unknown) =>
+  isRecord(value) &&
+  value.kind === QUOTATION.CANCELLATION_KIND.MANUAL &&
+  Object.values(QUOTATION.STATUS).some(
+    status => status === value.fromStatus && status !== QUOTATION.STATUS.CANCELLED,
+  ) &&
+  strings(value, ["reason", "cancelledAt", "cancelledById", "cancelledByName"]) &&
+  nullableStrings(value, ["restoredAt", "restoredById", "restoredByName"]);
 const isSchedule = (value: unknown) => isRecord(value) && strings(value, ["percent", "text"]);
 const isQuotationDocument = (value: unknown): value is IQuotationDocument =>
   isRecord(value) &&
@@ -55,12 +63,22 @@ const isQuotationDocument = (value: unknown): value is IQuotationDocument =>
   ]) &&
   nullableStrings(value, [
     "projectId",
+    "salesAgentId",
     "paymentTerms",
     "approvedById",
     "approvedAt",
     "targetPretaxAmount",
   ]) &&
+  (!("salesAgentName" in value) ||
+    value.salesAgentName === null ||
+    typeof value.salesAgentName === "string") &&
   Object.values(QUOTATION.STATUS).some(status => status === value.status) &&
+  (value.cancelledFromStatus === null ||
+    Object.values(QUOTATION.STATUS).some(
+      status => status === value.cancelledFromStatus && status !== QUOTATION.STATUS.CANCELLED,
+    )) &&
+  Array.isArray(value.cancellationHistory) &&
+  value.cancellationHistory.every(isCancellation) &&
   typeof value.version === "number" &&
   typeof value.warningScopeVersion === "number" &&
   Array.isArray(value.brands) &&
@@ -116,6 +134,7 @@ export const quotationDocument = async (response: APIResponse): Promise<IQuotati
 export const quotationWrite = (quote: IQuotationDocument): IQuotationWrite => ({
   version: quote.version,
   customerId: quote.customerId,
+  salesAgentId: quote.salesAgentId,
   projectId: quote.projectId,
   date: quote.date,
   brand: quote.brand,

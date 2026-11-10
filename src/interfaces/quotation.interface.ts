@@ -2,6 +2,8 @@ import type {
   CatalogueStatusType,
   QuotationStatusType,
   QuotationSystemType,
+  QuotationCancellationKindType,
+  QuotationRestorableStatusType,
 } from "../constants/quotation.constant.ts";
 
 export interface ICatalogueFixture {
@@ -51,6 +53,17 @@ export interface IQuotationWarning {
   text: string;
   acknowledged: boolean;
 }
+export interface IQuotationCancellation {
+  reason: string;
+  cancelledAt: string;
+  cancelledById: string;
+  cancelledByName: string;
+  restoredAt: string | null;
+  restoredById: string | null;
+  restoredByName: string | null;
+  kind: QuotationCancellationKindType;
+  fromStatus: QuotationRestorableStatusType;
+}
 export interface IQuotationDocument {
   id: string;
   date: string;
@@ -65,6 +78,7 @@ export interface IQuotationDocument {
   projectId: string | null;
   paymentTermsNote: string;
   approvedAt: string | null;
+  salesAgentId: string | null;
   warningScopeVersion: number;
   paymentTerms: string | null;
   approvedById: string | null;
@@ -72,8 +86,11 @@ export interface IQuotationDocument {
   ruleConfigFingerprint: string;
   sections: IQuotationSection[];
   warnings: IQuotationWarning[];
+  salesAgentName?: string | null;
   targetPretaxAmount: string | null;
+  cancellationHistory: IQuotationCancellation[];
   paymentSchedule: { percent: string; text: string }[];
+  cancelledFromStatus: QuotationRestorableStatusType | null;
   totals: { subtotal: string; discount: string; pretax: string; vat: string; total: string };
 }
 export interface IQuotationWriteLine extends Pick<
@@ -110,5 +127,6 @@ export interface IQuotationWrite extends Pick<
   | "internalNotes"
 > {
   brands?: string[];
+  salesAgentId?: string | null;
   sections: IQuotationWriteSection[];
 }
