@@ -33,6 +33,7 @@ export const QUOTATION_PERMISSIONS = {
   UPDATE: "quotations.update",
   DELETE: "quotations.delete",
   APPROVE: "quotations.approve",
+  EXPORT: "quotations.export",
   CATALOGUE_MANAGE: "catalogue.manage",
 } as const;
 export const QUOTATION_DUPLICATE_SKUS = [

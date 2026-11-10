@@ -26,6 +26,7 @@
     "embedded-postgres": "17.10.0-beta.17",
     "exceljs": "^4.4.0",
     "mailparser": "^3.14.1",
+    "pdfjs-dist": "^5.7.284",
     "pg": "8.23.0",
     "pgsql-parser": "^18.3.2",
     "prettier": "3.9.9",

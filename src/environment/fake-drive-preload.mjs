@@ -1,6 +1,8 @@
 import Module from "node:module";
 import { join } from "node:path";
 import { existsSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { appendFile, mkdir, readFile } from "node:fs/promises";
 
 const originalLoad = Module._load;
 const folderMimeType = "application/vnd.google-apps.folder";
@@ -91,6 +93,23 @@ const fakeMethods = {
     createdMetadata.set(id, item(id, name, folderMimeType, [parentId]));
     foldersByParentAndName.set(key, id);
     return id;
+  },
+  uploadFile: async ({ name, localPath, parentId, mimeType }) => {
+    const id = `qa-upload-${createdMetadata.size + 1}`;
+    const uploaded = item(id, name, mimeType, [parentId]);
+    createdMetadata.set(id, uploaded);
+    const directory = process.env.GEN_AIR_FAKE_DRIVE_STATE_DIR;
+    if (directory) {
+      await mkdir(directory, { recursive: true });
+      const content = await readFile(localPath);
+      const bytes = content.length;
+      const sha256 = createHash("sha256").update(content).digest("hex");
+      await appendFile(
+        join(directory, "uploads.jsonl"),
+        `${JSON.stringify({ id, name, parentId, mimeType, bytes, sha256 })}\n`,
+      );
+    }
+    return displayItem(uploaded);
   },
   moveFile: async ({ fileId, parentIds, destinationFolderId }) => {
     const source = metadata(fileId);

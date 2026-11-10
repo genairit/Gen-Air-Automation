@@ -306,7 +306,10 @@ test("full gate has a bounded suite budget and retains evidence on failure", () 
   const suite = job.steps.find(step => step.id === "suite");
   assert.equal(job["timeout-minutes"], 90);
   assert.equal(suite["timeout-minutes"], 76);
-  assert.equal(suite.run, "npx playwright test --global-timeout=4500000");
+  assert.match(
+    suite.run,
+    /^export CHROMIUM_EXECUTABLE_PATH=.*\nnpx playwright test --global-timeout=4500000\n$/,
+  );
   assert.ok(suite["timeout-minutes"] < job["timeout-minutes"]);
   const upload = job.steps.find(step => step.uses?.startsWith("actions/upload-artifact@"));
   assert.equal(upload.if, "${{ always() }}");

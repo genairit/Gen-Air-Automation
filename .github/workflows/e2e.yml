@@ -53,6 +53,14 @@ jobs:
           persist-credentials: false
           path: Gen-Air-Frontend
 
+      - name: Check out Gen-Air-Worker
+        uses: actions/checkout@v4
+        with:
+          repository: genairit/Gen-Air-Worker
+          ref: main
+          persist-credentials: false
+          path: Gen-Air-Worker
+
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -61,11 +69,13 @@ jobs:
             Gen-Air-Automation/package-lock.json
             Gen-Air-Backend/package-lock.json
             Gen-Air-Frontend/package-lock.json
+            Gen-Air-Worker/package-lock.json
 
       - name: Install dependencies
         run: |
           npm ci --prefix Gen-Air-Backend
           npm ci --prefix Gen-Air-Frontend
+          npm ci --prefix Gen-Air-Worker
           npm ci --prefix Gen-Air-Automation
 
       - name: Install Chromium
@@ -76,9 +86,12 @@ jobs:
         id: suite
         env:
           GEN_AIR_ARTIFACTS_DIR: ${{ runner.temp }}/gen-air-automation
+          GEN_AIR_PDF_QA: "true"
         working-directory: Gen-Air-Automation
         timeout-minutes: 76
-        run: npx playwright test --global-timeout=4500000
+        run: |
+          export CHROMIUM_EXECUTABLE_PATH="$(node -e 'console.log(require("playwright").chromium.executablePath())')"
+          npx playwright test --global-timeout=4500000
 
       - name: Verify backend freshness and publish result
         if: ${{ always() && steps.revisions.outcome == 'success' }}

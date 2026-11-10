@@ -72,7 +72,8 @@ test("customer-first creation, optional project, local payments and RTL desktop/
   await expect(quote.field("לקוח *")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("quotation-mobile.png"), fullPage: true });
-  await expect(page.getByRole("button", { name: /PDF|Priority|Drive|ייצוא/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "ייצוא PDF" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Priority|Drive/ })).toHaveCount(0);
   await page.goto("/quotations");
   await quote.field("חיפוש לפי מספר, לקוח, פרויקט או חברה").fill(customer.name);
   await expect(
