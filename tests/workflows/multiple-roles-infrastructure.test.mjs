@@ -140,7 +140,7 @@ const account = assignedRoles => ({
   assignedRoles,
 });
 
-test("both account guards accept each catalog membership and all seven roles", () => {
+test("both account guards accept each catalog membership and all eight roles", () => {
   for (const assignedRoles of [...USER_ROLE_VALUES.map(role => [role]), USER_ROLE_VALUES]) {
     assert.equal(isAssignedRoles(assignedRoles), true);
     assert.equal(isUserRecord(account(assignedRoles)), true);

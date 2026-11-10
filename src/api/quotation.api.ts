@@ -63,11 +63,15 @@ const isQuotationDocument = (value: unknown): value is IQuotationDocument =>
   ]) &&
   nullableStrings(value, [
     "projectId",
+    "salesAgentId",
     "paymentTerms",
     "approvedById",
     "approvedAt",
     "targetPretaxAmount",
   ]) &&
+  (!("salesAgentName" in value) ||
+    value.salesAgentName === null ||
+    typeof value.salesAgentName === "string") &&
   Object.values(QUOTATION.STATUS).some(status => status === value.status) &&
   (value.cancelledFromStatus === null ||
     Object.values(QUOTATION.STATUS).some(
@@ -130,6 +134,7 @@ export const quotationDocument = async (response: APIResponse): Promise<IQuotati
 export const quotationWrite = (quote: IQuotationDocument): IQuotationWrite => ({
   version: quote.version,
   customerId: quote.customerId,
+  salesAgentId: quote.salesAgentId,
   projectId: quote.projectId,
   date: quote.date,
   brand: quote.brand,

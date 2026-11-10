@@ -78,6 +78,7 @@ export interface IQuotationDocument {
   projectId: string | null;
   paymentTermsNote: string;
   approvedAt: string | null;
+  salesAgentId: string | null;
   warningScopeVersion: number;
   paymentTerms: string | null;
   approvedById: string | null;
@@ -85,6 +86,7 @@ export interface IQuotationDocument {
   ruleConfigFingerprint: string;
   sections: IQuotationSection[];
   warnings: IQuotationWarning[];
+  salesAgentName?: string | null;
   targetPretaxAmount: string | null;
   cancellationHistory: IQuotationCancellation[];
   paymentSchedule: { percent: string; text: string }[];
@@ -125,5 +127,6 @@ export interface IQuotationWrite extends Pick<
   | "internalNotes"
 > {
   brands?: string[];
+  salesAgentId?: string | null;
   sections: IQuotationWriteSection[];
 }

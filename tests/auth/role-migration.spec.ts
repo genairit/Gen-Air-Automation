@@ -90,7 +90,9 @@ test("the role migration adds engineer and finance, renames lead_installer and d
     await database.query(await readMigration(ROLE_MIGRATION.FILE));
 
     expect(await readEnumRoles(database)).toEqual(
-      USER_ROLE_VALUES.filter(role => role !== USER_ROLES.PURCHASING_EXECUTION_MANAGER).sort(),
+      USER_ROLE_VALUES.filter(
+        role => role !== USER_ROLES.PURCHASING_EXECUTION_MANAGER && role !== USER_ROLES.SALES_AGENT,
+      ).sort(),
     );
     expect(await readRoleByEmail(database)).toEqual([
       { email: LEGACY_USERS[0].email, role: USER_ROLES.SYSTEM_ADMIN },

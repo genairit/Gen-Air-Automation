@@ -52,7 +52,9 @@ test("feature migration preserves existing data and enforces grants, keys and pr
       "SELECT DISTINCT role::text AS role FROM role_permissions ORDER BY role::text",
     );
     expect(roles.rows.map(row => row.role)).toEqual(
-      USER_ROLE_VALUES.filter(role => role !== USER_ROLES.PURCHASING_EXECUTION_MANAGER).sort(),
+      USER_ROLE_VALUES.filter(
+        role => role !== USER_ROLES.PURCHASING_EXECUTION_MANAGER && role !== USER_ROLES.SALES_AGENT,
+      ).sort(),
     );
     const security = await database.query(
       "SELECT relname, relrowsecurity FROM pg_class WHERE relname IN ('permissions','role_permissions') ORDER BY relname",
