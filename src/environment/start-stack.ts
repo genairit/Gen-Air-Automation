@@ -4,16 +4,18 @@ import type EmbeddedPostgres from "embedded-postgres";
 import type { ChildProcess } from "node:child_process";
 import { startFakeSmtpServer } from "./fake-smtp-server.ts";
 import { createLogger } from "../utilities/logger.utility.ts";
+import { startPdfWorkerServer } from "./pdf-worker-server.ts";
 import { startFakePlacesServer } from "./fake-places-server.ts";
 import { buildBackend, startBackend } from "./backend-process.ts";
 import { startTestDatabase, stopTestDatabase } from "./test-database.ts";
-import { PORTS, EMAIL_QA_ENABLED } from "../constants/environment.constant.ts";
+import { PORTS, EMAIL_QA_ENABLED, PDF_QA_ENABLED } from "../constants/environment.constant.ts";
 
 interface IStack {
   fakePlaces: Server;
   backend: ChildProcess;
   smtp: SMTPServer | null;
   database: EmbeddedPostgres;
+  pdfWorker: ChildProcess | null;
 }
 
 const SHUTDOWN_SIGNALS = ["SIGINT", "SIGTERM"] as const;
@@ -26,6 +28,7 @@ const stopStack = async (stack: IStack, exitCode: number) => {
   try {
     stack.backend.kill();
     stack.fakePlaces.close();
+    stack.pdfWorker?.kill();
     stack.smtp?.close();
     await stopTestDatabase(stack.database);
     process.exitCode = exitCode;
@@ -49,10 +52,11 @@ const startStack = async () => {
   const smtp = EMAIL_QA_ENABLED ? await startFakeSmtpServer() : null;
   const database = await startTestDatabase();
   const fakePlaces = await startFakePlacesServer(PORTS.FAKE_PLACES);
+  const pdfWorker = PDF_QA_ENABLED ? await startPdfWorkerServer() : null;
   const backend = await startBackend();
 
   logger.info("Database, fake Places and backend are running");
-  return { backend, database, fakePlaces, smtp };
+  return { backend, database, fakePlaces, pdfWorker, smtp };
 };
 
 try {

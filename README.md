@@ -207,6 +207,22 @@ test messages remain under the private artifact directory and must not be upload
 `GEN_AIR_QA_PORT_OFFSET` shifts the app, database, Places, and SMTP ports when another local stack
 is active.
 
+Quotation PDF QA uses the real renderer from an adjacent Gen-Air-Worker checkout. Set
+`GEN_AIR_PDF_QA=true` and provide a local Chromium executable through
+`CHROMIUM_EXECUTABLE_PATH`; `GEN_AIR_WORKER_DIR` overrides the adjacent checkout path.
+The suite starts an isolated authenticated HTTP harness around the renderer because the
+Worker's queue process requires RabbitMQ. The Nest Worker HTTP controller and RabbitMQ
+consumer are covered separately by Worker tests. The main backend, disposable Postgres,
+and fake Google Drive run in the normal Automation stack. Generated PDF evidence stays
+under `GEN_AIR_ARTIFACTS_DIR`.
+
+```bash
+export GEN_AIR_PDF_QA=true
+export CHROMIUM_EXECUTABLE_PATH=/absolute/path/to/chromium
+export GEN_AIR_ARTIFACTS_DIR="$(mktemp -d /tmp/genair-pdf-qa.XXXXXX)"
+npx playwright test tests/quotations/quotation-pdf.spec.ts --project=chromium --retries=0
+```
+
 ```bash
 export GEN_AIR_BACKEND_DIR=/absolute/path/to/reviewed/backend
 export GEN_AIR_FRONTEND_DIR=/absolute/path/to/reviewed/frontend
