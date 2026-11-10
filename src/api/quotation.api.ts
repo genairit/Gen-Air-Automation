@@ -38,6 +38,14 @@ const isSection = (value: unknown) =>
   value.items.every(isLine);
 const isWarning = (value: unknown) =>
   isRecord(value) && strings(value, ["key", "text"]) && typeof value.acknowledged === "boolean";
+const isCancellation = (value: unknown) =>
+  isRecord(value) &&
+  value.kind === QUOTATION.CANCELLATION_KIND.MANUAL &&
+  Object.values(QUOTATION.STATUS).some(
+    status => status === value.fromStatus && status !== QUOTATION.STATUS.CANCELLED,
+  ) &&
+  strings(value, ["reason", "cancelledAt", "cancelledById", "cancelledByName"]) &&
+  nullableStrings(value, ["restoredAt", "restoredById", "restoredByName"]);
 const isSchedule = (value: unknown) => isRecord(value) && strings(value, ["percent", "text"]);
 const isQuotationDocument = (value: unknown): value is IQuotationDocument =>
   isRecord(value) &&
@@ -61,6 +69,12 @@ const isQuotationDocument = (value: unknown): value is IQuotationDocument =>
     "targetPretaxAmount",
   ]) &&
   Object.values(QUOTATION.STATUS).some(status => status === value.status) &&
+  (value.cancelledFromStatus === null ||
+    Object.values(QUOTATION.STATUS).some(
+      status => status === value.cancelledFromStatus && status !== QUOTATION.STATUS.CANCELLED,
+    )) &&
+  Array.isArray(value.cancellationHistory) &&
+  value.cancellationHistory.every(isCancellation) &&
   typeof value.version === "number" &&
   typeof value.warningScopeVersion === "number" &&
   Array.isArray(value.brands) &&
