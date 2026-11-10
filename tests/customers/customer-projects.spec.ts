@@ -17,11 +17,14 @@ import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { PROJECT_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
+import { createStageReasonDialog } from "../../src/pages/stage-reason.component.ts";
 import { AUTOMATION_DIRECTORIES } from "../../src/constants/environment.constant.ts";
 import { scopedApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { updateProjectRelationFixture } from "../../src/environment/customer-projects-data.ts";
 import { seedCustomer, seedBuilding, seedStandaloneProject } from "../../src/api/seed-data.ts";
 import { createCustomerProjectsComponent } from "../../src/pages/customer-projects.component.ts";
+
+const WAITING_REASON = "ממתינים לתשובת הלקוח";
 
 test("customer project rows and mobile cards open details without inline stage editing", async ({
   api,
@@ -39,6 +42,7 @@ test("customer project rows and mobile cards open details without inline stage e
   await card.link(project.name).click();
   await expect(page).toHaveURL(new RegExp(`/projects/${project.id}$`));
   await projectPage.changeStage(PROJECT_STATUS_NAMES.WAITING_RESPONSE);
+  await createStageReasonDialog(page).confirm(WAITING_REASON);
   await expect
     .poll(async () => (await api.getProject(project.id)).stage.name)
     .toBe(PROJECT_STATUS_NAMES.WAITING_RESPONSE);
@@ -166,7 +170,10 @@ test("initial eight rows, bounded continuation, search/status reset and empty cu
   const waitingResponse = await api.findProjectStage(PROJECT_STATUS_NAMES.WAITING_RESPONSE);
   expect(
     (
-      await api.send(HTTP_METHODS.PATCH, `/project/${first.id}`, { stageId: waitingResponse.id })
+      await api.send(HTTP_METHODS.PATCH, `/project/${first.id}`, {
+        stageId: waitingResponse.id,
+        stageNote: WAITING_REASON,
+      })
     ).ok(),
   ).toBe(true);
   const card = createCustomerProjectsComponent(page);

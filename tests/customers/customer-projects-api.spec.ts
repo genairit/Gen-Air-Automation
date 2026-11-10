@@ -140,7 +140,10 @@ test("search is literal and server-side; stage counts ignore the selected stage 
   await updateProjectRelationFixture(exact.id, { name: createUniqueName("פרויקט %_ ייחודי") });
   expect(
     (
-      await api.send(HTTP_METHODS.PATCH, `/project/${exact.id}`, { stageId: waitingResponse.id })
+      await api.send(HTTP_METHODS.PATCH, `/project/${exact.id}`, {
+        stageId: waitingResponse.id,
+        stageNote: "ממתינים לתשובת הלקוח",
+      })
     ).ok(),
   ).toBe(true);
   expect(
