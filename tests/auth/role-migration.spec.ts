@@ -89,7 +89,9 @@ test("the role migration adds engineer and finance, renames lead_installer and d
     await seedLegacyProjectTeam(database);
     await database.query(await readMigration(ROLE_MIGRATION.FILE));
 
-    expect(await readEnumRoles(database)).toEqual([...USER_ROLE_VALUES].sort());
+    expect(await readEnumRoles(database)).toEqual(
+      USER_ROLE_VALUES.filter(role => role !== USER_ROLES.PURCHASING_EXECUTION_MANAGER).sort(),
+    );
     expect(await readRoleByEmail(database)).toEqual([
       { email: LEGACY_USERS[0].email, role: USER_ROLES.SYSTEM_ADMIN },
       { email: LEGACY_USERS[1].email, role: USER_ROLES.INSTALLER },

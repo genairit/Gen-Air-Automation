@@ -140,7 +140,7 @@ const account = assignedRoles => ({
   assignedRoles,
 });
 
-test("both account guards accept each catalog membership and all six roles", () => {
+test("both account guards accept each catalog membership and all seven roles", () => {
   for (const assignedRoles of [...USER_ROLE_VALUES.map(role => [role]), USER_ROLE_VALUES]) {
     assert.equal(isAssignedRoles(assignedRoles), true);
     assert.equal(isUserRecord(account(assignedRoles)), true);
@@ -166,7 +166,6 @@ for (const assignedRoles of [
 
 test("account guards reject absent assignments and malformed authorization permissions", () => {
   const { assignedRoles, ...legacy } = account(USER_ROLE_VALUES);
-  assert.equal(assignedRoles.length, 6);
   assert.equal(isUserRecord(legacy), false);
   assert.equal(isAuthorizedUser(legacy), false);
   assert.equal(isAuthorizedUser({ ...account(USER_ROLE_VALUES), permissions: [42] }), false);

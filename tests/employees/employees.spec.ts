@@ -50,7 +50,7 @@ for (const role of USER_ROLE_VALUES) {
   });
 }
 
-test("the role picker offers exactly the six roles", async ({ page }) => {
+test("the role picker offers exactly the seven roles", async ({ page }) => {
   const employeesPage = createEmployeesPage(page);
 
   await employeesPage.goto();
@@ -95,7 +95,7 @@ test("employee creation requires matching chosen password and the new account ca
   expect(actor.session.user.email).toBe(employee.email);
 });
 
-test("the role filters narrow the table to each of the six roles", async ({ page, api }) => {
+test("the role filters narrow the table to each of the seven roles", async ({ page, api }) => {
   const employeesPage = createEmployeesPage(page);
   const employees = await Promise.all(USER_ROLE_VALUES.map(role => seedUser(api, role)));
 
