@@ -41,7 +41,9 @@ const isTransitionNote = (value: unknown): value is IStageTransitionNote =>
   typeof value.id === "string" &&
   typeof value.toStageId === "string" &&
   "note" in value &&
-  isNullableString(value.note);
+  isNullableString(value.note) &&
+  "toStage" in value &&
+  (value.toStage === null || (isRecord(value.toStage) && typeof value.toStage.name === "string"));
 
 const readBody = async <T>(
   response: APIResponse,

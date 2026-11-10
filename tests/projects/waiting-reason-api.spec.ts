@@ -35,7 +35,7 @@ import { PROJECT_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
 
 const REASON = "ממתינים לאישור התוכנית מהאדריכל";
 const MIXED_REASON = "Waiting for ABC-123 approval מהלקוח";
-const BLANK_NOTES = [undefined, "", "   \n\t "] as const;
+const BLANK_NOTES = [null, "", "   \n\t "] as const;
 
 test("moving into waiting requires a non-blank reason and rejects before writing", async ({
   api,
@@ -44,7 +44,7 @@ test("moving into waiting requires a non-blank reason and rejects before writing
   const transitionsBefore = await countStageTransitions(project.id);
 
   for (const note of BLANK_NOTES) {
-    const body = note === undefined ? {} : { note };
+    const body = note === null ? {} : { note };
     await expectWaitingReasonRequired(
       await sendStageMove(api, project.id, {
         stageId: PROJECT_STATUS_IDS.WAITING_RESPONSE,
@@ -149,7 +149,7 @@ test("project edit requires stageNote when changing into waiting and writes noth
   const rejectedName = createUniqueName("לא נשמר");
 
   for (const stageNote of BLANK_NOTES) {
-    const body = stageNote === undefined ? {} : { stageNote };
+    const body = stageNote === null ? {} : { stageNote };
     await expectWaitingReasonRequired(
       await sendProjectUpdate(api, project.id, {
         name: rejectedName,
