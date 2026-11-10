@@ -18,9 +18,12 @@ import { createProjectPage } from "../../src/pages/project.page.ts";
 import { PROJECT_PAGE_COPY } from "../../src/constants/copy.constant.ts";
 import { FAKE_PLACES } from "../../src/constants/fake-places.constant.ts";
 import { buildEditProjectRoute } from "../../src/utilities/route.utility.ts";
+import { createStageReasonDialog } from "../../src/pages/stage-reason.component.ts";
 import { PROJECT_TYPE_NAMES, PROJECT_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
 
 const TIMELINE_ENTRIES_AFTER_CREATION = 1;
+
+const BUILDING_WAITING_REASON = "ממתינים לאישור הוועד";
 
 test("a standalone project page shows its header, intake, customer, team, tasks and timeline", async ({
   page,
@@ -59,6 +62,7 @@ test("a building page shows the inherited values and its apartments", async ({ p
   await expect(projectPage.findApartmentRow(apartment.name)).toBeVisible();
   await expect(projectPage.stagePicker).toHaveValue(PROJECT_STATUS_NAMES.NOT_STARTED);
   await projectPage.changeStage(PROJECT_STATUS_NAMES.WAITING_RESPONSE);
+  await createStageReasonDialog(page).confirm(BUILDING_WAITING_REASON);
   await expect(projectPage.stagePicker).toHaveValue(PROJECT_STATUS_NAMES.WAITING_RESPONSE);
   await expect
     .poll(async () => (await api.getProject(building.id)).stage.name)

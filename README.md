@@ -31,6 +31,10 @@ For parallel isolated stacks, override ports with `GEN_AIR_BACKEND_PORT`,
 otherwise the offset shifts the established default port. Every resolved port is validated.
 Set `GEN_AIR_ARTIFACTS_DIR` to a unique OS temporary directory for each run; database, authentication,
 JSON/HTML reports, screenshots and traces stay beneath that directory.
+For targeted checks against an app revision that predates a newly added role, set
+`GEN_AIR_QA_SETUP_ROLES` to a comma-separated list of roles needed by those checks (for example,
+`system_admin`). This scopes disposable user seeding and authentication setup. The default runs all
+roles; full regression must leave this unset.
 
 Card 98's [multiple-role coverage matrix](docs/multiple-roles-coverage.md) documents the targeted
 feature and affected regression checks, including real and simulated boundaries.

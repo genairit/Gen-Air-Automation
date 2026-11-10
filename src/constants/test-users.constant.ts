@@ -1,6 +1,6 @@
 import { buildTestEmail } from "../utilities/test-data.utility.ts";
 import type { ITestUser } from "../interfaces/test-user.interface.ts";
-import { USER_ROLES, type UserRoleType } from "./user-role.constant.ts";
+import { USER_ROLES, USER_ROLE_VALUES, type UserRoleType } from "./user-role.constant.ts";
 
 export const TEST_PASSWORD = "Automation123!";
 
@@ -70,3 +70,15 @@ export const TEST_USERS: Record<UserRoleType, ITestUser> = {
     email: buildTestEmail("sales-agent"),
   },
 };
+
+const setupRoles = process.env.GEN_AIR_QA_SETUP_ROLES?.split(",").map(role => role.trim()) ?? null;
+const knownRoles = new Set<string>(USER_ROLE_VALUES);
+const unsupportedRoles = setupRoles?.filter(role => !knownRoles.has(role)) ?? [];
+
+if (unsupportedRoles.length > 0) {
+  throw new Error(`Unknown GEN_AIR_QA_SETUP_ROLES: ${unsupportedRoles.join(", ")}`);
+}
+
+export const SETUP_TEST_USERS = Object.values(TEST_USERS).filter(
+  user => setupRoles === null || setupRoles.includes(user.role),
+);
