@@ -210,21 +210,21 @@ test("duplicate apartment number keeps the form and displays the building-specif
   await expect(form.submit).toBeEnabled();
 });
 
-test("creation copies building team, supports an empty own team, and resets before submission", async ({
+test("creation inherits non-engineering building team, supports an empty own team, and resets before submission", async ({
   page,
   api,
 }) => {
   const { building, customer } = await scenario(api);
-  const engineer = await seedUser(api, USER_ROLES.ENGINEER);
+  const installer = await seedUser(api, USER_ROLES.INSTALLER);
   await patchProject(api, building.id, {
-    members: [{ userId: engineer.id, role: USER_ROLES.ENGINEER }],
+    members: [{ userId: installer.id, role: USER_ROLES.INSTALLER }],
   });
   const form = createApartmentDesignPage(page);
   await form.gotoCreate(building.id);
   const team = form.draftTeam();
   await expect(team.getByText(COPY.INHERITED, { exact: true })).toBeVisible();
   await expect(
-    team.getByText(`${engineer.firstName} ${engineer.lastName}`, { exact: true }),
+    team.getByText(`${installer.firstName} ${installer.lastName}`, { exact: true }),
   ).toBeVisible();
   await team.getByRole("button", { name: COPY.OVERRIDE, exact: true }).click();
   await team.getByRole("button", { name: new RegExp(COPY.REMOVE_MEMBER) }).click();
@@ -232,7 +232,7 @@ test("creation copies building team, supports an empty own team, and resets befo
   await team.getByRole("button", { name: COPY.RESET_TEAM }).click();
   await expect(team.getByText(COPY.INHERITED, { exact: true })).toBeVisible();
   await expect(
-    team.getByText(`${engineer.firstName} ${engineer.lastName}`, { exact: true }),
+    team.getByText(`${installer.firstName} ${installer.lastName}`, { exact: true }),
   ).toBeVisible();
   await team.getByRole("button", { name: COPY.OVERRIDE, exact: true }).click();
   await team.getByRole("button", { name: new RegExp(COPY.REMOVE_MEMBER) }).click();
@@ -246,23 +246,23 @@ test("creation copies building team, supports an empty own team, and resets befo
   });
 });
 
-test("creation adds an apartment-only team member and persists its assignment", async ({
+test("creation adds an apartment-only non-engineering member and persists its assignment", async ({
   page,
   api,
 }) => {
   const { building, customer } = await scenario(api);
-  const engineer = await seedUser(api, USER_ROLES.ENGINEER);
+  const installer = await seedUser(api, USER_ROLES.INSTALLER);
   const form = createApartmentDesignPage(page);
   await form.gotoCreate(building.id);
   await form.draftTeam().getByRole("button", { name: COPY.OVERRIDE, exact: true }).click();
-  await form.selectMember(engineer.firstName);
+  await form.selectMember(installer.firstName);
   await form.fillUnit(scopedApartmentNumber(DATA.NUMBER));
   await form.pickCustomer(customer.name);
   await form.submit.click();
   await expect(page).toHaveURL(new RegExp(`${buildProjectRoute(building.id)}$`));
   expect(await findCreated(api, building, customer)).toMatchObject({
     hasOwnTeam: true,
-    members: [expect.objectContaining({ userId: engineer.id, role: USER_ROLES.ENGINEER })],
+    members: [expect.objectContaining({ userId: installer.id, role: USER_ROLES.INSTALLER })],
   });
 });
 
@@ -271,7 +271,7 @@ test("team search clear keeps the picker open and restores unfiltered options", 
   api,
 }) => {
   const { building } = await scenario(api);
-  const engineer = await seedUser(api, USER_ROLES.ENGINEER);
+  const secretary = await seedUser(api, USER_ROLES.SECRETARY);
   const installer = await seedUser(api, USER_ROLES.INSTALLER);
   const form = createApartmentDesignPage(page);
 
@@ -283,8 +283,8 @@ test("team search clear keeps the picker open and restores unfiltered options", 
   await trigger.click();
 
   const query = page.getByPlaceholder(COPY.ADD_MEMBER).last();
-  await query.fill(engineer.firstName);
-  await expect(page.getByRole("option").filter({ hasText: engineer.firstName })).toBeVisible();
+  await query.fill(secretary.firstName);
+  await expect(page.getByRole("option").filter({ hasText: secretary.firstName })).toBeVisible();
   await expect(page.getByRole("option").filter({ hasText: installer.firstName })).toHaveCount(0);
   await page.getByRole("button", { name: AUTOCOMPLETE_COPY.CLEAR_SELECTION, exact: true }).click();
 
@@ -368,7 +368,7 @@ test("detail team edits find server-side candidates, add multiple roles, persist
   api,
 }) => {
   const { building, customer } = await scenario(api);
-  const engineer = await seedUser(api, USER_ROLES.ENGINEER);
+  const secretary = await seedUser(api, USER_ROLES.SECRETARY);
   const installer = await seedUser(api, USER_ROLES.INSTALLER);
   const apartment = await createApartment(api, building, customer);
   await page.route(`**${API_PROXY_PREFIX}${API_PATHS.USER}?**`, async route => {
@@ -399,10 +399,10 @@ test("detail team edits find server-side candidates, add multiple roles, persist
   await page.goto(buildApartmentRoute(building.id, apartment.id));
   const team = form.teamCard();
   await team.getByRole("button", { name: COPY.OVERRIDE, exact: true }).click();
-  await form.selectMember(engineer.firstName);
+  await form.selectMember(secretary.firstName);
   await form.selectMember(installer.firstName);
   await expect(
-    team.getByText(`${engineer.firstName} ${engineer.lastName}`, { exact: true }),
+    team.getByText(`${secretary.firstName} ${secretary.lastName}`, { exact: true }),
   ).toBeVisible();
   await expect(
     team.getByText(`${installer.firstName} ${installer.lastName}`, { exact: true }),
@@ -410,7 +410,7 @@ test("detail team edits find server-side candidates, add multiple roles, persist
   await team.getByRole("button", { name: COPY.SAVE_TEAM }).click();
   await expect(team.getByRole("alert").filter({ hasText: DATA.TEAM_SAVE_FAILURE })).toBeVisible();
   await expect(
-    team.getByText(`${engineer.firstName} ${engineer.lastName}`, { exact: true }),
+    team.getByText(`${secretary.firstName} ${secretary.lastName}`, { exact: true }),
   ).toBeVisible();
   expect(await readProject(api, apartment.id)).toMatchObject({ hasOwnTeam: false, members: [] });
   await team.getByRole("button", { name: COPY.SAVE_TEAM }).click();
@@ -420,13 +420,13 @@ test("detail team edits find server-side candidates, add multiple roles, persist
   expect(await api.getProjectMembers(apartment.id)).toEqual(
     expect.arrayContaining(
       [
-        { userId: engineer.id, role: USER_ROLES.ENGINEER },
+        { userId: secretary.id, role: USER_ROLES.SECRETARY },
         { userId: installer.id, role: USER_ROLES.INSTALLER },
       ].map(member => expect.objectContaining(member)),
     ),
   );
   await team.getByRole("button", { name: COPY.OVERRIDE, exact: true }).click();
-  for (const member of [engineer, installer]) {
+  for (const member of [secretary, installer]) {
     await team
       .getByRole("button", {
         name: `${COPY.REMOVE_MEMBER} ${member.firstName} ${member.lastName}`,
