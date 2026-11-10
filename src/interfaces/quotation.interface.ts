@@ -2,6 +2,8 @@ import type {
   CatalogueStatusType,
   QuotationStatusType,
   QuotationSystemType,
+  QuotationCancellationKindType,
+  QuotationRestorableStatusType,
 } from "../constants/quotation.constant.ts";
 
 export interface ICatalogueFixture {
@@ -51,6 +53,17 @@ export interface IQuotationWarning {
   text: string;
   acknowledged: boolean;
 }
+export interface IQuotationCancellation {
+  reason: string;
+  cancelledAt: string;
+  cancelledById: string;
+  cancelledByName: string;
+  restoredAt: string | null;
+  restoredById: string | null;
+  restoredByName: string | null;
+  kind: QuotationCancellationKindType;
+  fromStatus: QuotationRestorableStatusType;
+}
 export interface IQuotationDocument {
   id: string;
   date: string;
@@ -73,7 +86,9 @@ export interface IQuotationDocument {
   sections: IQuotationSection[];
   warnings: IQuotationWarning[];
   targetPretaxAmount: string | null;
+  cancellationHistory: IQuotationCancellation[];
   paymentSchedule: { percent: string; text: string }[];
+  cancelledFromStatus: QuotationRestorableStatusType | null;
   totals: { subtotal: string; discount: string; pretax: string; vat: string; total: string };
 }
 export interface IQuotationWriteLine extends Pick<

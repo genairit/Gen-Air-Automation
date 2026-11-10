@@ -1,5 +1,6 @@
 export const QUOTATION = {
-  STATUS: { DRAFT: "draft", REVIEW: "review", APPROVED: "approved" },
+  STATUS: { DRAFT: "draft", REVIEW: "review", APPROVED: "approved", CANCELLED: "cancelled" },
+  CANCELLATION_KIND: { MANUAL: "manual" },
   SYSTEM: { VRF: "VRF", MULTI: "MULTI", SINGLE: "SINGLE", GENERAL: "GEN" },
   CATALOGUE: { ACTIVE: "active", ARCHIVED: "archived", NO_SELL: "nosell", CONFLICT: "conflict" },
   ROLE: {
@@ -18,6 +19,12 @@ export const QUOTATION = {
   OTHER_BRAND: "תדיראן",
 } as const;
 export type QuotationStatusType = (typeof QUOTATION.STATUS)[keyof typeof QUOTATION.STATUS];
+export type QuotationRestorableStatusType = Exclude<
+  QuotationStatusType,
+  typeof QUOTATION.STATUS.CANCELLED
+>;
+export type QuotationCancellationKindType =
+  (typeof QUOTATION.CANCELLATION_KIND)[keyof typeof QUOTATION.CANCELLATION_KIND];
 export type QuotationSystemType = (typeof QUOTATION.SYSTEM)[keyof typeof QUOTATION.SYSTEM];
 export type CatalogueStatusType = (typeof QUOTATION.CATALOGUE)[keyof typeof QUOTATION.CATALOGUE];
 export const QUOTATION_PERMISSIONS = {
