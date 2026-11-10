@@ -1,3 +1,8 @@
+import {
+  quotationBox,
+  expectQuotationWithinViewport,
+} from "../../src/utilities/quotation-layout.utility.ts";
+
 import type { Page } from "@playwright/test";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { quotationDocument } from "../../src/api/quotation.api.ts";
@@ -32,7 +37,38 @@ test("quotation creator selects a sales employee, changes and clears it, and rel
   await page.goto("/quotations");
   await quote.button("הצעה חדשה").click();
   await quote.chooseEntity("לקוח *", customer.name);
-  await chooseSalesAgent(page, first.firstName);
+  const agentPicker = page.getByRole("combobox", { name: PICKER }).first();
+  const clientPicker = page.getByRole("combobox", { name: "לקוח *" }).first();
+  const [agentBox, clientBox] = await Promise.all([
+    quotationBox(agentPicker),
+    quotationBox(clientPicker),
+  ]);
+  expect(agentBox.height).toBe(clientBox.height);
+  expect(await agentPicker.evaluate(element => getComputedStyle(element).borderRadius)).toBe(
+    await clientPicker.evaluate(element => getComputedStyle(element).borderRadius),
+  );
+  for (const property of ["height", "borderRadius", "backgroundColor", "boxShadow"] as const) {
+    expect(
+      await agentPicker
+        .locator("..")
+        .evaluate((element, key) => getComputedStyle(element)[key], property),
+    ).toBe(
+      await clientPicker
+        .locator("..")
+        .evaluate((element, key) => getComputedStyle(element)[key], property),
+    );
+  }
+  await agentPicker.click();
+  const agentOption = page.getByRole("option", { name: new RegExp(first.firstName) });
+  await expect(agentOption).toBeVisible();
+  const employeeNumber = (await agentOption.textContent())?.split("·").at(-1)?.trim() ?? "";
+  expect(employeeNumber).not.toBe("");
+  await agentPicker.fill("missing-agent-name");
+  await expect(page.getByText("לא נמצאו תוצאות", { exact: true })).toBeVisible();
+  await agentPicker.fill(employeeNumber);
+  await expect(agentOption).toContainText(employeeNumber);
+  await agentPicker.press("ArrowDown");
+  await agentPicker.press("Enter");
   await expect(page.getByRole("combobox", { name: PICKER }).first()).toHaveValue(
     new RegExp(first.firstName),
   );
@@ -67,19 +103,21 @@ test("quotation creator selects a sales employee, changes and clears it, and rel
       response.request().method() === HTTP_METHODS.PUT &&
       new URL(response.url()).pathname.endsWith(`/quotation/${id}`),
   );
-  await page
-    .getByRole("combobox", { name: PICKER })
-    .first()
-    .locator("..")
-    .locator("..")
-    .getByRole("button", { name: "נקה בחירה" })
-    .click();
+  await agentPicker.hover();
+  await agentPicker.locator("..").getByRole("button", { name: "נקה בחירה" }).click();
   expect((await cleared).status()).toBe(200);
   await page.reload();
   await expect(page.getByRole("combobox", { name: PICKER }).first()).toHaveValue("");
   expect(
     (await quotationDocument(await api.send(HTTP_METHODS.GET, `/quotation/${id}`))).salesAgentId,
   ).toBeNull();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectQuotationWithinViewport(page, [agentPicker, clientPicker]);
+  await agentPicker.focus();
+  await expect(page.getByRole("listbox")).toBeVisible();
+  await expectQuotationWithinViewport(page, [page.getByRole("listbox")]);
+  await agentPicker.press("Escape");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
 });
 
 test("quotation editor hides employee selection from a quotation-only user while retaining the saved name", async ({
@@ -110,4 +148,39 @@ test("quotation editor hides employee selection from a quotation-only user while
       await page.close();
     },
   );
+});
+
+test("quotation editor preserves a former agent name and retries a failed agent search", async ({
+  page,
+  api,
+}) => {
+  const customer = await api.createCustomer(buildCustomerInput());
+  const agent = await seedUser(api, USER_ROLES.SALES_AGENT);
+  const created = await quotationDocument(
+    await api.send(HTTP_METHODS.POST, "/quotation", {
+      customerId: customer.id,
+      salesAgentId: agent.id,
+    }),
+  );
+  expect(
+    (
+      await api.send(HTTP_METHODS.PATCH, `/user/${agent.id}`, {
+        assignedRoles: [USER_ROLES.INSTALLER],
+      })
+    ).status(),
+  ).toBe(200);
+  await page.goto(`/quotations/${created.id}`);
+  const picker = page.getByRole("combobox", { name: PICKER }).first();
+  await expect(picker).toHaveValue(new RegExp(`${agent.firstName}.*לא זמין`));
+  await picker.focus();
+  await expect(page.getByRole("option", { name: new RegExp(agent.firstName) })).toHaveCount(0);
+  await picker.press("Escape");
+
+  await page.route("**/quotation/sales-agents", route => route.fulfill({ status: 500 }));
+  await page.reload();
+  await expect(page.getByRole("alert")).toBeVisible();
+  await page.unroute("**/quotation/sales-agents");
+  await page.getByRole("button", { name: "נסה שוב" }).click();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(picker).toHaveValue(new RegExp(`${agent.firstName}.*לא זמין`));
 });
