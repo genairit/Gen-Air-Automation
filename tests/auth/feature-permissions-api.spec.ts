@@ -84,9 +84,7 @@ test("unregistered database keys never become effective session grants", async (
   const database = createTestDatabaseClient();
   await database.connect();
   try {
-    await database.query(
-      "INSERT INTO permissions(key, feature, action) VALUES ('qa.unregistered', 'qa', 'unregistered')",
-    );
+    await database.query("INSERT INTO permissions(key) VALUES ('qa.unregistered')");
     await withRolePermissions(FINANCE, ["qa.unregistered"], async () => {
       const actor = await apiAs(TEST_USERS[FINANCE]);
       expect(actor.session.user.permissions).toEqual([]);
