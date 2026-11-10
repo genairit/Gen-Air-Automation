@@ -2,6 +2,7 @@ export const USER_ROLES = {
   FINANCE: "finance",
   ENGINEER: "engineer",
   INSTALLER: "installer",
+  SALES_AGENT: "sales_agent",
   SECRETARY: "secretary",
   SYSTEM_ADMIN: "system_admin",
   PROJECT_MANAGER: "project_manager",
@@ -17,6 +18,7 @@ export const USER_ROLE_VALUES: UserRoleType[] = [
   USER_ROLES.PROJECT_MANAGER,
   USER_ROLES.FINANCE,
   USER_ROLES.INSTALLER,
+  USER_ROLES.SALES_AGENT,
   USER_ROLES.PURCHASING_EXECUTION_MANAGER,
 ];
 
@@ -32,6 +34,7 @@ export type ProjectMemberRoleType = (typeof PROJECT_MEMBER_ROLES)[number];
 export const NON_MEMBER_ROLES: UserRoleType[] = [
   USER_ROLES.SYSTEM_ADMIN,
   USER_ROLES.FINANCE,
+  USER_ROLES.SALES_AGENT,
   USER_ROLES.PURCHASING_EXECUTION_MANAGER,
 ];
 
@@ -41,6 +44,7 @@ export const RETIRED_ROLES = {
 
 export const USER_ROLE_LABELS: Record<UserRoleType, string> = {
   [USER_ROLES.FINANCE]: "מחלקת כספים",
+  [USER_ROLES.SALES_AGENT]: "סוכן מכירות",
   [USER_ROLES.ENGINEER]: "עובד הנדסה",
   [USER_ROLES.INSTALLER]: "מתקין",
   [USER_ROLES.SECRETARY]: "מזכירה",
@@ -51,6 +55,7 @@ export const USER_ROLE_LABELS: Record<UserRoleType, string> = {
 
 export const USER_ROLE_PLURAL_LABELS: Record<UserRoleType, string> = {
   [USER_ROLES.FINANCE]: "כספים",
+  [USER_ROLES.SALES_AGENT]: "סוכני מכירות",
   [USER_ROLES.ENGINEER]: "הנדסה",
   [USER_ROLES.INSTALLER]: "מתקינים",
   [USER_ROLES.SECRETARY]: "מזכירות",
