@@ -163,7 +163,9 @@ test("customer picker searches name, tax ID, contact and phone and rejects faile
   await expect(page.getByRole("option").filter({ hasText: failed.name })).toBeDisabled();
   await expect(page.getByText(COPY.BLOCKED, { exact: true })).toBeVisible();
   await form.pickCustomer(customer.name);
-  await expect(page.getByText(SEED_VALUES.CUSTOMER_CONTACT_NAME, { exact: false }).last()).toBeVisible();
+  await expect(
+    page.getByText(SEED_VALUES.CUSTOMER_CONTACT_NAME, { exact: false }).last(),
+  ).toBeVisible();
   await expect(page.getByText(SEED_VALUES.CUSTOMER_PHONE, { exact: false }).last()).toBeVisible();
   await page.getByRole("button", { name: COPY.REPLACE_CUSTOMER }).click();
   await expect(form.search).toBeVisible();

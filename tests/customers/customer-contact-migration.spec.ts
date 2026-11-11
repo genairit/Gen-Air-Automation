@@ -83,4 +83,3 @@ test("contact migration starts empty despite existing customer and project conta
     await owner.end();
   }
 });
-
