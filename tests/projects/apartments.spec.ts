@@ -38,7 +38,7 @@ test("add an apartment to a building and see it listed and counted", async ({ pa
     .toBe(SINGLE_APARTMENT_COUNT);
 });
 
-test("an apartment page shows its contact and the values inherited from the building", async ({
+test("an apartment page shows its team and the values inherited from the building", async ({
   page,
   api,
 }) => {
@@ -49,11 +49,8 @@ test("an apartment page shows its contact and the values inherited from the buil
   await apartmentPage.goto(building.id, apartment.id);
 
   await expect(page.getByText(apartment.code)).toBeVisible();
-  await expect(
-    findCardByTitle(page, "אנשי קשר וצוות").getByText(SEED_VALUES.CUSTOMER_CONTACT_NAME, {
-      exact: true,
-    }),
-  ).toBeVisible();
+  await expect(findCardByTitle(page, "צוות הדירה")).toBeVisible();
+  await expect(page.getByText(SEED_VALUES.CUSTOMER_CONTACT_NAME, { exact: true })).toHaveCount(0);
   await expect(page.getByRole("link", { name: formatBuildingLink(building.name) })).toBeVisible();
 });
 

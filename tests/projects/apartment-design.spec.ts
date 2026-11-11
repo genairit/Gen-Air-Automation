@@ -107,7 +107,7 @@ test("apartment creation matches required fields, validation count and customer-
   await expect(page.getByRole("searchbox")).toHaveCount(1);
   await expect(page.getByRole("link", { name: COPY.NEW_CUSTOMER })).toHaveAttribute(
     "href",
-    "/customers/new",
+    /\/customers\/new\?returnChannel=/,
   );
   await expect(page.getByRole("link", { name: COPY.NEW_CUSTOMER })).toHaveAttribute(
     "target",
@@ -128,7 +128,7 @@ test("apartment creation matches required fields, validation count and customer-
     customerApartment: scopedApartmentNumber(DATA.NUMBER),
     customerFloor: 7,
     hasOwnTeam: false,
-    contactName: customer.contactName,
+    contactName: null,
   });
 });
 
@@ -144,7 +144,7 @@ test("customer picker searches name, tax ID, contact and phone and rejects faile
   for (const query of [
     customer.name,
     customer.taxId,
-    customer.contactName,
+    SEED_VALUES.CUSTOMER_CONTACT_NAME,
     SEED_VALUES.CUSTOMER_PHONE,
   ]) {
     const searchResponse = page.waitForResponse(response => {
@@ -163,7 +163,9 @@ test("customer picker searches name, tax ID, contact and phone and rejects faile
   await expect(page.getByRole("option").filter({ hasText: failed.name })).toBeDisabled();
   await expect(page.getByText(COPY.BLOCKED, { exact: true })).toBeVisible();
   await form.pickCustomer(customer.name);
-  await expect(page.getByText(customer.contactName, { exact: false }).last()).toBeVisible();
+  await expect(
+    page.getByText(SEED_VALUES.CUSTOMER_CONTACT_NAME, { exact: false }).last(),
+  ).toBeVisible();
   await expect(page.getByText(SEED_VALUES.CUSTOMER_PHONE, { exact: false }).last()).toBeVisible();
   await page.getByRole("button", { name: COPY.REPLACE_CUSTOMER }).click();
   await expect(form.search).toBeVisible();
@@ -319,7 +321,7 @@ test("apartment creation and detail omit payment controls, displays and parent i
   }
 
   await page.goto(buildApartmentRoute(building.id, created.id));
-  await expect(page.getByText(customer.name, { exact: true })).toBeVisible();
+  await expect(page.getByText(customer.name, { exact: true }).last()).toBeVisible();
   await expect(page.getByText(PAYMENT_DEFAULT_PATTERNS.SECTION)).toHaveCount(0);
   await page.reload();
   await expect(page.getByText(PAYMENT_DEFAULT_PATTERNS.SECTION)).toHaveCount(0);
@@ -334,27 +336,25 @@ test("detail shows linked customer, named parent customer, callable contact and 
   const apartment = await createApartment(api, building, customer);
   await mockDriveContents(page, apartment.id);
   await page.goto(buildApartmentRoute(building.id, apartment.id));
-  const form = createApartmentDesignPage(page);
   await expect(page.getByText(COPY.END_CUSTOMER, { exact: true })).toBeVisible();
-  await expect(page.getByText(customer.name, { exact: true })).toBeVisible();
+  await expect(page.getByText(customer.name, { exact: true }).last()).toBeVisible();
   await expect(
     page.getByText(
       `לקוח הפרויקט האב: ${owner.name}. הוא אינו לקוח הקצה של הדירה ואינו עובר אליה.`,
       { exact: true },
     ),
   ).toBeVisible();
-  await expect(
-    form.teamCard().getByRole("link", { name: SEED_VALUES.CUSTOMER_PHONE }),
-  ).toHaveAttribute("href", `tel:${SEED_VALUES.CUSTOMER_PHONE}`);
+  await expect(page.getByRole("link", { name: SEED_VALUES.CUSTOMER_PHONE }).last()).toHaveAttribute(
+    "href",
+    "tel:+97231234567",
+  );
   for (const title of [COPY.PARENT_NOTES, COPY.APARTMENT_NOTES, COPY.DRIVE, COPY.TIMELINE]) {
     await expect(page.getByText(title, { exact: true })).toBeVisible();
   }
   await expect(page.getByText(DATA.PARENT_NOTE, { exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("apartment-desktop.png"), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(
-    form.teamCard().getByRole("link", { name: SEED_VALUES.CUSTOMER_PHONE }),
-  ).toBeVisible();
+  await expect(page.getByRole("link", { name: SEED_VALUES.CUSTOMER_PHONE }).last()).toBeVisible();
   const widths = await page.evaluate(() => ({
     content: document.documentElement.scrollWidth,
     viewport: window.innerWidth,
@@ -449,17 +449,17 @@ test("detail team edits find server-side candidates, add multiple roles, persist
   expect(await readProject(api, apartment.id)).toMatchObject({ hasOwnTeam: false });
 });
 
-test("legacy apartment customer and contact fields remain visible", async ({ page, api }) => {
+test("legacy apartment customer remains visible while retired contact fields are hidden", async ({
+  page,
+  api,
+}) => {
   const { building, customer } = await scenario(api);
   const apartment = await createApartment(api, building, customer);
   await recreateLegacyApartment(apartment.id);
   await page.goto(buildApartmentRoute(building.id, apartment.id));
   await expect(page.getByText(LEGACY_APARTMENT.CUSTOMER_NAME, { exact: true })).toBeVisible();
-  await expect(page.getByText(LEGACY_APARTMENT.CONTACT_NAME, { exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: LEGACY_APARTMENT.CONTACT_PHONE })).toHaveAttribute(
-    "href",
-    `tel:${LEGACY_APARTMENT.CONTACT_PHONE}`,
-  );
+  await expect(page.getByText(LEGACY_APARTMENT.CONTACT_NAME, { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: LEGACY_APARTMENT.CONTACT_PHONE })).toHaveCount(0);
 });
 
 test("team edit controls follow server permissions for engineering and project managers", async ({

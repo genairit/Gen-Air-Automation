@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test";
 import { API_PATHS } from "../../src/constants/api.constant.ts";
 import { isRecord } from "../../src/utilities/guard.utility.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
+import { SEED_VALUES } from "../../src/constants/seed.constant.ts";
 import { URLS } from "../../src/constants/environment.constant.ts";
 import { createDeferred } from "../../src/utilities/deferred.utility.ts";
 import { PROJECT_FORM_COPY } from "../../src/constants/copy.constant.ts";
@@ -112,7 +113,7 @@ test("draft reload restores allowed values, omits private details and discard re
     values: { name, typeId: projectType.id },
   });
   expectFieldsAbsent(parsedDraft.values, RETIRED_PROJECT_DRAFT_PAYMENT_FIELDS);
-  expect(draft).not.toContain(customer.contactName);
+  expect(draft).not.toContain(SEED_VALUES.CUSTOMER_CONTACT_NAME);
   expect(draft).not.toContain(customer.taxId);
   expect(draft).not.toContain(customer.name);
   expect(draft).not.toContain(FAKE_PLACES[1].placeId);

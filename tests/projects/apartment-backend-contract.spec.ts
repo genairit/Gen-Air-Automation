@@ -87,7 +87,7 @@ test("migration upgrades legacy apartments without losing data, backfills teams 
   expect(await read(api, unrelated.id)).toMatchObject({ customerId: customer.id });
 });
 
-test("new apartment links its own customer and reads contact live without inheriting the building customer", async ({
+test("new apartment links its own customer and reads primary contact phone without inheriting the building customer", async ({
   api,
 }) => {
   const { building, customer } = await scenario(api);
@@ -97,20 +97,30 @@ test("new apartment links its own customer and reads contact live without inheri
   expect(await read(api, apartment.id)).toMatchObject({
     customerId: customer.id,
     customerName: customer.name,
-    contactName: customer.contactName,
+    contactName: null,
     hasOwnTeam: false,
     customerApartment: scopedApartmentNumber("24א"),
     parentProjectId: building.id,
   });
   await update(api, apartment.id, { notes: "Apartment note" });
-  const response = await api.send(HTTP_METHODS.PATCH, buildCustomerPath(customer.id), {
-    contactName: "Updated customer contact",
-    phone: "0531234567",
-  });
+  const savedCustomer: unknown = await (
+    await api.send(HTTP_METHODS.GET, buildCustomerPath(customer.id))
+  ).json();
+  if (!isRecord(savedCustomer) || typeof savedCustomer.primaryContactId !== "string") {
+    throw new Error("Customer primary contact is missing");
+  }
+  const response = await api.send(
+    HTTP_METHODS.PATCH,
+    `/contact-directory/${savedCustomer.primaryContactId}`,
+    {
+      name: "Updated customer contact",
+      phone: "0531234567",
+    },
+  );
   await expectResponseOk(response);
   expect(await read(api, apartment.id)).toMatchObject({
-    contactName: "Updated customer contact",
-    contactPhone: "0531234567",
+    contactName: null,
+    contactPhone: null,
     customerPhone: "0531234567",
   });
 });
@@ -190,8 +200,8 @@ test("apartment number validation, duplicate Hebrew feedback, stage independence
   expect(await read(api, apartment.id)).toMatchObject({
     customerId: null,
     customerName: LEGACY_APARTMENT.CUSTOMER_NAME,
-    contactName: LEGACY_APARTMENT.CONTACT_NAME,
-    contactPhone: LEGACY_APARTMENT.CONTACT_PHONE,
+    contactName: null,
+    contactPhone: null,
   });
 });
 
@@ -224,7 +234,7 @@ test("team inheritance follows parent changes, explicit empty overrides stay emp
   expect(listed).toMatchObject({
     customerId: customer.id,
     customerName: customer.name,
-    contactName: customer.contactName,
+    contactName: null,
     members: [expect.objectContaining(secondTeam[0])],
   });
   await update(api, inherited.id, { members: firstTeam });
