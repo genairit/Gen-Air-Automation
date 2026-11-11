@@ -154,7 +154,7 @@ test("the header new-customer button has the add icon, is not full width and ope
   await customersPage.newCustomerButton.click();
 
   await expect(page).toHaveURL(ROUTES.NEW_CUSTOMER);
-  await expect(page.getByRole("heading", { name: "חיפוש לקוח קיים" })).toBeVisible();
+  await expect(createCustomerFormPage(page).field("TAX_ID")).toBeVisible();
 });
 
 test("the new-customer form shows the approved identity, contact and summary cards", async ({
@@ -291,7 +291,7 @@ test("the action row reads cancel then save, and cancel returns to customer sear
 
   await formPage.cancelButton.click();
 
-  await expect(page.getByRole("heading", { name: "חיפוש לקוח קיים" })).toBeVisible();
+  await expect(page).toHaveURL(ROUTES.CUSTOMERS);
 });
 
 test("customers list counts a new customer as pending and finds it by search", async ({

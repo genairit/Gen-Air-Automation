@@ -17,6 +17,7 @@ import { API_PATHS } from "../../src/constants/api.constant.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { escapeRegex } from "../../src/utilities/regex.utility.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
+import { findCardByTitle } from "../../src/pages/card.component.ts";
 import { formatFullName } from "../../src/utilities/user.utility.ts";
 import { FAKE_PLACES } from "../../src/constants/fake-places.constant.ts";
 import { buildProjectPath } from "../../src/utilities/api-path.utility.ts";
@@ -71,6 +72,37 @@ test("create a project with a verified address and see it on the board", async (
   await boardPage.searchBox.fill(projectName);
 
   await expect(boardPage.findRow(projectName)).toBeVisible();
+});
+
+test("new project searches and links an existing directory contact", async ({ page, api }) => {
+  const customer = await seedCustomer(api);
+  const name = createUniqueName("איש קשר לפרויקט חדש");
+  const contactResponse = await api.send(HTTP_METHODS.POST, "/contact-directory", {
+    name,
+    phone: "+12025550123",
+  });
+  expect(contactResponse.status()).toBe(201);
+  const contact: unknown = await contactResponse.json();
+  if (typeof contact !== "object" || contact === null || !("id" in contact)) {
+    throw new Error("Contact response has no ID");
+  }
+
+  const form = createProjectFormPage(page);
+  await form.goto();
+  await form.fill({
+    name: createUniqueName("פרויקט עם איש קשר"),
+    place: FAKE_PLACES[1],
+    customerName: customer.name,
+    projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL,
+  });
+  const picker = findCardByTitle(page, "אנשי קשר לפרויקט");
+  await picker.getByPlaceholder("שם, טלפון או דוא״ל").fill(name);
+  await picker.getByRole("button", { name: `בחר ${name}` }).click();
+  await form.createButton.click();
+  await expect(page).toHaveURL(ROUTE_PATTERNS.PROJECT);
+  const projectId = readLastPathSegment(page.url());
+  const links = await api.send(HTTP_METHODS.GET, `/project/${projectId}/contacts`);
+  expect(await links.json()).toMatchObject([{ contactId: contact.id, isPrimary: true }]);
 });
 
 test("the project draft banner no longer advertises retired payment storage", async ({ page }) => {
