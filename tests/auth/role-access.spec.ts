@@ -206,7 +206,7 @@ for (const role of CUSTOMER_CREATION_DENIED_ROLES) {
     test("sees a permission denial that leads back to the customers list", async ({ page }) => {
       const formPage = createCustomerFormPage(page);
 
-      await formPage.gotoSearch();
+      await formPage.goto();
 
       await expect(formPage.deniedTitle).toBeVisible();
       await expect(formPage.saveButton).toHaveCount(0);

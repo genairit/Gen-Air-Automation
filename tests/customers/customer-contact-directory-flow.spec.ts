@@ -40,25 +40,12 @@ const projectCustomerId = async (api: TGenAirApi, projectId: string) => {
   return project.customerId;
 };
 
-test("search-first customer creation selects an existing match and saves an optional contact-free customer", async ({
+test("customer creation opens directly and saves an optional contact-free customer", async ({
   page,
   api,
 }) => {
-  const existing = await seedCustomer(api);
   const form = createCustomerFormPage(page);
-  await form.gotoSearch();
-  await expect(page.getByRole("heading", { name: "חיפוש לקוח קיים" })).toBeVisible();
-  await page.getByPlaceholder("חיפוש לקוח").fill(existing.name);
-  await page
-    .getByRole("listbox", { name: "לקוחות קיימים" })
-    .getByRole("button", { name: new RegExp(existing.name) })
-    .click();
-  await expect(page).toHaveURL(new RegExp(`/customers/${existing.id}$`));
-
-  await form.gotoSearch();
-  await page.getByPlaceholder("חיפוש לקוח").fill(createUniqueName("אין התאמה"));
-  await expect(page.getByText("לא נמצאו לקוחות מתאימים")).toBeVisible();
-  await page.getByRole("button", { name: "צור לקוח חדש" }).click();
+  await form.goto();
   await expect(form.field("TAX_ID")).toBeVisible();
   await expect(form.field("TAX_ID")).toBeEmpty();
   const input = buildCustomerInput();
@@ -82,6 +69,42 @@ test("search-first customer creation selects an existing match and saves an opti
   await expect(page.getByText("לא הוגדר איש קשר ללקוח")).toBeVisible();
 });
 
+test("new customer selects an existing directory contact without duplicating it", async ({
+  page,
+  api,
+}) => {
+  const created = await api.send(HTTP_METHODS.POST, "/contact-directory", {
+    name: createUniqueName("איש קשר קיים"),
+    phone: "+12025550123",
+  });
+  expect(created.status()).toBe(201);
+  const contactId = await contactIdFrom(created);
+  const contact: unknown = await created.json();
+  if (!isRecord(contact) || typeof contact.name !== "string") {
+    throw new Error("Contact response has no name");
+  }
+
+  const form = createCustomerFormPage(page);
+  const input = buildCustomerInput();
+  await form.goto();
+  await form.field("NAME").fill(input.name);
+  await form.field("TAX_ID").fill(input.taxId);
+  await form.field("ADDRESS").fill(input.address);
+  await page.getByPlaceholder("שם, טלפון או דוא״ל").fill(contact.name);
+  const picker = findCardByTitle(page, "בחר איש קשר קיים");
+  await picker.getByRole("button", { name: `בחר ${contact.name}` }).click();
+  await expect(form.field("CONTACT_NAME")).toHaveCount(0);
+  await form.saveButton.click();
+  await form.skipProjects();
+
+  const customerId = readLastPathSegment(page.url());
+  const saved = await api.send(HTTP_METHODS.GET, `/customer/${customerId}`);
+  expect(await saved.json()).toMatchObject({
+    primaryContactId: contactId,
+    contactName: contact.name,
+  });
+});
+
 test("customer created from a project form returns to the caller as its selected customer", async ({
   page,
 }) => {
@@ -91,8 +114,7 @@ test("customer created from a project form returns to the caller as its selected
   await page.getByRole("link", { name: "+ לקוח חדש" }).click();
   const customerTab = await opened;
   const customerForm = createCustomerFormPage(customerTab);
-  await expect(customerTab.getByRole("heading", { name: "חיפוש לקוח קיים" })).toBeVisible();
-  await customerTab.getByRole("button", { name: "צור לקוח חדש" }).click();
+  await expect(customerForm.field("TAX_ID")).toBeVisible();
   const input = buildCustomerInput();
   await customerForm.field("NAME").fill(input.name);
   await customerForm.field("TAX_ID").fill(input.taxId);
