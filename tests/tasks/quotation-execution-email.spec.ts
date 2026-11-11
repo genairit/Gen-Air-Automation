@@ -20,7 +20,6 @@ import { readdir, readFile, writeFile, unlink } from "node:fs/promises";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { seedBuilding, seedCustomer } from "../../src/api/seed-data.ts";
 import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
-import { contactsPath } from "../../src/utilities/apartment-import.utility.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 import { createQuotationEmailPage } from "../../src/pages/quotation-email.page.ts";
 import { createTestDatabaseClient } from "../../src/environment/test-database-client.ts";
@@ -68,8 +67,11 @@ const seedQuotation = async (api: Parameters<typeof seedCustomer>[0]) => {
   if (!task) {
     throw new Error("Apartment quotation task was not created");
   }
+  customerProjectIds.set(apartmentCustomer.id, apartment.id);
   return { building, apartment, apartmentCustomer, apartmentNumber, task };
 };
+
+const customerProjectIds = new Map<string, string>();
 
 const addContact = async (
   api: Parameters<typeof seedCustomer>[0],
@@ -77,11 +79,18 @@ const addContact = async (
   name: string,
   email: string | null,
 ) => {
-  const response = await api.send(HTTP_METHODS.POST, contactsPath(customerId), { name, email });
+  const response = await api.send(HTTP_METHODS.POST, "/contact-directory", { name, email });
   expect(response.status()).toBe(201);
   const contact: unknown = await response.json();
   if (!isRecord(contact) || typeof contact.id !== "string" || typeof contact.name !== "string") {
     throw new Error("Contact creation returned an invalid response");
+  }
+  const projectId = customerProjectIds.get(customerId);
+  if (projectId) {
+    const linked = await api.send(HTTP_METHODS.POST, `/project/${projectId}/contacts`, {
+      contactId: contact.id,
+    });
+    expect(linked.status()).toBe(201);
   }
   return { id: contact.id, name: contact.name };
 };

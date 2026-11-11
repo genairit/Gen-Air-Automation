@@ -1,6 +1,5 @@
 import {
   importPath,
-  contactsPath,
   buildImportRow,
   makeImportWorkbook,
   readImportWorkbook,
@@ -16,6 +15,17 @@ import { USER_ROLES, USER_ROLE_VALUES } from "../../src/constants/user-role.cons
 import { seedBuilding, seedCustomer, buildCustomerInput } from "../../src/api/seed-data.ts";
 import { uploadApartments, readBuildingApartments } from "../../src/api/apartment-import.api.ts";
 
+const readLinkedContacts = async (
+  api: Parameters<typeof seedCustomer>[0],
+  apartmentId: string,
+): Promise<Record<string, unknown>[]> => {
+  const response = await api.send(HTTP_METHODS.GET, `/project/${apartmentId}/contacts`);
+  expect(response.status()).toBe(200);
+  const links: unknown = await response.json();
+  if (!Array.isArray(links)) throw new Error("Project contacts must be an array");
+  return links.flatMap(link => (isRecord(link) && isRecord(link.contact) ? [link.contact] : []));
+};
+
 test("template has exactly13Hebrew columns and no building column", async ({ api }) => {
   const building = await seedBuilding(api, await seedCustomer(api));
   const response = await api.download(`${importPath(building.id)}/template`);
@@ -28,7 +38,7 @@ test("template has exactly13Hebrew columns and no building column", async ({ api
   ).toEqual(APARTMENT_IMPORT.HEADERS);
 });
 
-test("partial import persists two customer-owned contacts, exact credit and add-only reimport", async ({
+test("partial import links two directory contacts, exact credit and add-only reimport", async ({
   api,
 }) => {
   const building = await seedBuilding(api, await seedCustomer(api));
@@ -45,11 +55,11 @@ test("partial import persists two customer-owned contacts, exact credit and add-
     apartmentOwnership: "buyer",
     apartmentCredit: "120.50",
   });
-  const contacts = await api.send(HTTP_METHODS.GET, contactsPath(apartments[0].customerId));
-  expect(await contacts.json()).toEqual(
+  const contacts = await readLinkedContacts(api, apartments[0].id);
+  expect(contacts).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
-        name: customer.name,
+        name: APARTMENT_IMPORT.CONTACT_NAME,
         phone: customer.phone,
         email: customer.email,
       }),
@@ -60,7 +70,7 @@ test("partial import persists two customer-owned contacts, exact credit and add-
       }),
     ]),
   );
-  expect(await contacts.json()).toHaveLength(2);
+  expect(contacts).toHaveLength(2);
   expect((await uploadApartments(api, building.id, [row])).counts).toEqual({
     created: 0,
     existing: 1,
@@ -112,15 +122,20 @@ test("contact validation failure rolls back apartment and added contacts for tha
   const building = await seedBuilding(api, await seedCustomer(api));
   const input = buildCustomerInput();
   const customer = await api.createCustomer(input);
-  const before = await api.send(HTTP_METHODS.GET, contactsPath(customer.id));
-  const original: unknown = await before.json();
+  const before: unknown = await (
+    await api.send(HTTP_METHODS.GET, `/customer/${customer.id}`)
+  ).json();
   const row = buildImportRow(input);
   row[6] = "א";
   const result = await uploadApartments(api, building.id, [row]);
   expect(result.counts).toEqual({ created: 0, existing: 0, duplicate: 0, error: 1 });
   expect(await readBuildingApartments(api, building.id)).toEqual([]);
-  const after = await api.send(HTTP_METHODS.GET, contactsPath(customer.id));
-  expect(await after.json()).toEqual(original);
+  const after: unknown = await (
+    await api.send(HTTP_METHODS.GET, `/customer/${customer.id}`)
+  ).json();
+  expect(after).toMatchObject({
+    primaryContactId: isRecord(before) ? before.primaryContactId : null,
+  });
 });
 
 test("structural invalid template creates nothing", async ({ api }) => {
@@ -153,8 +168,7 @@ test("concurrent imports create exactly one apartment and one pair of contacts",
   expect(results.reduce((sum, result) => sum + result.counts.existing, 0)).toBe(1);
   const apartments = await readBuildingApartments(api, building.id);
   expect(apartments).toHaveLength(1);
-  const contacts = await api.send(HTTP_METHODS.GET, contactsPath(apartments[0].customerId));
-  expect(await contacts.json()).toHaveLength(2);
+  expect(await readLinkedContacts(api, apartments[0].id)).toHaveLength(2);
 });
 
 test("concurrent imports in different buildings reuse one new customer and contact pair", async ({
@@ -184,8 +198,7 @@ test("concurrent imports in different buildings reuse one new customer and conta
   expect(await lookup.json()).toMatchObject({
     items: [expect.objectContaining({ id: first[0].customerId, taxId: customer.taxId })],
   });
-  const contacts = await api.send(HTTP_METHODS.GET, contactsPath(first[0].customerId));
-  expect(await contacts.json()).toHaveLength(2);
+  expect(await readLinkedContacts(api, first[0].id)).toHaveLength(2);
 });
 
 test("100rows persist without customer or contact duplication", async ({ api }) => {
@@ -199,8 +212,7 @@ test("100rows persist without customer or contact duplication", async ({ api }) 
   const apartments = await readBuildingApartments(api, building.id);
   expect(apartments).toHaveLength(100);
   expect(new Set(apartments.map(apartment => apartment.customerId)).size).toBe(1);
-  const contacts = await api.send(HTTP_METHODS.GET, contactsPath(apartments[0].customerId));
-  expect(await contacts.json()).toHaveLength(2);
+  expect(await readLinkedContacts(api, apartments[0].id)).toHaveLength(2);
 });
 
 for (const role of USER_ROLE_VALUES.filter(role => role !== USER_ROLES.SYSTEM_ADMIN)) {

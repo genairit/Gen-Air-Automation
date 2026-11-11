@@ -101,7 +101,8 @@ test("new customer selects an existing directory contact without duplicating it"
   const saved = await api.send(HTTP_METHODS.GET, `/customer/${customerId}`);
   expect(await saved.json()).toMatchObject({
     primaryContactId: contactId,
-    contactName: contact.name,
+    contactName: null,
+    primaryContact: { name: contact.name },
   });
 });
 
@@ -145,7 +146,10 @@ test("international numbers save, reload, dial, and reject malformed values acro
   await expect(page.locator('a[href="tel:+442071838750"]')).toBeVisible();
   const customerId = readLastPathSegment(page.url());
   const saved = await api.send(HTTP_METHODS.GET, `/customer/${customerId}`);
-  expect(await saved.json()).toMatchObject({ phone: "+44 20 7183 8750" });
+  expect(await saved.json()).toMatchObject({
+    phone: null,
+    primaryContact: { phone: "+44 20 7183 8750" },
+  });
   const malformed = await api.send(HTTP_METHODS.POST, "/contact-directory", {
     name: "Invalid",
     phone: "+44123",
@@ -209,7 +213,7 @@ test("one directory contact links to a project and apartment, then unlinking pre
   await expect(page.locator('a[href="tel:+12025550123"]')).toBeVisible();
   const primary = await api.send(HTTP_METHODS.GET, `/customer/${customer.id}`);
   const primaryRecord: unknown = await primary.json();
-  expect(primaryRecord).toMatchObject({ contactName: customer.contactName });
+  expect(primaryRecord).toMatchObject({ contactName: null });
   if (!isRecord(primaryRecord)) {
     throw new Error("Customer response is not an object");
   }

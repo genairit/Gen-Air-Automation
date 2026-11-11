@@ -113,21 +113,14 @@ export const isProjectType = createStringFieldsGuard<IProjectType>(["id", "name"
 
 export const isProjectTypeList = createArrayGuard(isProjectType);
 
-export const isCustomer = createStringFieldsGuard<ICustomer>([
-  "id",
-  "name",
-  "taxId",
-  "contactName",
-]);
+export const isCustomer = (value: unknown): value is ICustomer =>
+  createStringFieldsGuard<ICustomer>(["id", "name", "taxId"])(value) &&
+  isRecord(value) &&
+  (value.contactName === null || typeof value.contactName === "string");
 
-export const isCustomerRecord = createStringFieldsGuard<ICustomerRecord>([
-  "id",
-  "name",
-  "taxId",
-  "contactName",
-  "customerType",
-  "prioritySyncStatus",
-]);
+export const isCustomerRecord = (value: unknown): value is ICustomerRecord =>
+  isCustomer(value) &&
+  createStringFieldsGuard<ICustomerRecord>(["customerType", "prioritySyncStatus"])(value);
 
 export const isSession = (value: unknown): value is ISession =>
   isRecord(value) && typeof value.accessToken === "string" && isAuthorizedUser(value.user);
