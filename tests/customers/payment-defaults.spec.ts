@@ -57,6 +57,7 @@ for (const option of [PAYMENT_DEFAULT_NONE_OPTION, PAYMENT_DEFAULT_OPTIONS[0]]) 
     const created: unknown = await response.json();
     expect(created).toMatchObject({ paymentTerms: option.value });
     expect(created).not.toHaveProperty("paymentTermsNote");
+    await form.skipProjects();
     await expect(page).toHaveURL(ROUTE_PATTERNS.CUSTOMER);
     const id = readLastPathSegment(page.url());
     await page.reload();

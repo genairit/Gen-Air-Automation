@@ -33,11 +33,10 @@ export const CONTACT_ROLES = {
 } as const;
 
 export const PROJECT_STATUS_NAMES = {
-  DRAFT: "טיוטה",
-  DONE: "הסתיים",
-  ON_HOLD: "להמתין",
-  PENDING: "ממתין",
+  NOT_STARTED: "טרם בעבודה",
   IN_PROGRESS: "בעבודה",
+  WAITING_RESPONSE: "מחכה לתשובה",
+  COMPLETED: "הושלם",
 } as const;
 
 export const TASK_STATUS_NAMES = {

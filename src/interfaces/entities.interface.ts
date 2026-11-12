@@ -66,7 +66,8 @@ export interface IUser extends IEntityReference {
 export interface ICustomer extends IEntityReference {
   name: string;
   taxId: string;
-  contactName: string;
+  contactName: string | null;
+  primaryContact?: { name: string; phone: string | null; email: string | null } | null;
 }
 
 export interface ICustomerRecord extends ICustomer {

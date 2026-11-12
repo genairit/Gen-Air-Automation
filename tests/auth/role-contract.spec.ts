@@ -33,7 +33,7 @@ const RENAMED_TASK_PREFIX = "משימה עם אחראי ותיק";
 
 const sortRoles = (roles: readonly string[]) => [...roles].sort();
 
-test("role counts report exactly the six roles", async ({ api }) => {
+test("role counts report exactly the eight roles", async ({ api }) => {
   const counts = await api.readRoleCounts();
 
   expect(sortRoles(Object.keys(counts))).toEqual(sortRoles([...USER_ROLE_VALUES, "total"]));

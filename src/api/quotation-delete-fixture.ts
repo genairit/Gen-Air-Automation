@@ -27,6 +27,15 @@ export const seedQuotationForDeletion = async (api: TGenAirApi, status: Quotatio
       );
       return transition(acknowledged, QUOTATION.STATUS.APPROVED);
     },
+    [QUOTATION.STATUS.CANCELLED]: async () => {
+      const review = await builders[QUOTATION.STATUS.REVIEW]();
+      return quotationDocument(
+        await api.send(HTTP_METHODS.POST, `/quotation/${review.id}/cancel`, {
+          version: review.version,
+          reason: "Automation deletion coverage",
+        }),
+      );
+    },
   };
   return { ...fixture, quotation: await builders[status]() };
 };

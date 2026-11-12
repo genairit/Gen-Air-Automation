@@ -39,7 +39,7 @@ import { verifyApartmentMigration } from "../../src/environment/apartment-migrat
 import { RETIRED_PROJECT_PAYMENT_FIELDS } from "../../src/constants/payment-default.constant.ts";
 
 const MISSING_ID = "00000000-0000-4000-8000-000000000000";
-const MEMBER_ROLE = USER_ROLES.ENGINEER;
+const MEMBER_ROLE = USER_ROLES.INSTALLER;
 
 const input = (customerId: string, changes: object = {}) => ({
   customerId,
@@ -87,7 +87,7 @@ test("migration upgrades legacy apartments without losing data, backfills teams 
   expect(await read(api, unrelated.id)).toMatchObject({ customerId: customer.id });
 });
 
-test("new apartment links its own customer and reads contact live without inheriting the building customer", async ({
+test("new apartment links its own customer and reads primary contact phone without inheriting the building customer", async ({
   api,
 }) => {
   const { building, customer } = await scenario(api);
@@ -97,20 +97,30 @@ test("new apartment links its own customer and reads contact live without inheri
   expect(await read(api, apartment.id)).toMatchObject({
     customerId: customer.id,
     customerName: customer.name,
-    contactName: customer.contactName,
+    contactName: null,
     hasOwnTeam: false,
     customerApartment: scopedApartmentNumber("24א"),
     parentProjectId: building.id,
   });
   await update(api, apartment.id, { notes: "Apartment note" });
-  const response = await api.send(HTTP_METHODS.PATCH, buildCustomerPath(customer.id), {
-    contactName: "Updated customer contact",
-    phone: "0531234567",
-  });
+  const savedCustomer: unknown = await (
+    await api.send(HTTP_METHODS.GET, buildCustomerPath(customer.id))
+  ).json();
+  if (!isRecord(savedCustomer) || typeof savedCustomer.primaryContactId !== "string") {
+    throw new Error("Customer primary contact is missing");
+  }
+  const response = await api.send(
+    HTTP_METHODS.PATCH,
+    `/contact-directory/${savedCustomer.primaryContactId}`,
+    {
+      name: "Updated customer contact",
+      phone: "0531234567",
+    },
+  );
   await expectResponseOk(response);
   expect(await read(api, apartment.id)).toMatchObject({
-    contactName: "Updated customer contact",
-    contactPhone: "0531234567",
+    contactName: null,
+    contactPhone: null,
     customerPhone: "0531234567",
   });
 });
@@ -190,8 +200,8 @@ test("apartment number validation, duplicate Hebrew feedback, stage independence
   expect(await read(api, apartment.id)).toMatchObject({
     customerId: null,
     customerName: LEGACY_APARTMENT.CUSTOMER_NAME,
-    contactName: LEGACY_APARTMENT.CONTACT_NAME,
-    contactPhone: LEGACY_APARTMENT.CONTACT_PHONE,
+    contactName: null,
+    contactPhone: null,
   });
 });
 
@@ -224,7 +234,7 @@ test("team inheritance follows parent changes, explicit empty overrides stay emp
   expect(listed).toMatchObject({
     customerId: customer.id,
     customerName: customer.name,
-    contactName: customer.contactName,
+    contactName: null,
     members: [expect.objectContaining(secondTeam[0])],
   });
   await update(api, inherited.id, { members: firstTeam });
@@ -278,12 +288,13 @@ test("apartments have no payment fields and reject retired creation and update i
 });
 
 for (const role of USER_ROLE_VALUES) {
-  test(`${role} apartment creation and team changes retain project-editor permissions`, async ({
+  test(`${role} apartment creation, engineer assignment and team changes retain project-editor permissions`, async ({
     api,
     apiAs,
   }) => {
     const { building, customer } = await scenario(api);
     const apartment = await create(api, building, customer);
+    const engineer = await seedUser(api, USER_ROLES.ENGINEER);
     const editor = await apiAs(TEST_USERS[role]);
     const created = await editor.send(
       HTTP_METHODS.POST,
@@ -293,12 +304,17 @@ for (const role of USER_ROLE_VALUES) {
     const changed = await editor.send(HTTP_METHODS.PATCH, buildProjectPath(apartment.id), {
       members: [],
     });
+    const engineerChanged = await editor.send(HTTP_METHODS.PATCH, buildProjectPath(apartment.id), {
+      engineerUserId: engineer.id,
+    });
     if (ROLE_ACCESS[role].canEditProject) {
       await expectResponseStatus(created, HTTP_STATUS.CREATED);
       await expectResponseOk(changed);
+      await expectResponseOk(engineerChanged);
       return;
     }
     await expectForbidden(created);
     await expectForbidden(changed);
+    await expectForbidden(engineerChanged);
   });
 }

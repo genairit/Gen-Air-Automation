@@ -2,6 +2,8 @@ import type {
   CatalogueStatusType,
   QuotationStatusType,
   QuotationSystemType,
+  QuotationCancellationKindType,
+  QuotationRestorableStatusType,
 } from "../constants/quotation.constant.ts";
 
 export interface ICatalogueFixture {
@@ -42,6 +44,7 @@ export interface IQuotationLine {
 export interface IQuotationSection {
   id: string;
   title: string;
+  brand: string | null;
   items: IQuotationLine[];
   systemType: QuotationSystemType;
 }
@@ -50,6 +53,17 @@ export interface IQuotationWarning {
   text: string;
   acknowledged: boolean;
 }
+export interface IQuotationCancellation {
+  reason: string;
+  cancelledAt: string;
+  cancelledById: string;
+  cancelledByName: string;
+  restoredAt: string | null;
+  restoredById: string | null;
+  restoredByName: string | null;
+  kind: QuotationCancellationKindType;
+  fromStatus: QuotationRestorableStatusType;
+}
 export interface IQuotationDocument {
   id: string;
   date: string;
@@ -57,20 +71,26 @@ export interface IQuotationDocument {
   number: string;
   version: number;
   vatRate: string;
+  brands: string[];
   customerId: string;
   internalNotes: string;
   discountPercent: string;
   projectId: string | null;
   paymentTermsNote: string;
   approvedAt: string | null;
+  salesAgentId: string | null;
+  warningScopeVersion: number;
   paymentTerms: string | null;
   approvedById: string | null;
   status: QuotationStatusType;
   ruleConfigFingerprint: string;
   sections: IQuotationSection[];
   warnings: IQuotationWarning[];
+  salesAgentName?: string | null;
   targetPretaxAmount: string | null;
+  cancellationHistory: IQuotationCancellation[];
   paymentSchedule: { percent: string; text: string }[];
+  cancelledFromStatus: QuotationRestorableStatusType | null;
   totals: { subtotal: string; discount: string; pretax: string; vat: string; total: string };
 }
 export interface IQuotationWriteLine extends Pick<
@@ -89,6 +109,7 @@ export interface IQuotationWriteSection extends Pick<
   IQuotationSection,
   "id" | "title" | "systemType"
 > {
+  brand?: string | null;
   items: IQuotationWriteLine[];
 }
 export interface IQuotationWrite extends Pick<
@@ -105,5 +126,7 @@ export interface IQuotationWrite extends Pick<
   | "targetPretaxAmount"
   | "internalNotes"
 > {
+  brands?: string[];
+  salesAgentId?: string | null;
   sections: IQuotationWriteSection[];
 }

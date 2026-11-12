@@ -50,7 +50,7 @@ for (const role of USER_ROLE_VALUES) {
   });
 }
 
-test("the role picker offers exactly the six roles", async ({ page }) => {
+test("the role picker offers exactly the eight roles", async ({ page }) => {
   const employeesPage = createEmployeesPage(page);
 
   await employeesPage.goto();
@@ -68,7 +68,7 @@ test("employee creation requires matching chosen password and the new account ca
   const employeesPage = createEmployeesPage(page);
   const employee = {
     role: USER_ROLES.SECRETARY,
-    phone: createMobilePhone(),
+    phone: "+442071838750",
     password: createUniquePassword(),
     name: createUniqueName(NEW_EMPLOYEE_PREFIXES.NAME),
     email: createUniqueEmail(NEW_EMPLOYEE_PREFIXES.EMAIL),
@@ -88,11 +88,14 @@ test("employee creation requires matching chosen password and the new account ca
   await employeesPage.addButton.click();
 
   await expect(employeesPage.findRow(employee.email)).toBeVisible();
+  await expect(
+    employeesPage.findRow(employee.email).locator('a[href="tel:+442071838750"]'),
+  ).toBeVisible();
   const actor = await apiAs(employee);
   expect(actor.session.user.email).toBe(employee.email);
 });
 
-test("the role filters narrow the table to each of the six roles", async ({ page, api }) => {
+test("the role filters narrow the table to each of the eight roles", async ({ page, api }) => {
   const employeesPage = createEmployeesPage(page);
   const employees = await Promise.all(USER_ROLE_VALUES.map(role => seedUser(api, role)));
 

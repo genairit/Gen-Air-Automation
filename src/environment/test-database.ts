@@ -19,7 +19,7 @@ import EmbeddedPostgres from "embedded-postgres";
 import { readdir, readFile, rm } from "node:fs/promises";
 import { applyStagedMigrations } from "./staged-migrations.ts";
 import { hashPassword } from "../utilities/password.utility.ts";
-import { TEST_USERS } from "../constants/test-users.constant.ts";
+import { SETUP_TEST_USERS } from "../constants/test-users.constant.ts";
 import { compareMigrationFiles } from "../utilities/migration-order.utility.ts";
 
 const MIGRATIONS_DIRECTORY = join(APP_DIRECTORIES.BACKEND, "migrations");
@@ -78,7 +78,7 @@ const applyMigrations = async (client: pg.Client) => {
 };
 
 const seedTestUsers = async (client: pg.Client) => {
-  for (const user of Object.values(TEST_USERS)) {
+  for (const user of SETUP_TEST_USERS) {
     const passwordHash = await hashPassword(user.password);
 
     await client.query(INSERT_USER_SQL, [

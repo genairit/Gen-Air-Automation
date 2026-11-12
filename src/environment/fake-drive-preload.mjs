@@ -1,5 +1,8 @@
 import Module from "node:module";
+import { join } from "node:path";
 import { existsSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { appendFile, mkdir, readFile } from "node:fs/promises";
 
 const originalLoad = Module._load;
 const folderMimeType = "application/vnd.google-apps.folder";
@@ -16,6 +19,23 @@ const fixedMetadata = {
   "qa-foreign-plan": item("qa-foreign-plan", "תוכנית זרה.pdf", "application/pdf", [
     "qa-foreign-root",
   ]),
+};
+const createdMetadata = new Map();
+const foldersByParentAndName = new Map();
+const legacyRelocated = new Set();
+const folderKey = (parentId, name) => JSON.stringify([parentId, name]);
+
+const applyLegacyMarker = id => {
+  const directory = process.env.GEN_AIR_FAKE_DRIVE_STATE_DIR;
+  const folder = createdMetadata.get(id);
+  if (!directory || !folder || legacyRelocated.has(id)) {
+    return;
+  }
+  if (!existsSync(join(directory, `legacy-${id}`))) {
+    return;
+  }
+  createdMetadata.set(id, { ...folder, parents: ["qa-drive-root"] });
+  legacyRelocated.add(id);
 };
 
 const dynamicMetadata = [
@@ -36,6 +56,10 @@ const dynamicMetadata = [
 ];
 
 const metadata = id => {
+  applyLegacyMarker(id);
+  if (createdMetadata.has(id)) {
+    return createdMetadata.get(id);
+  }
   if (Object.hasOwn(fixedMetadata, id)) {
     return fixedMetadata[id];
   }
@@ -59,23 +83,63 @@ const fakeMethods = {
   getProjectsRootFolderId: () => "qa-drive-root",
   getFileMetadata: async id => metadata(id),
   findParentIds: async id => metadata(id)?.parents ?? null,
-  ensureFolder: async (_name, _parent, projectId) =>
-    projectId ? projectRoot(projectId) : "qa-template-folder",
+  ensureFolder: async (name, parentId, projectId) => {
+    const key = folderKey(parentId, name);
+    const existing = foldersByParentAndName.get(key);
+    if (existing) {
+      return existing;
+    }
+    const id = projectId ? projectRoot(projectId) : `qa-folder-${createdMetadata.size + 1}`;
+    createdMetadata.set(id, item(id, name, folderMimeType, [parentId]));
+    foldersByParentAndName.set(key, id);
+    return id;
+  },
+  uploadFile: async ({ name, localPath, parentId, mimeType }) => {
+    const id = `qa-upload-${createdMetadata.size + 1}`;
+    const uploaded = item(id, name, mimeType, [parentId]);
+    createdMetadata.set(id, uploaded);
+    const directory = process.env.GEN_AIR_FAKE_DRIVE_STATE_DIR;
+    if (directory) {
+      await mkdir(directory, { recursive: true });
+      const content = await readFile(localPath);
+      const bytes = content.length;
+      const sha256 = createHash("sha256").update(content).digest("hex");
+      await appendFile(
+        join(directory, "uploads.jsonl"),
+        `${JSON.stringify({ id, name, parentId, mimeType, bytes, sha256 })}\n`,
+      );
+    }
+    return displayItem(uploaded);
+  },
+  moveFile: async ({ fileId, parentIds, destinationFolderId }) => {
+    const source = metadata(fileId);
+    if (!source || JSON.stringify(source.parents) !== JSON.stringify(parentIds)) {
+      throw new Error("Fake Drive source parent changed");
+    }
+    createdMetadata.set(fileId, { ...source, parents: [destinationFolderId] });
+    foldersByParentAndName.set(folderKey(destinationFolderId, source.name), fileId);
+  },
   countDescendantFiles: async ids => new Map(ids.map(id => [id, 2])),
   listChildren: async id => {
+    const created = [...createdMetadata.values()]
+      .filter(candidate => candidate.parents.includes(id))
+      .map(displayItem);
     const projectId = projectIdFrom(id, "qa-project-");
     if (projectId) {
-      return [displayItem(metadata(nestedFolder(projectId)))];
+      return [...created, displayItem(metadata(nestedFolder(projectId)))];
     }
 
     const nestedProjectId = projectIdFrom(id, "qa-nested-");
     if (nestedProjectId) {
-      return [planFile(nestedProjectId), zipFile(nestedProjectId)].map(fileId =>
-        displayItem(metadata(fileId)),
-      );
+      return [
+        ...created,
+        ...[planFile(nestedProjectId), zipFile(nestedProjectId)].map(fileId =>
+          displayItem(metadata(fileId)),
+        ),
+      ];
     }
 
-    return [];
+    return created;
   },
   downloadFile: async id => {
     const contentByPrefix = {

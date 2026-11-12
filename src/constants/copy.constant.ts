@@ -54,11 +54,13 @@ export const CUSTOMER_FORM_COPY = {
   EYEBROW: "לקוחות",
   TITLE: "לקוח חדש",
   SAVE: "שמור לקוח",
+  SKIP: "דלג",
+  CREATE: "צור לקוח חדש",
   TYPE: "סוג הלקוח",
   SUMMARY: "מה יישמר",
   REQUIRED: "שדה חובה",
   IDENTITY: "זהות הלקוח",
-  CONTACT: "איש קשר ראשון",
+  CONTACT: "איש קשר של הלקוח (לא חובה)",
   CONFLICT_STATUS: "הפעולה מתנגשת בנתונים קיימים",
   DUPLICATE_TAX_ID: "לקוח עם מספר מזהה זה כבר קיים",
   FIELDS: {
@@ -67,7 +69,7 @@ export const CUSTOMER_FORM_COPY = {
     ADDRESS: "כתובת",
     NAME: "שם הלקוח",
     TAX_ID: "ח.פ / ת.פ / ת.ז",
-    CONTACT_NAME: "איש קשר ראשון",
+    CONTACT_NAME: "שם איש הקשר",
   },
 } as const;
 
@@ -92,12 +94,12 @@ export const CUSTOMER_FIELD_PLACEHOLDERS: Record<CustomerFieldType, string> = {
   EMAIL: "name@company.co.il",
   NAME: "בבלי נדל״ן ופיתוח בע״מ",
   CONTACT_NAME: SHARED_COPY.PERSON_NAME_PLACEHOLDER,
-  PHONE: SHARED_COPY.MOBILE_PHONE_PLACEHOLDER,
+  PHONE: "+44 20 7183 8750",
 };
 
 export const CUSTOMER_FIELD_HINTS = {
   TAX_ID: "9 ספרות, נבדק מול ספרת ביקורת",
-  PHONE: "נייד או קווי, עם או בלי מקף",
+  PHONE: "מספר ישראלי מקומי או מספר בינלאומי עם + וקידומת מדינה",
 } as const;
 
 export const CUSTOMER_TYPE_LABELS = {
@@ -120,6 +122,7 @@ export const CUSTOMER_SUMMARY_VALUES = {
 export const TASKS_COPY = {
   REMOVED_MANAGERS_NOTE: "הקצאת משימות למנהלים בלבד",
   NEW_TASK: "משימה חדשה",
+  CREATE_BUTTON: "+ משימה",
   CREATE_DENIED: "אין הרשאה להקצאת משימות",
 } as const;
 
@@ -158,17 +161,27 @@ export const PROJECT_FORM_COPY = {
   EDIT_DENIED: "אין הרשאה לעריכת פרויקטים",
   ADDRESS: "כתובת הפרויקט",
   NAME: "שם הפרויקט / כותרת הנדסית",
+  NOTES_LABEL: "הערות כלליות",
+  NOTES_TITLE: "הערות כלליות לבניין",
   ADDRESS_VERIFIED: "כתובת מאומתת ע״י Google Maps",
   CONTACT_NAME_PLACEHOLDER: SHARED_COPY.PERSON_NAME_PLACEHOLDER,
   CONTACT_PHONE_PLACEHOLDER: SHARED_COPY.MOBILE_PHONE_PLACEHOLDER,
   CUSTOMER_SEARCH_PLACEHOLDER: "חיפוש לקוח לפי שם, ח.פ, איש קשר או טלפון...",
 } as const;
 
+export const BUILDING_NOTES_COPY = {
+  PARENT_CARD: "הערות הפרויקט האב",
+  APARTMENT_CARD: "הערות הדירה",
+  NO_NOTES: "אין הערות לבניין",
+  INHERITED_BADGE: "קריאה בלבד",
+  TAMA_BADGE: "תמ״א",
+} as const;
+
 export const PROJECT_PAGE_COPY = {
   STAGE_PREFIX: "שלב:",
   STAGE_TITLE: "שלב הפרויקט",
   EDIT: "עריכת פרויקט",
-  NEW_TASK: "+ משימה חדשה",
+  NEW_TASK: "+ משימה",
   NOT_FOUND: "הפרויקט לא נמצא",
   ADD_APARTMENT: SHARED_COPY.ADD_APARTMENT,
   TEAM_TITLE: "צוות הפרויקט המוקצה",

@@ -85,6 +85,8 @@ export const createCustomerFormPage = (page: Page) => {
   });
 
   const goto = () => page.goto(ROUTES.NEW_CUSTOMER);
+  const skipProjects = () =>
+    main.getByRole("button", { name: CUSTOMER_FORM_COPY.SKIP, exact: true }).click();
 
   const field = (name: CustomerFieldType) =>
     main.getByRole("textbox", { name: CUSTOMER_FORM_COPY.FIELDS[name], exact: true });
@@ -119,6 +121,7 @@ export const createCustomerFormPage = (page: Page) => {
     requiredErrors,
     backToCustomersButton,
     goto,
+    skipProjects,
     fill,
     field,
     chooseType,

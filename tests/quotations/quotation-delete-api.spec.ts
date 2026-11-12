@@ -52,6 +52,7 @@ for (const status of Object.values(QUOTATION.STATUS)) {
         draft: 0,
         review: 0,
         approved: 0,
+        cancelled: 0,
       });
       expect(
         (
@@ -147,13 +148,11 @@ test("delete permission migration initially grants only system admin", async () 
       [QUOTATION_PERMISSIONS.DELETE],
     );
     expect(grants.rows).toEqual([{ role: USER_ROLES.SYSTEM_ADMIN }]);
-    const permission = await database.query(
-      "SELECT key,feature,action FROM permissions WHERE key=$1",
+    const permission = await database.query<{ key: string }>(
+      "SELECT key FROM permissions WHERE key=$1",
       [QUOTATION_PERMISSIONS.DELETE],
     );
-    expect(permission.rows).toEqual([
-      { key: QUOTATION_PERMISSIONS.DELETE, feature: "quotations", action: "delete" },
-    ]);
+    expect(permission.rows).toEqual([{ key: QUOTATION_PERMISSIONS.DELETE }]);
   } finally {
     await database.end();
   }

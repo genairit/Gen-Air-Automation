@@ -29,7 +29,7 @@ const ADMIN = USER_ROLES.SYSTEM_ADMIN;
 const FINANCE = USER_ROLES.FINANCE;
 const ENGINEER = USER_ROLES.ENGINEER;
 
-test("six assigned roles persist, but the original JWT grants only the current active role", async ({
+test("eight assigned roles persist, but the original JWT grants only the current active role", async ({
   api,
   apiAs,
 }) => {

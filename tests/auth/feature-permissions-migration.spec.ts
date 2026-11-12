@@ -8,9 +8,9 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { test, expect } from "../../src/fixtures/api.fixture.ts";
-import { USER_ROLE_VALUES } from "../../src/constants/user-role.constant.ts";
 import { APP_DIRECTORIES } from "../../src/constants/environment.constant.ts";
 import { compareMigrationFiles } from "../../src/utilities/migration-order.utility.ts";
+import { USER_ROLES, USER_ROLE_VALUES } from "../../src/constants/user-role.constant.ts";
 import { createTestDatabaseClient } from "../../src/environment/test-database-client.ts";
 
 const DIRECTORY = join(APP_DIRECTORIES.BACKEND, "migrations");
@@ -51,7 +51,11 @@ test("feature migration preserves existing data and enforces grants, keys and pr
     const roles = await database.query<{ role: string }>(
       "SELECT DISTINCT role::text AS role FROM role_permissions ORDER BY role::text",
     );
-    expect(roles.rows.map(row => row.role)).toEqual([...USER_ROLE_VALUES].sort());
+    expect(roles.rows.map(row => row.role)).toEqual(
+      USER_ROLE_VALUES.filter(
+        role => role !== USER_ROLES.PURCHASING_EXECUTION_MANAGER && role !== USER_ROLES.SALES_AGENT,
+      ).sort(),
+    );
     const security = await database.query(
       "SELECT relname, relrowsecurity FROM pg_class WHERE relname IN ('permissions','role_permissions') ORDER BY relname",
     );
