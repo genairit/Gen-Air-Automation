@@ -61,12 +61,12 @@ const seedQuotation = async (api: Parameters<typeof seedCustomer>[0]) => {
   } finally {
     await database.end();
   }
-  const task = (await api.getProjectTasks(apartment.id)).items.find(
-    item => item.taskType === TASK_TYPES.QUOTATION,
-  );
-  if (!task) {
-    throw new Error("Apartment quotation task was not created");
-  }
+  const task = await api.createTask({
+    projectId: apartment.id,
+    taskType: TASK_TYPES.QUOTATION,
+    title: `הצעת מחיר — ${apartment.name}`,
+    description: "הכנת הצעה",
+  });
   customerProjectIds.set(apartmentCustomer.id, apartment.id);
   return { building, apartment, apartmentCustomer, apartmentNumber, task };
 };
@@ -615,18 +615,25 @@ test("missing apartment number blocks preview and send but leaves the quotation 
 }) => {
   const customer = await seedCustomer(api);
   const building = await seedBuilding(api, customer);
-  const task = (await api.getProjectTasks(building.id)).items.find(
-    item => item.taskType === TASK_TYPES.QUOTATION,
-  );
-  if (!task) {
-    throw new Error("Building quotation task was not created");
-  }
+  const task = await api.createTask({
+    projectId: building.id,
+    taskType: TASK_TYPES.QUOTATION,
+    title: `הצעת מחיר — ${building.name}`,
+    description: "הכנת הצעה",
+  });
   const architect = await addContact(
     api,
     customer.id,
     createUniqueName("אדריכלית"),
     "qa-architect@example.test",
   );
+  expect(
+    (
+      await api.send(HTTP_METHODS.POST, `/project/${building.id}/contacts`, {
+        contactId: architect.id,
+      })
+    ).status(),
+  ).toBe(201);
   await completeQuotation(api, task.id);
   const path = `/quotation-execution-email/${task.id}`;
   const preview = await api.send(HTTP_METHODS.POST, `${path}/preview`, {
@@ -646,7 +653,9 @@ test("missing apartment number blocks preview and send but leaves the quotation 
   const emailPage = createQuotationEmailPage(page);
   await emailPage.open(task.id);
   const dialog = emailPage.dialog;
-  await expect(dialog.getByRole("alert")).toContainText("יש להזין מספר דירה בפרויקט");
+  await expect(
+    dialog.getByRole("alert").filter({ hasText: "יש להזין מספר דירה בפרויקט" }),
+  ).toBeVisible();
   await emailPage.chooseArchitect(architect.name);
   await emailPage.setVersion("09");
   await expect(emailPage.nextButton).toBeDisabled();

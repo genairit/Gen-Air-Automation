@@ -101,6 +101,9 @@ test("approved building quotation shares one record with selected apartments and
   const otherBuilding = await seedBuilding(api, await seedCustomer(api));
   const unrelated = await seedApartment(api, otherBuilding);
   const { draft } = await createBuildingQuotation(api, building.id, customer);
+  for (const projectId of [building.id, first.id, second.id]) {
+    expect((await api.getProjectTasks(projectId)).items).toEqual([]);
+  }
   const quote = createQuotationPage(page);
 
   await quote.goto(draft.id);
@@ -109,6 +112,9 @@ test("approved building quotation shares one record with selected apartments and
   await expect(sharing.getByRole("switch", { name: LINK_COPY.SHARING_SWITCH })).toBeDisabled();
   await expect(sharing.getByText("אפשר לשתף עם דירות לאחר אישור ההצעה.")).toBeVisible();
   await approveQuotation(api, draft);
+  for (const projectId of [building.id, first.id, second.id]) {
+    expect((await api.getProjectTasks(projectId)).items).toEqual([]);
+  }
   await page.reload();
 
   const sharingSwitch = sharing.getByRole("switch", { name: LINK_COPY.SHARING_SWITCH });
@@ -126,6 +132,9 @@ test("approved building quotation shares one record with selected apartments and
   await sharing.getByRole("button", { name: "שמירת שיתוף" }).click();
   expect((await saved).status()).toBe(200);
   await expect(sharing.getByText("משותפת ל-2 דירות")).toBeVisible();
+  for (const projectId of [building.id, first.id, second.id]) {
+    expect((await api.getProjectTasks(projectId)).items).toEqual([]);
+  }
 
   const linked = await quotationDocument(
     await api.send(HTTP_METHODS.GET, `/quotation/${draft.id}`),
@@ -211,6 +220,9 @@ test("approved building quotation shares one record with selected apartments and
   await sharing.getByRole("button", { name: "הסרת שיתוף" }).click();
   expect((await removed).status()).toBe(200);
   await expect(sharing.getByText("ההצעה אינה משותפת עם דירות.")).toBeVisible();
+  for (const projectId of [building.id, first.id, second.id]) {
+    expect((await api.getProjectTasks(projectId)).items).toEqual([]);
+  }
   await page.reload();
   await expect(sharingSwitch).not.toBeChecked();
   const retained = await quotationDocument(
