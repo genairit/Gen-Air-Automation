@@ -1,5 +1,6 @@
 import { expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { selectMuiOption } from "./mui-select.component.ts";
 import { HTTP_METHODS } from "../constants/http.constant.ts";
 
 export const createQuotationPage = (page: Page) => {
@@ -24,9 +25,9 @@ export const createQuotationPage = (page: Page) => {
   const fill = (name: string, value: string, index = 0) =>
     saved(() => field(name).nth(index).fill(value));
   const select = (name: string, value: string, index = 0) =>
-    saved(() => field(name).nth(index).selectOption(value));
+    saved(() => selectMuiOption(page, field(name).nth(index), value));
   const addBrandTab = (brand: string) =>
-    saved(() => field("הוספת לשונית חברה").selectOption(brand));
+    saved(() => selectMuiOption(page, field("הוספת לשונית חברה"), brand));
   const chooseEntity = async (name: string, label: string) => {
     await field(name).fill(label);
     await page.getByRole("option", { name: label, exact: true }).click();

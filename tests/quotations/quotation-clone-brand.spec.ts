@@ -17,6 +17,7 @@ import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { createQuotationPage } from "../../src/pages/quotation.page.ts";
 import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
+import { selectMuiOption } from "../../src/pages/mui-select.component.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 import { createCatalogueFixture } from "../../src/environment/quotation-fixtures.ts";
 import type { IQuotationDocument } from "../../src/interfaces/quotation.interface.ts";
@@ -218,18 +219,20 @@ test("clone creation page requires explicit review of compatible target-brand su
   ).toBeVisible();
   const create = page.getByRole("button", { name: "צור הצעה חדשה" });
   await expect(create).toBeDisabled();
-  await page.getByLabel("חברת מיזוג חדשה").selectOption(QUOTATION.OTHER_BRAND);
+  await selectMuiOption(page, page.getByLabel("חברת מיזוג חדשה"), QUOTATION.OTHER_BRAND);
   const choice = page.getByLabel(`חלופה עבור ${sourceItem.sku}`, { exact: true });
-  await expect(choice.locator("option").filter({ hasText: replacement.sku })).toHaveCount(1);
-  await expect(choice.locator("option").filter({ hasText: wrongRole.sku })).toHaveCount(0);
-  await expect(choice.locator("option").filter({ hasText: wrongType.sku })).toHaveCount(0);
-  await expect(choice.locator("option").filter({ hasText: wrongSystem.sku })).toHaveCount(0);
-  await expect(choice.locator("option").filter({ hasText: zeroCapacity.sku })).toHaveCount(0);
+  await choice.click();
+  await expect(page.getByRole("option").filter({ hasText: replacement.sku })).toHaveCount(1);
+  await expect(page.getByRole("option").filter({ hasText: wrongRole.sku })).toHaveCount(0);
+  await expect(page.getByRole("option").filter({ hasText: wrongType.sku })).toHaveCount(0);
+  await expect(page.getByRole("option").filter({ hasText: wrongSystem.sku })).toHaveCount(0);
+  await expect(page.getByRole("option").filter({ hasText: zeroCapacity.sku })).toHaveCount(0);
+  await page.keyboard.press("Escape");
   await expect(create).toBeDisabled();
   await expect(page.getByText("1 שורות ממתינות לבחירת חלופה")).toBeVisible();
   await expect(page.getByRole("button", { name: "אשר חלופה מוצעת" })).toBeVisible();
-  await choice.selectOption(replacement.id);
-  await expect(choice).toHaveValue(replacement.id);
+  await selectMuiOption(page, choice, replacement.id);
+  await expect(choice).toContainText(replacement.sku);
   await expect(create).toBeEnabled();
   await create.click();
   await expect(page).toHaveURL(/\/quotations\/[\w-]+$/);
@@ -256,18 +259,22 @@ test("clone creation remains disabled until every branded line has a reviewed re
   firstSection.items.push(line(secondItem.id, "Second brand line"));
   const updated = await saveQuotation(api, source.id, write);
   await page.goto(`/quotations?cloneFrom=${updated.id}`);
-  await page.getByLabel("חברת מיזוג חדשה").selectOption(QUOTATION.OTHER_BRAND);
+  await selectMuiOption(page, page.getByLabel("חברת מיזוג חדשה"), QUOTATION.OTHER_BRAND);
   const create = page.getByRole("button", { name: "צור הצעה חדשה" });
   await expect(page.getByText("2 שורות ממתינות לבחירת חלופה")).toBeVisible();
   await expect(create).toBeDisabled();
-  await page
-    .getByLabel(`חלופה עבור ${sourceItem.sku}`, { exact: true })
-    .selectOption(replacement.id);
+  await selectMuiOption(
+    page,
+    page.getByLabel(`חלופה עבור ${sourceItem.sku}`, { exact: true }),
+    replacement.id,
+  );
   await expect(page.getByText("1 שורות ממתינות לבחירת חלופה")).toBeVisible();
   await expect(create).toBeDisabled();
-  await page
-    .getByLabel(`חלופה עבור ${secondItem.sku}`, { exact: true })
-    .selectOption(replacement.id);
+  await selectMuiOption(
+    page,
+    page.getByLabel(`חלופה עבור ${secondItem.sku}`, { exact: true }),
+    replacement.id,
+  );
   await expect(page.getByText("0 שורות ממתינות לבחירת חלופה")).toBeVisible();
   await expect(create).toBeEnabled();
 });
@@ -303,12 +310,14 @@ test("target-brand suggestions rank previously used compatible items ahead of un
     ],
   });
   await page.goto(`/quotations?cloneFrom=${source.id}`);
-  await page.getByLabel("חברת מיזוג חדשה").selectOption(QUOTATION.OTHER_BRAND);
+  await selectMuiOption(page, page.getByLabel("חברת מיזוג חדשה"), QUOTATION.OTHER_BRAND);
   await page.getByLabel(`חיפוש חלופה עבור ${sourceItem.sku}`, { exact: true }).fill(searchToken);
   const choice = page.getByLabel(`חלופה עבור ${sourceItem.sku}`, { exact: true });
-  await expect(choice.locator("option").filter({ hasText: used.sku })).toHaveCount(1);
-  await expect(choice.locator("option").filter({ hasText: unused.sku })).toHaveCount(1);
-  await expect(choice.locator("option").nth(1)).toContainText(used.sku);
+  await choice.click();
+  await expect(page.getByRole("option").filter({ hasText: used.sku })).toHaveCount(1);
+  await expect(page.getByRole("option").filter({ hasText: unused.sku })).toHaveCount(1);
+  await expect(page.getByRole("option").nth(1)).toContainText(used.sku);
+  await page.keyboard.press("Escape");
 });
 
 test("cloning an approved building quotation keeps apartment links while resetting approval", async ({
@@ -384,11 +393,13 @@ test("clone copies staged payment terms and requires a reviewed replacement for 
   expect((await api.send(HTTP_METHODS.GET, `/catalogue-item/${sourceItem.id}`)).status()).toBe(404);
   await page.goto(`/quotations?cloneFrom=${staged.id}`);
   await expect(page.getByText("חלק מפריטי המקור כבר אינם זמינים בקטלוג")).toBeVisible();
-  await page.getByLabel("חברת מיזוג חדשה").selectOption(QUOTATION.OTHER_BRAND);
+  await selectMuiOption(page, page.getByLabel("חברת מיזוג חדשה"), QUOTATION.OTHER_BRAND);
   const choice = page.getByLabel(`חלופה עבור ${sourceItem.sku}`, { exact: true });
-  await expect(choice.locator("option").filter({ hasText: replacement.sku })).toHaveCount(1);
+  await choice.click();
+  await expect(page.getByRole("option").filter({ hasText: replacement.sku })).toHaveCount(1);
+  await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "צור הצעה חדשה" })).toBeDisabled();
-  await choice.selectOption(replacement.id);
+  await selectMuiOption(page, choice, replacement.id);
   await page.getByRole("button", { name: "צור הצעה חדשה" }).click();
   await expect(page).toHaveURL(/\/quotations\/[\w-]+$/);
   const copy = await quotationDocument(
