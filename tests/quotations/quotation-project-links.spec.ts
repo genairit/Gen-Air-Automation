@@ -23,6 +23,7 @@ import { QUOTATION, QUOTATION_PERMISSIONS } from "../../src/constants/quotation.
 const LINK_COPY = {
   SHARING_TITLE: "שיתוף עם דירות",
   PROJECT_QUOTES_TITLE: "הצעות מחיר",
+  PROJECT_QUOTES_EMPTY: "אין עדיין הצעות מחיר בפרויקט זה.",
   SHARING_SWITCH: "הצגת ההצעה גם בדירות נבחרות",
 } as const;
 
@@ -89,7 +90,7 @@ const approveQuotation = async (
 const projectQuotationCard = (page: Parameters<typeof createQuotationPage>[0]) =>
   page.getByRole("region", { name: LINK_COPY.PROJECT_QUOTES_TITLE });
 
-test("approved building quotation shares one record with selected apartments and removal preserves the quotation", async ({
+test("approved building quotation shares one record with selected apartments and rejects stale writes", async ({
   page,
   api,
 }) => {
@@ -98,8 +99,6 @@ test("approved building quotation shares one record with selected apartments and
   const first = await seedApartment(api, building);
   const second = await seedApartment(api, building);
   const unselected = await seedApartment(api, building);
-  const otherBuilding = await seedBuilding(api, await seedCustomer(api));
-  const unrelated = await seedApartment(api, otherBuilding);
   const { draft } = await createBuildingQuotation(api, building.id, customer);
   for (const projectId of [building.id, first.id, second.id]) {
     expect((await api.getProjectTasks(projectId)).items).toEqual([]);
@@ -175,10 +174,34 @@ test("approved building quotation shares one record with selected apartments and
       await expect(page).toHaveURL(new RegExp(`/quotations/${draft.id}$`));
     }
   }
+});
+
+test("shared quotation excludes unselected apartments and appears once in the quotation list", async ({
+  page,
+  api,
+}) => {
+  const customer = await seedCustomer(api);
+  const building = await seedBuilding(api, customer);
+  const selected = await seedApartment(api, building);
+  const secondSelected = await seedApartment(api, building);
+  const unselected = await seedApartment(api, building);
+  const otherBuilding = await seedBuilding(api, await seedCustomer(api));
+  const unrelated = await seedApartment(api, otherBuilding);
+  const { draft } = await createBuildingQuotation(api, building.id, customer);
+  await approveQuotation(api, draft);
+  const linked = await api.send(HTTP_METHODS.PUT, `/quotation/${draft.id}/apartment-links`, {
+    apartmentIds: [selected.id, secondSelected.id],
+    expectedApartmentIds: [],
+  });
+  expect(linked.status()).toBe(200);
+  const quote = createQuotationPage(page);
   for (const projectId of [unselected.id, unrelated.id]) {
     await page.goto(
       buildApartmentRoute(projectId === unrelated.id ? otherBuilding.id : building.id, projectId),
     );
+    await expect(
+      projectQuotationCard(page).getByText(LINK_COPY.PROJECT_QUOTES_EMPTY, { exact: true }),
+    ).toBeVisible();
     await expect(
       projectQuotationCard(page).getByRole("button", { name: new RegExp(draft.number) }),
     ).toHaveCount(0);
@@ -188,7 +211,27 @@ test("approved building quotation shares one record with selected apartments and
   await quote.field("חיפוש לפי מספר, לקוח, פרויקט או חברה").fill(draft.number);
   await expect(page.getByRole("button", { name: "הכל 1", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: new RegExp(draft.number) })).toHaveCount(1);
+});
 
+test("partial and complete apartment sharing removal preserve the approved quotation", async ({
+  page,
+  api,
+}) => {
+  const customer = await seedCustomer(api);
+  const building = await seedBuilding(api, customer);
+  const first = await seedApartment(api, building);
+  const second = await seedApartment(api, building);
+  const { draft } = await createBuildingQuotation(api, building.id, customer);
+  await approveQuotation(api, draft);
+  const linked = await api.send(HTTP_METHODS.PUT, `/quotation/${draft.id}/apartment-links`, {
+    apartmentIds: [first.id, second.id],
+    expectedApartmentIds: [],
+  });
+  expect(linked.status()).toBe(200);
+  const quote = createQuotationPage(page);
+  const sharing = page.getByRole("region", { name: LINK_COPY.SHARING_TITLE });
+  const sharingSwitch = sharing.getByRole("switch", { name: LINK_COPY.SHARING_SWITCH });
+  const choices = sharing.getByRole("group", { name: "בחירת דירות לשיתוף" });
   await quote.goto(draft.id);
   await choices.getByRole("checkbox", { name: new RegExp(second.name) }).uncheck();
   await expect(sharing.getByText("שמירה תסיר את ההצעה מ-1 דירות.")).toBeVisible();

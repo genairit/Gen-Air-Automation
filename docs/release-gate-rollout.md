@@ -75,3 +75,20 @@ Pause promotions and restore the previous matching workflow pins, notifier trigg
 and branch-check scopes as a coordinated set. Do not leave a required check without a producer.
 Restoring the old policy would re-enable main/feature full runs, so obtain explicit authorization
 before doing that while the user's no-full-suite instruction for this task remains in force.
+
+## Isolated full-suite shards — 12 November 2026
+
+The full dev → test suite is partitioned across three GitHub-hosted runners. Each
+runner retains one Playwright worker and its own disposable stack/database. This
+changes execution placement, not coverage: no feature, file or required test is
+excluded. Candidate/frontend and backend revisions are resolved once before any
+shard starts; every shard consumes those same immutable revisions.
+
+Each shard has a 45-minute Playwright budget, a 46-minute suite step and a 60-minute
+job budget, leaving room for startup, cleanup and its own retained report. Shards
+are not cancelled when a sibling fails. Artifact names include the shard number.
+The aggregate job keeps the existing required `End-to-end / Playwright` check name.
+Only that job publishes Backend compatibility, and only all-shard success plus a
+fresh backend/head/base can pass. Failed, cancelled, skipped or timed-out work
+cannot publish success. A failed revision-resolution step also fails the aggregate
+check. Feature → dev and test → main policies are unchanged.
