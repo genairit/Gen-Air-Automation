@@ -28,8 +28,8 @@ test("selecting XLSX imports international customer and contact numbers and refr
   await expect(dialog.getByText("אין שלב תצוגה מקדימה", { exact: false })).toBeVisible();
   await expect(dialog).toHaveCSS("border-radius", "28px");
   const fileInput = dialog.locator('input[type="file"]');
-  await expect(fileInput.locator("..")).toHaveCSS("border-style", "dashed");
-  await expect(fileInput.locator("..")).toHaveCSS("border-radius", "22px");
+  await expect(fileInput.locator("xpath=../..")).toHaveCSS("border-style", "dashed");
+  await expect(fileInput.locator("xpath=../..")).toHaveCSS("border-radius", "22px");
   const chooserEvent = page.waitForEvent("filechooser");
   await fileInput.click();
   const row = buildImportRow(buildCustomerInput(), scopedApartmentNumber("17"));
@@ -53,13 +53,23 @@ test("selecting XLSX imports international customer and contact numbers and refr
   const imported = await readBuildingApartments(api, building.id);
   expect(imported).toHaveLength(1);
   const importedCustomer = await api.send(HTTP_METHODS.GET, `/customer/${imported[0].customerId}`);
-  expect(await importedCustomer.json()).toMatchObject({ phone: "+442071838750" });
+  const customer: unknown = await importedCustomer.json();
+  expect(customer).toMatchObject({ phone: null, primaryContactId: expect.any(String) });
   const importedContacts = await api.send(HTTP_METHODS.GET, `/project/${imported[0].id}/contacts`);
   const links: unknown = await importedContacts.json();
   expect(Array.isArray(links)).toBe(true);
   if (!Array.isArray(links)) {
     throw new Error("Imported project contact response is not an array");
   }
+  expect(
+    links.some(
+      link =>
+        isRecord(link) &&
+        isRecord(link.contact) &&
+        link.contact.id === (isRecord(customer) ? customer.primaryContactId : null) &&
+        link.contact.phone === "+442071838750",
+    ),
+  ).toBe(true);
   expect(
     links.some(
       link => isRecord(link) && isRecord(link.contact) && link.contact.phone === "+12025550123",

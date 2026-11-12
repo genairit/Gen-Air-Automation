@@ -403,14 +403,14 @@ test("procurement manager opens project BOQ, selects approved source and sees ed
   await expect(page.getByText("לא זמין עדיין")).toHaveCount(3);
   const materialRow = page.getByText(fixed.code).locator("..", { hasText: fixed.code });
   await expect(materialRow).toBeVisible();
-  await page.getByRole("spinbutton", { name: "לא הוזנה" }).first().fill("12.50");
+  await page.getByPlaceholder("לא הוזנה").first().fill("12.50");
   await page.getByRole("button", { name: "שמור" }).first().click();
   await expect(page.getByText("₪62.5")).toHaveCount(2);
   const stored = await readRecord(await api.send(HTTP_METHODS.GET, boqPath(project.id)));
   expect(stored).toMatchObject({ revision: 2, estimatedTotal: "62.5000", ledgerAvailable: false });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByText(fixed.code).first()).toBeVisible();
-  await expect(page.getByRole("spinbutton", { name: "לא הוזנה" }).first()).toHaveValue("12.5000");
+  await expect(page.getByPlaceholder("לא הוזנה").first()).toHaveValue("12.5000");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );

@@ -17,6 +17,8 @@ const PURCHASING = USER_ROLES.PURCHASING_EXECUTION_MANAGER;
 
 const purchasingKeys = [
   PERMISSIONS.BOQ_TEMPLATES_MANAGE,
+  PERMISSIONS.PROJECT_BOQ_READ,
+  PERMISSIONS.PROJECT_BOQ_MANAGE,
   PERMISSIONS.SUPPLIER_AGREEMENTS_MANAGE,
   PERMISSIONS.PURCHASE_REQUESTS_REVIEW,
   PERMISSIONS.PURCHASE_ORDERS_APPROVE,
@@ -45,7 +47,7 @@ test("purchasing account has the exact company-wide read and action grants but n
       ...purchasingKeys,
     ]),
   );
-  expect(actor.session.user.permissions).toHaveLength(12);
+  expect(actor.session.user.permissions).toHaveLength(14);
   for (const key of [PERMISSIONS.SUBCONTRACTOR_SETTLEMENTS_APPROVE, PERMISSIONS.PAYMENTS_RECORD]) {
     expect(actor.session.user.permissions).not.toContain(key);
   }
