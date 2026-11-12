@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+import { STACK_TIMEOUTS } from "../constants/environment.constant.ts";
 
 export const QUOTATION_DELETE_HORIZONTAL_INSET = 42;
 const QUOTATION_ROW_CENTER_TOLERANCE = 16;
@@ -19,9 +20,10 @@ const centerSpread = (boxes: Awaited<ReturnType<typeof quotationBox>>[]) => {
 };
 
 export const expectSameQuotationRow = async (locators: Locator[]) => {
-  await expect
-    .poll(async () => centerSpread(await Promise.all(locators.map(quotationBox))))
-    .toBeLessThanOrEqual(QUOTATION_ROW_CENTER_TOLERANCE);
+  await expect(async () => {
+    const boxes = await Promise.all(locators.map(quotationBox));
+    expect(centerSpread(boxes)).toBeLessThanOrEqual(QUOTATION_ROW_CENTER_TOLERANCE);
+  }).toPass({ timeout: STACK_TIMEOUTS.EXPECT_MS });
 
   const boxes = await Promise.all(locators.map(quotationBox));
   expect(centerSpread(boxes)).toBeLessThanOrEqual(QUOTATION_ROW_CENTER_TOLERANCE);

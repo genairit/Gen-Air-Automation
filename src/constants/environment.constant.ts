@@ -27,6 +27,7 @@ const ARTIFACTS_ROOT = resolve(
 
 export const AUTOMATION_DIRECTORIES = {
   AUTH: resolve(ARTIFACTS_ROOT, "auth"),
+  FIXTURES: resolve(ARTIFACTS_ROOT, "fixtures"),
   HTML: resolve(ARTIFACTS_ROOT, "html"),
   JSON: resolve(ARTIFACTS_ROOT, "results.json"),
   RESULTS: resolve(ARTIFACTS_ROOT, "test-results"),

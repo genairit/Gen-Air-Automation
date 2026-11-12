@@ -104,7 +104,11 @@ test("quotation creator selects a sales employee, changes and clears it, and rel
       new URL(response.url()).pathname.endsWith(`/quotation/${id}`),
   );
   await agentPicker.hover();
-  await agentPicker.locator("..").getByRole("button", { name: "נקה בחירה" }).click();
+  await page
+    .locator(".MuiAutocomplete-root")
+    .filter({ has: agentPicker })
+    .getByRole("button", { name: "נקה בחירה" })
+    .click();
   expect((await cleared).status()).toBe(200);
   await page.reload();
   await expect(page.getByRole("combobox", { name: PICKER }).first()).toHaveValue("");
