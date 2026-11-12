@@ -18,6 +18,7 @@ import { MIME_TYPES } from "../../src/constants/domain.constant.ts";
 import { createProjectPage } from "../../src/pages/project.page.ts";
 import { createApartmentPage } from "../../src/pages/apartment.page.ts";
 import { seedBuilding, seedApartment } from "../../src/api/seed-data.ts";
+import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
 import { ROLE_ACCESS } from "../../src/constants/role-access.constant.ts";
 import { USER_ROLE_VALUES } from "../../src/constants/user-role.constant.ts";
 import { getAuthStatePath } from "../../src/utilities/auth-state.utility.ts";
@@ -26,6 +27,7 @@ import { seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts"
 import { API_PATHS, API_PROXY_PREFIX } from "../../src/constants/api.constant.ts";
 import { DRIVE_COPY, PROJECT_PAGE_COPY } from "../../src/constants/copy.constant.ts";
 import { APARTMENT_DESIGN_COPY } from "../../src/constants/apartment-design.constant.ts";
+import { BASELINE_PERMISSIONS } from "../../src/constants/permission-baseline.constant.ts";
 
 const VALID_PDF = {
   name: "הצעת מחיר.pdf",
@@ -178,13 +180,26 @@ for (const [kind, createScenario] of Object.entries(DRIVE_SCENARIOS)) {
           .slice(0, Array.from(element.parentElement?.children ?? []).indexOf(element))
           .map(section => section.textContent ?? ""),
       }));
-      expect(placement.index).toBe(kind === "apartment" ? 4 : 1);
+      expect(placement.index).toBe(kind === "apartment" ? 7 : 2);
       if (kind === "apartment") {
-        expect(placement.precedingSections[1]).toContain(APARTMENT_DESIGN_COPY.END_CUSTOMER);
-        expect(placement.precedingSections[1]).toContain(APARTMENT_DESIGN_COPY.CONTACT_TEAM);
-        expect(placement.precedingSections[1]).toContain(APARTMENT_DESIGN_COPY.INHERITED_TITLE);
-        expect(placement.precedingSections[2]).toContain(APARTMENT_DESIGN_COPY.COMMERCIAL_TITLE);
-        expect(placement.precedingSections[3]).toContain("מסמך משותף מפרויקט האב");
+        const infoIndex = placement.precedingSections.findIndex(section =>
+          section.includes(APARTMENT_DESIGN_COPY.END_CUSTOMER),
+        );
+        const commercialIndex = placement.precedingSections.findIndex(section =>
+          section.includes(APARTMENT_DESIGN_COPY.COMMERCIAL_TITLE),
+        );
+        const sharedDocumentIndex = placement.precedingSections.findIndex(section =>
+          section.includes("מסמך משותף מפרויקט האב"),
+        );
+        expect(infoIndex).toBeGreaterThanOrEqual(0);
+        expect(placement.precedingSections[infoIndex]).toContain(
+          APARTMENT_DESIGN_COPY.CONTACT_TEAM,
+        );
+        expect(placement.precedingSections[infoIndex]).toContain(
+          APARTMENT_DESIGN_COPY.INHERITED_TITLE,
+        );
+        expect(commercialIndex).toBeGreaterThan(infoIndex);
+        expect(sharedDocumentIndex).toBeGreaterThan(commercialIndex);
       }
       expect(Math.abs(placement.width - placement.headerWidth)).toBeLessThan(2);
       const fullFolder = projectPage.driveFolder(MOCK_DRIVE_FOLDERS.WITH_FILES.name);
@@ -236,6 +251,11 @@ for (const role of USER_ROLE_VALUES) {
       const missing = await mockMissingDrive(page, project);
       const projectPage = createProjectPage(page);
       await projectPage.goto(project.id);
+      if (!BASELINE_PERMISSIONS[role].includes(PERMISSIONS.DRIVE_READ)) {
+        await expect(projectPage.driveCard).toHaveCount(0);
+        expect(missing.requests.provisions).toHaveLength(0);
+        return;
+      }
       await expect(projectPage.driveCard.getByText(DRIVE_COPY.MISSING_TITLE)).toBeVisible();
       await expect(projectPage.driveCard).not.toContainText(project.id);
       expect(missing.requests.provisions).toHaveLength(0);

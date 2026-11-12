@@ -11,7 +11,7 @@ test("project form shows the customer primary contact without old customer-owned
   await form.goto();
   await form.customerSearch.fill(customer.name);
   await page.getByRole("option").filter({ hasText: customer.name }).click();
-  await expect(page.getByText("אנשי קשר · מתוך כרטיס הלקוח", { exact: true })).toBeVisible();
+  await expect(page.getByText("אנשי קשר לפרויקט", { exact: true })).toBeVisible();
   await expect(form.contactNameInput).toHaveCount(0);
   await expect(form.contactPhoneInput).toHaveCount(0);
   await expect(form.addressInput).toBeVisible();

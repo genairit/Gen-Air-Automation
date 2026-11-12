@@ -195,7 +195,7 @@ test("both customer-read and project-read grants are required and live revocatio
   );
 });
 
-test("parent context search returns only the customer's apartment and inherited teams expose no user secrets", async ({
+test("parent context search returns only the customer's apartment and its team exposes no user secrets", async ({
   api,
 }) => {
   const customer = await seedCustomer(api);
@@ -204,12 +204,12 @@ test("parent context search returns only the customer's apartment and inherited 
   const building = await seedProject(api, {
     customer: other,
     projectTypeName: PROJECT_TYPE_NAMES.RESIDENTIAL_BUILDING,
-    members: [{ userId: engineer.id, role: USER_ROLES.ENGINEER }],
   });
   const apartment = await api.createApartment(building.id, {
     customerId: customer.id,
     customerFloor: 4,
     customerApartment: scopedApartmentNumber("51"),
+    members: [{ userId: engineer.id, role: USER_ROLES.ENGINEER }],
   });
   for (const search of [building.name, building.code]) {
     const page = await readCustomerProjects(api, customer.id, { search });

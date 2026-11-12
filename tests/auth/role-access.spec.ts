@@ -131,7 +131,7 @@ for (const role of APP_ACCESS_ROLES) {
       await tasksPage.goto();
 
       await expect(tasksPage.searchBox).toBeVisible();
-      await expect(tasksPage.newTaskButton).toHaveCount(0);
+      await expectVisibility(access.canManageTasks, tasksPage.newTaskButton);
       await expect(page.getByText(TASKS_COPY.REMOVED_MANAGERS_NOTE)).toHaveCount(0);
     });
 
