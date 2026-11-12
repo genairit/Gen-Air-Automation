@@ -19,6 +19,7 @@ import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { createQuotationPage } from "../../src/pages/quotation.page.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
+import { selectMuiOption } from "../../src/pages/mui-select.component.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 import { createCatalogueFixture } from "../../src/environment/quotation-fixtures.ts";
 import { QUOTATION, QUOTATION_PERMISSIONS } from "../../src/constants/quotation.constant.ts";
@@ -101,7 +102,7 @@ test("catalogue filters, repeated independent snapshots, section ordering and se
   await quote.addBrandTab(QUOTATION.BRAND);
   await quote.saved(() => quote.button("+ סינגלים").click());
   await quote.fill("כותרת מערכת / קומה", "First floor");
-  await quote.field("סוג ציוד / לחץ").selectOption("עילי");
+  await selectMuiOption(page, quote.field("סוג ציוד / לחץ"), "עילי");
   await quote.field("גודל מבוקש (BTU)").fill("24000");
   await quote.field("חיפוש פריט בקטלוג").fill(item.sku);
   await expect(page.getByRole("button").filter({ hasText: item.sku }).first()).toBeVisible();
@@ -245,8 +246,8 @@ test("autosave keeps row focus and add-item draft while later edits persist", as
     await expect(location).toBeEnabled();
     await expect(location).toBeFocused();
     await expect(quote.field("כמות להוספה")).toHaveValue("3");
-    await circuit.selectOption("B");
-    await expect(circuit).toHaveValue("B");
+    await selectMuiOption(page, circuit, "B");
+    await expect(circuit).toHaveText("B");
     const secondSave = page.waitForResponse(
       response =>
         response.request().method() === HTTP_METHODS.PUT &&
@@ -267,7 +268,7 @@ test("autosave keeps row focus and add-item draft while later edits persist", as
       .toBe("B");
     await page.reload();
     await expect(location).toHaveValue("Bedroom");
-    await expect(circuit).toHaveValue("B");
+    await expect(circuit).toHaveText("B");
   } finally {
     release.resolve();
   }
@@ -591,17 +592,19 @@ test("VRF circuits, included controls, linked accessory quantities and removal s
     equipmentRole: QUOTATION.ROLE.CONTROL,
     capacityBtu: null,
   });
-  await quote.field("סוג פריט").selectOption("control");
+  await selectMuiOption(page, quote.field("סוג פריט"), "control");
   await quote.add(remote.sku);
   const remoteQuote = await getQuote(api, initial.id);
   const indoorId = remoteQuote.sections[0]!.items[0]!.id;
-  await expect(quote.field("בקר עבור יחידה").locator("option")).toHaveCount(1);
-  await expect(quote.field("בקר עבור יחידה").locator(`option[value="${indoorId}"]`)).toHaveCount(0);
+  await quote.field("בקר עבור יחידה").click();
+  await expect(page.getByRole("option")).toHaveCount(1);
+  await expect(page.locator(`[role="option"][data-value="${indoorId}"]`)).toHaveCount(0);
+  await page.keyboard.press("Escape");
   const forged = quotationWrite(remoteQuote);
   forged.sections[0]!.items[1]!.parentItemId = indoorId;
   expect((await api.send(HTTP_METHODS.PUT, `/quotation/${initial.id}`, forged)).status()).toBe(400);
   await quote.saved(() => quote.button("הסר שורה").nth(1).click());
-  await quote.field("סוג פריט").selectOption(QUOTATION.ROLE.CONTROL);
+  await selectMuiOption(page, quote.field("סוג פריט"), QUOTATION.ROLE.CONTROL);
   await quote.add(control.sku);
   const saved = await getQuote(api, initial.id);
   const parent = saved.sections[0]!.items[0]!;
@@ -610,8 +613,8 @@ test("VRF circuits, included controls, linked accessory quantities and removal s
   await expect(page.getByText(/2 יח׳ ·/)).toBeVisible();
   expect((await getQuote(api, initial.id)).sections[0]!.items[1]!.quantity).toBe("2.0000");
   await page.reload();
-  await expect(quote.field("מעגל")).toHaveValue("B");
-  await expect(quote.field("בקר עבור יחידה")).toHaveValue(parent.id);
+  await expect(quote.field("מעגל")).toHaveText("B");
+  await expect(quote.field("בקר עבור יחידה")).toHaveText("Main hall");
   await quote.saved(() => quote.button("הסר שורה").nth(0).click());
   await expect(quote.field("תיאור בהצעה")).toHaveCount(0);
   expect((await getQuote(api, initial.id)).sections[0]!.items).toHaveLength(0);
@@ -651,12 +654,12 @@ test("brand replacement confirms, preserves placement and quantities, missing ma
   await quote.fill("מיקום", "Roof office");
   await quote.fill("כמות (יח׳)", "3");
   const before = await getQuote(api, initial.id);
-  await quote.field("חברת מיזוג").selectOption(QUOTATION.OTHER_BRAND);
+  await selectMuiOption(page, quote.field("חברת מיזוג"), QUOTATION.OTHER_BRAND);
   await expect(quote.button("החלף לפריטים תואמים")).toBeVisible();
   expect((await getQuote(api, initial.id)).brand).toBe(QUOTATION.BRAND);
   await quote.button("ביטול").click();
-  await expect(quote.field("חברת מיזוג")).toHaveValue(QUOTATION.BRAND);
-  await quote.field("חברת מיזוג").selectOption(QUOTATION.OTHER_BRAND);
+  await expect(quote.field("חברת מיזוג")).toHaveText(QUOTATION.BRAND);
+  await selectMuiOption(page, quote.field("חברת מיזוג"), QUOTATION.OTHER_BRAND);
   await quote.saved(() => quote.button("החלף לפריטים תואמים").click());
   const changed = await getQuote(api, initial.id);
   expect(changed.sections[0]!.items[0]!.catalogueItemId).toBe(replacement.id);
@@ -664,13 +667,13 @@ test("brand replacement confirms, preserves placement and quantities, missing ma
   await expect(quote.field("מיקום")).toHaveValue("Roof office");
   await expect(quote.field("כמות (יח׳)")).toHaveValue("3");
   expect(changed.sections[0]!.items[0]!.quantity).toBe("3.0000");
-  await quote.field("חברת מיזוג").selectOption("טושיבה");
+  await selectMuiOption(page, quote.field("חברת מיזוג"), "טושיבה");
   await quote.button("החלף לפריטים תואמים").click();
   await expect(page.getByRole("alert")).toContainText("ההצעה לא שונתה");
-  await expect(quote.field("חברת מיזוג")).toHaveValue(QUOTATION.OTHER_BRAND);
+  await expect(quote.field("חברת מיזוג")).toHaveText(QUOTATION.OTHER_BRAND);
   expect((await getQuote(api, initial.id)).version).toBe(changed.version);
   await page.reload();
-  await expect(quote.field("חברת מיזוג")).toHaveValue(QUOTATION.OTHER_BRAND);
+  await expect(quote.field("חברת מיזוג")).toHaveText(QUOTATION.OTHER_BRAND);
   await expect(quote.field("מיקום")).toHaveValue("Roof office");
 });
 
@@ -693,7 +696,7 @@ test("pre-add placement and quantities persist while decimal focus edits retain 
   await quote.saved(() => quote.button("+ מערכת VRF").click());
   await quote.field("כמות להוספה").fill("2");
   await quote.field("מיקום להוספה").fill("QA new room");
-  await quote.field("מעגל להוספה").selectOption("B");
+  await selectMuiOption(page, quote.field("מעגל להוספה"), "B");
   await quote.add(item.sku);
   const addedDocument = await getQuote(api, initial.id);
   const added = addedDocument.sections[0]!.items[0]!;
