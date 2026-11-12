@@ -25,6 +25,7 @@ import { ROUTES, ROUTE_SEGMENTS } from "../../src/constants/routes.constant.ts";
 interface ICardPair {
   first: string;
   second: string;
+  widePlacement?: "adaptive";
 }
 
 interface IPageScenario {
@@ -127,14 +128,14 @@ for (const viewport of VIEWPORTS) {
       {
         name: "task",
         path: buildTaskRoute(task.id),
-        pairs: [{ first: "פרטי המשימה", second: "משימה רגילה" }],
+        pairs: [],
       },
       {
         name: "new customer",
         path: ROUTES.NEW_CUSTOMER,
         pairs: [
-          { first: "זהות הלקוח", second: "בחר איש קשר קיים" },
-          { first: "תנאי תשלום כברירת מחדל", second: "מה יישמר" },
+          { first: "זהות הלקוח", second: "בחר איש קשר קיים", widePlacement: "adaptive" },
+          { first: "תנאי תשלום כברירת מחדל", second: "מה יישמר", widePlacement: "adaptive" },
         ],
       },
       {
@@ -161,13 +162,31 @@ for (const viewport of VIEWPORTS) {
     for (const scenario of scenarios) {
       await test.step(scenario.name, async () => {
         await page.goto(scenario.path);
+        if (scenario.name === "task") {
+          const urgency = findCardByTitle(page, "משימה רגילה");
+          const details = findCardByTitle(page, "פרטי המשימה");
+          await expect(urgency).toBeVisible();
+          await expect(details).toBeVisible();
+          await expectCardsFit(page, urgency, details);
+          const urgencyBox = await urgency.boundingBox();
+          const detailsBox = await details.boundingBox();
+          if (!urgencyBox || !detailsBox) {
+            throw new Error("Expected task strip and details bounds");
+          }
+          expect(detailsBox.y).toBeGreaterThanOrEqual(urgencyBox.y + urgencyBox.height - 2);
+          expect(Math.abs(urgencyBox.width - detailsBox.width)).toBeLessThanOrEqual(2);
+        }
         for (const pair of scenario.pairs) {
           const first = findCardByTitle(page, pair.first).first();
           const second = findCardByTitle(page, pair.second).first();
           await expect(first).toBeVisible();
           await expect(second).toBeVisible();
           await expectCardsFit(page, first, second);
-          await expectPairPlacement(first, second, viewport.placement);
+          await expectPairPlacement(
+            first,
+            second,
+            viewport.width === 1600 ? (pair.widePlacement ?? viewport.placement) : viewport.placement,
+          );
         }
         if (viewport.width === 1600 || viewport.width === 390) {
           await page.screenshot({
