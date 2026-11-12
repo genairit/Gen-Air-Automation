@@ -301,22 +301,52 @@ test("test → main cannot prepare, run or publish backend compatibility", async
   assert.deepEqual(harness.outputs, {});
 });
 
-test("full gate has a bounded suite budget and retains evidence on failure", () => {
-  const job = readWorkflow("../../.github/workflows/e2e.yml").jobs.playwright;
-  const suite = job.steps.find(step => step.id === "suite");
-  assert.equal(job["timeout-minutes"], 90);
-  assert.equal(suite["timeout-minutes"], 76);
+test("full gate partitions every suite across isolated runners and retains each report", () => {
+  const workflow = readWorkflow("../../.github/workflows/e2e.yml");
+  const shards = workflow.jobs.shards;
+  const suite = shards.steps.find(step => step.id === "suite");
+  assert.equal(shards.needs, "revisions");
+  assert.deepEqual(shards.strategy.matrix.shard, [1, 2, 3]);
+  assert.equal(shards.strategy["fail-fast"], false);
+  assert.equal(shards["timeout-minutes"], 60);
+  assert.equal(suite["timeout-minutes"], 46);
   assert.match(
     suite.run,
-    /^export CHROMIUM_EXECUTABLE_PATH=.*\nnpx playwright test --global-timeout=4500000\n$/,
+    /npx playwright test --shard=\$\{\{ matrix.shard \}\}\/\$\{\{ strategy.job-total \}\} --global-timeout=2700000/,
   );
-  assert.ok(suite["timeout-minutes"] < job["timeout-minutes"]);
-  const upload = job.steps.find(step => step.uses?.startsWith("actions/upload-artifact@"));
+  assert.ok(suite["timeout-minutes"] < shards["timeout-minutes"]);
+  const upload = shards.steps.find(step => step.uses?.startsWith("actions/upload-artifact@"));
   assert.equal(upload.if, "${{ always() }}");
-  const freshness = job.steps.find(
+  assert.equal(upload.with.name, "playwright-report-${{ matrix.shard }}");
+  assert.equal(
+    shards.steps.some(step => step.name === "Verify backend freshness and publish result"),
+    false,
+  );
+});
+
+test("only the aggregate gate can publish compatibility after all shards finish", () => {
+  const workflow = readWorkflow("../../.github/workflows/e2e.yml");
+  const aggregate = workflow.jobs.playwright;
+  assert.equal(aggregate.name, "Playwright");
+  assert.deepEqual(aggregate.needs, ["revisions", "shards"]);
+  assert.ok(aggregate.if.includes("always()"));
+  const guard = aggregate.steps.find(step => step.name === "Require resolved release revisions");
+  assert.equal(guard.if, "${{ needs.revisions.result != 'success' }}");
+  assert.equal(guard.run, "exit 1");
+  const freshness = aggregate.steps.find(
     step => step.name === "Verify backend freshness and publish result",
   );
-  assert.equal(freshness.env.SUITE_OUTCOME, "${{ steps.suite.outcome }}");
+  assert.equal(freshness.if, "${{ needs.revisions.result == 'success' }}");
+  assert.equal(freshness.env.SUITE_OUTCOME, "${{ needs.shards.result }}");
+  assert.equal(freshness.env.TESTED_BACKEND_REF, "${{ needs.revisions.outputs.backend-ref }}");
+  assert.equal(
+    workflow.jobs.revisions.outputs["backend-ref"],
+    "${{ steps.revisions.outputs.backend-ref }}",
+  );
+  assert.equal(
+    workflow.jobs.revisions.outputs["frontend-ref"],
+    "${{ steps.revisions.outputs.frontend-ref }}",
+  );
 });
 
 test("cancelled or timed-out suite never publishes compatibility success", async () => {
