@@ -10,25 +10,25 @@ import {
 import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { TIME_UNITS } from "../../src/constants/time.constant.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
+import { selectOption } from "../../src/pages/select.component.ts";
 import { createProjectPage } from "../../src/pages/project.page.ts";
 import { VIEWPORTS } from "../../src/constants/viewport.constant.ts";
 import { failApiRequests } from "../../src/mocks/api-request.mock.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { TASK_LINK_KINDS } from "../../src/constants/domain.constant.ts";
-import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { getAuthStatePath } from "../../src/utilities/auth-state.utility.ts";
 import { isTaskCreationRequest } from "../../src/utilities/response.utility.ts";
 import { HTTP_STATUS, HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { TASK_TYPES, PROJECT_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
 import { TASK_FORM_COPY, TASK_LINK_KIND_COPY } from "../../src/constants/copy.constant.ts";
+import { createUniqueEmail, createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { createTaskFormPage, createTaskPage, createTasksPage } from "../../src/pages/tasks.page.ts";
 
 const PROJECT = TASK_LINK_KINDS.PROJECT;
-const TYPE_HELP =
-  "משימות הצעת מחיר ותכנון נוצרות אוטומטית עם הפרויקט. כאן אפשר להוסיף משימה כללית.";
+const TYPE_HELP = "מוסיפים משימה רק כשנדרשת עבודה בפרויקט או בדירה.";
 
-test("manual task form starts project-only with readonly General inside assignment and optional empty date", async ({
+test("manual task form starts project-only with selectable type and optional empty date", async ({
   page,
 }) => {
   const form = createTaskFormPage(page);
@@ -73,23 +73,76 @@ test("creating a General project task without due date sends no customer or inve
   await expect(createTaskPage(page).projectCustomerLink).toHaveText(customer.name);
 });
 
-test("project entry point retains selected project and exposes both automatic tasks immediately", async ({
+test("Tasks page opens explicit creation and requires a project before saving", async ({
+  page,
+  api,
+}) => {
+  const project = await seedStandaloneProject(api, await seedCustomer(api));
+  const tasks = createTasksPage(page);
+  await tasks.goto();
+  await tasks.newTaskButton.click();
+  await expect(page).toHaveURL(ROUTES.NEW_TASK);
+  const form = createTaskFormPage(page);
+  await form.saveButton.click();
+  await expect(form.form.getByText("בחר פרויקט", { exact: true })).toBeVisible();
+  await form.chooseLink({ kind: PROJECT, name: project.name });
+  await expect(form.form.getByText(project.name, { exact: true })).toBeVisible();
+  await selectOption(page, form.form.getByRole("combobox", { name: "סוג משימה" }), "תכנון");
+  const title = createUniqueName("תכנון ידני");
+  await form.form.getByPlaceholder(TASK_FORM_COPY.TITLE_PLACEHOLDER).fill(title);
+  await form.form.getByPlaceholder(TASK_FORM_COPY.DESCRIPTION_PLACEHOLDER).fill("תכנון פרויקט");
+  await form.saveButton.click();
+  await expect(page).toHaveURL(/\/tasks\/[a-f0-9-]+$/);
+  expect((await api.getProjectTasks(project.id)).items).toEqual([
+    expect.objectContaining({ title, taskType: TASK_TYPES.PLANNING, projectId: project.id }),
+  ]);
+});
+
+test("project entry point retains selected project and offers explicit task types", async ({
   page,
   api,
 }) => {
   const project = await seedStandaloneProject(api, await seedCustomer(api));
   const projectPage = createProjectPage(page);
   await projectPage.goto(project.id);
-  await expect(page.getByText(`הצעת מחיר — ${project.name}`, { exact: true })).toBeVisible();
-  await expect(page.getByText(`תכנון — ${project.name}`, { exact: true })).toBeVisible();
+  await expect(page.getByText("אין משימות עדיין", { exact: true })).toBeVisible();
   await expect(
     page.getByText(PROJECT_STATUS_NAMES.NOT_STARTED, { exact: true }).first(),
   ).toBeVisible();
   await projectPage.newTaskButton.click();
+  await expect(page.getByRole("menuitem", { name: /הצעת מחיר/ })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: /תכנון/ })).toBeVisible();
+  await page.getByRole("menuitem", { name: /כללי/ }).click();
   const form = createTaskFormPage(page);
   await expect(form.replaceLinkButton(PROJECT)).toBeVisible();
   await expect(form.form.getByText(project.name, { exact: true })).toBeVisible();
   await expect(form.form.getByText(TYPE_HELP)).toBeVisible();
+});
+
+test("project card deliberately creates a quotation task and reopens the occupied slot", async ({
+  page,
+  api,
+}) => {
+  const project = await seedStandaloneProject(api, await seedCustomer(api));
+  await createProjectPage(page).goto(project.id);
+  const title = createUniqueName("הצעת מחיר ידנית");
+  await createProjectPage(page).newTaskButton.click();
+  await page.getByRole("menuitem", { name: /הצעת מחיר/ }).click();
+  const form = createTaskFormPage(page);
+  await expect(form.form.getByText(project.name, { exact: true })).toBeVisible();
+  await expect(form.form.getByText("הצעת מחיר", { exact: true }).first()).toBeVisible();
+  await form.form.getByPlaceholder(TASK_FORM_COPY.TITLE_PLACEHOLDER).fill(title);
+  await form.form.getByPlaceholder(TASK_FORM_COPY.DESCRIPTION_PLACEHOLDER).fill("הכנת הצעה");
+  await form.saveButton.click();
+  await expect(page).toHaveURL(/\/tasks\/[a-f0-9-]+$/);
+  const [task] = (await api.getProjectTasks(project.id)).items;
+  expect(task).toMatchObject({ title, taskType: TASK_TYPES.QUOTATION });
+
+  await createProjectPage(page).goto(project.id);
+  await expect(page.getByText(title, { exact: true })).toBeVisible();
+  await createProjectPage(page).newTaskButton.click();
+  await page.getByRole("menuitem", { name: /פתח משימה קיימת.*הצעת מחיר/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${task.id}$`));
 });
 
 test("selected project request error keeps context, blocks save and retries successfully", async ({
@@ -125,6 +178,7 @@ test("cached selected project refetch error is visible and retry restores select
       response.status() === HTTP_STATUS.INTERNAL_SERVER_ERROR,
   );
   await createProjectPage(page).newTaskButton.click();
+  await page.getByRole("menuitem", { name: /כללי/ }).click();
   await refetch;
   const form = createTaskFormPage(page);
   await expect(form.form.getByText(TASK_LINK_KIND_COPY.PROJECT.SELECTED_ERROR)).toBeVisible();
@@ -150,11 +204,12 @@ test("protected task details expose readonly type/resume help and allow optional
   api,
 }) => {
   const project = await seedStandaloneProject(api, await seedCustomer(api));
-  const body = await api.getProjectTasks(project.id);
-  const task = body.items.find(entry => entry.taskType === TASK_TYPES.QUOTATION);
-  if (!task) {
-    throw new Error("Mandatory quotation task is missing");
-  }
+  const task = await api.createTask({
+    projectId: project.id,
+    taskType: TASK_TYPES.QUOTATION,
+    title: "הצעת מחיר",
+    description: "הכנת הצעה",
+  });
   await createTaskPage(page).goto(task.id);
   await expect(
     page.getByText("משימת פרויקט קבועה — לעבודה נוספת מחזירים את אותה משימה לבעבודה."),
@@ -194,12 +249,19 @@ test.describe("personal tasks preserve legacy metadata and type badges", () => {
         assigneeId: engineer.session.user.id,
       });
       const legacy = await seedLegacyCustomerTask(api, customer, engineer.session.user.id);
-      const automaticTasks = await api.getProjectTasks(project.id);
-      for (const automatic of automaticTasks.items.filter(
-        task => task.taskType !== TASK_TYPES.GENERAL,
-      )) {
+      const protectedTasks = await Promise.all(
+        [TASK_TYPES.QUOTATION, TASK_TYPES.PLANNING].map(taskType =>
+          api.createTask({
+            projectId: project.id,
+            taskType,
+            title: taskType,
+            description: "משימה ידנית",
+          }),
+        ),
+      );
+      for (const protectedTask of protectedTasks) {
         expect(
-          (await engineer.send(HTTP_METHODS.PATCH, `/task/${automatic.id}/claim`)).status(),
+          (await engineer.send(HTTP_METHODS.PATCH, `/task/${protectedTask.id}/claim`)).status(),
         ).toBe(HTTP_STATUS.OK);
       }
       const tasks = createTasksPage(page);
@@ -219,18 +281,31 @@ test.describe("personal tasks preserve legacy metadata and type badges", () => {
   }
 });
 
-test("maximum project title retains full automatic title and wraps on mobile", async ({
+test("maximum project title renders an empty task card without mobile overflow", async ({
   page,
   api,
 }, testInfo) => {
   const input = await buildStandaloneProjectInput(api, await seedCustomer(api));
   const project = await api.createProject({ ...input, name: "א".repeat(200) });
+  const contactName = createUniqueName("איש קשר ארוך");
+  const contactEmail = createUniqueEmail("very.long.contact.email.address.for.mobile.layout");
+  expect(
+    (
+      await api.send(HTTP_METHODS.POST, "/contact-directory", {
+        name: contactName,
+        email: contactEmail,
+      })
+    ).status(),
+  ).toBe(HTTP_STATUS.CREATED);
   await page.setViewportSize(VIEWPORTS.MOBILE);
   await createProjectPage(page).goto(project.id);
-  await expect(page.getByText(`הצעת מחיר — ${project.name}`, { exact: true })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
-    true,
-  );
+  await expect(page.getByText("אין משימות עדיין", { exact: true })).toBeVisible();
+  await page.getByPlaceholder("שם, טלפון או דוא״ל").fill(contactName);
+  await expect(page.getByText(contactEmail, { exact: false })).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+  await expect
+    .poll(async () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+    .toBe(true);
   await page.screenshot({ path: testInfo.outputPath("mobile-long-title.png"), fullPage: true });
 });
 
@@ -238,14 +313,20 @@ for (const viewport of [{ width: 1440, height: 1000 }, VIEWPORTS.MOBILE]) {
   test(`task design evidence at ${viewport.width}px`, async ({ page, api }, testInfo) => {
     await page.setViewportSize(viewport);
     const project = await seedStandaloneProject(api, await seedCustomer(api));
-    const tasks = await api.getProjectTasks(project.id);
+    const task = await api.createTask({
+      projectId: project.id,
+      taskType: TASK_TYPES.QUOTATION,
+      title: `הצעת מחיר — ${project.name}`,
+      description: "משימה ידנית",
+    });
     await createProjectPage(page).goto(project.id);
     await expect(page.getByText(`הצעת מחיר — ${project.name}`, { exact: true })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("project.png"), fullPage: true });
     await createProjectPage(page).newTaskButton.click();
+    await page.getByRole("menuitem", { name: /כללי/ }).click();
     await expect(page.getByText(TYPE_HELP)).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("new-task.png"), fullPage: true });
-    await createTaskPage(page).goto(tasks.items[0].id);
+    await createTaskPage(page).goto(task.id);
     await expect(
       page.getByText("משימת פרויקט קבועה — לעבודה נוספת מחזירים את אותה משימה לבעבודה."),
     ).toBeVisible();

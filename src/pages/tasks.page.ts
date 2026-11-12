@@ -62,7 +62,7 @@ export const findTaskLinkCaption = (scope: Page | Locator, caption: ITaskLinkCap
 
 export const createTasksPage = (page: Page) => {
   const searchBox = page.getByPlaceholder(TASK_COPY.SEARCH_PLACEHOLDER);
-  const newTaskButton = page.getByRole("button", { name: TASKS_COPY.NEW_TASK });
+  const newTaskButton = page.getByRole("button", { name: TASKS_COPY.CREATE_BUTTON });
 
   const goto = () => page.goto(ROUTES.TASKS);
 

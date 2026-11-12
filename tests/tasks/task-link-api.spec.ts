@@ -24,65 +24,34 @@ import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts"
 import { buildImportRow } from "../../src/utilities/apartment-import.utility.ts";
 import { uploadApartments, readBuildingApartments } from "../../src/api/apartment-import.api.ts";
 
-const expectPair = async (
-  api: Parameters<typeof seedCustomer>[0],
-  project: { id: string; name: string },
-) => {
+const expectEmpty = async (api: Parameters<typeof seedCustomer>[0], project: { id: string }) => {
   expect((await api.getProject(project.id)).stage.name).toBe(PROJECT_STATUS_NAMES.NOT_STARTED);
-  const tasks = (await api.getProjectTasks(project.id)).items;
-  expect(tasks).toHaveLength(2);
-  expect(tasks.map(task => task.taskType).sort()).toEqual([
-    TASK_TYPES.PLANNING,
-    TASK_TYPES.QUOTATION,
-  ]);
-  for (const task of tasks) {
-    const label = task.taskType === TASK_TYPES.QUOTATION ? "הצעת מחיר" : "תכנון";
-    expect(task).toMatchObject({
-      title: `${label} — ${project.name}`,
-      status: TASK_STATUSES.NOT_STARTED,
-      assigneeId: null,
-      dueDate: null,
-      customerId: null,
-    });
-    expect(task.isUrgent).toBe(false);
-    expect(task.description).toBe(
-      task.taskType === TASK_TYPES.QUOTATION
-        ? `הכנת הצעת מחיר עבור הפרויקט ${project.name}: ריכוז דרישות הלקוח והפריטים הנדרשים, קביעת כמויות ומחירים ובדיקת תנאי התשלום, לצורך הכנת הצעה מסודרת ללקוח.`
-        : `הכנת תכנון עבור הפרויקט ${project.name}: בחינת דרישות הפרויקט והתוכניות הזמינות, גיבוש פתרון המיזוג ותיאום הפרטים הנדרשים להכנת תוכנית לביצוע.`,
-    );
-    const history = await api.getTaskTransitions(task.id);
-    expect(history).toEqual([
-      expect.objectContaining({ fromStatus: null, toStatus: TASK_STATUSES.NOT_STARTED }),
-    ]);
-  }
-  return tasks;
+  expect((await api.getProjectTasks(project.id)).items).toEqual([]);
 };
 
-test("normal projects and manually created apartments start Not Started with the exact mandatory pair and histories", async ({
+test("normal projects and manually created apartments start Not Started without tasks", async ({
   api,
 }) => {
   const customer = await seedCustomer(api);
-  await expectPair(api, await seedStandaloneProject(api, customer));
+  await expectEmpty(api, await seedStandaloneProject(api, customer));
   const building = await seedBuilding(api, customer);
-  await expectPair(api, building);
-  await expectPair(api, await seedApartment(api, building));
+  await expectEmpty(api, building);
+  await expectEmpty(api, await seedApartment(api, building));
 });
 
-test("Excel apartments initialize the pair exactly once and duplicate import retains IDs", async ({
-  api,
-}) => {
+test("Excel apartments and duplicate import create no tasks", async ({ api }) => {
   const building = await seedBuilding(api, await seedCustomer(api));
   const row = buildImportRow(buildCustomerInput());
   expect((await uploadApartments(api, building.id, [row])).counts.created).toBe(1);
   const apartments = await readBuildingApartments(api, building.id);
   const apartment = apartments[0];
   const project = await api.getProject(apartment.id);
-  const tasks = await expectPair(api, project);
+  await expectEmpty(api, project);
   expect((await uploadApartments(api, building.id, [row])).counts.existing).toBe(1);
-  expect(await api.getProjectTasks(apartment.id).then(page => page.items)).toEqual(tasks);
+  await expectEmpty(api, project);
 });
 
-test("manual creation requires a valid project, rejects customer links/protected or unknown types and invalid supplied dates", async ({
+test("manual creation requires a valid project and rejects customer links, unknown types and invalid dates", async ({
   api,
 }) => {
   const customer = await seedCustomer(api);
@@ -92,8 +61,6 @@ test("manual creation requires a valid project, rejects customer links/protected
     { projectId: null },
     { projectId: "bad" },
     { customerId: customer.id },
-    { taskType: TASK_TYPES.QUOTATION },
-    { taskType: TASK_TYPES.PLANNING },
     { taskType: "unknown" },
     { dueDate: "2020-01-01" },
   ]) {
@@ -117,7 +84,7 @@ test("manual creation requires a valid project, rejects customer links/protected
       })
     ).status(),
   ).toBe(HTTP_STATUS.BAD_REQUEST);
-  expect(await api.getProjectTasks(project.id).then(page => page.items)).toHaveLength(2);
+  expect(await api.getProjectTasks(project.id).then(page => page.items)).toHaveLength(0);
 });
 
 test("protected tasks cannot be deleted, converted, relinked or duplicated; completion/resume retains IDs/history", async ({
@@ -125,8 +92,13 @@ test("protected tasks cannot be deleted, converted, relinked or duplicated; comp
 }) => {
   const project = await seedStandaloneProject(api, await seedCustomer(api));
   const other = await seedStandaloneProject(api, await seedCustomer(api));
-  const tasks = await expectPair(api, project);
-  for (const task of tasks) {
+  const tasks = await Promise.all(
+    [TASK_TYPES.QUOTATION, TASK_TYPES.PLANNING].map(taskType =>
+      api.createTask({ ...buildUnlinkedTaskInput(), projectId: project.id, taskType }),
+    ),
+  );
+  for (const [index, task] of tasks.entries()) {
+    const taskType = [TASK_TYPES.QUOTATION, TASK_TYPES.PLANNING][index];
     expect((await api.send(HTTP_METHODS.DELETE, buildTaskPath(task.id))).status()).toBe(
       HTTP_STATUS.CONFLICT,
     );
@@ -141,9 +113,7 @@ test("protected tasks cannot be deleted, converted, relinked or duplicated; comp
       ).status(),
     ).toBe(HTTP_STATUS.CONFLICT);
     expect(
-      (
-        await api.send(HTTP_METHODS.PATCH, buildTaskPath(task.id), { taskType: task.taskType })
-      ).status(),
+      (await api.send(HTTP_METHODS.PATCH, buildTaskPath(task.id), { taskType })).status(),
     ).toBe(HTTP_STATUS.OK);
     for (const status of [TASK_STATUSES.PROPOSAL_SENT, TASK_STATUSES.IN_PROGRESS]) {
       expect(
@@ -159,13 +129,60 @@ test("protected tasks cannot be deleted, converted, relinked or duplicated; comp
         await api.send(HTTP_METHODS.POST, "/task", {
           ...buildUnlinkedTaskInput(),
           projectId: project.id,
-          taskType: task.taskType,
+          taskType,
         })
       ).status(),
-    ).toBe(HTTP_STATUS.BAD_REQUEST);
+    ).toBe(HTTP_STATUS.CONFLICT);
     expect(await api.getTask(task.id)).toMatchObject({ id: task.id, projectId: project.id });
   }
   expect(await api.getProjectTasks(project.id).then(page => page.items)).toHaveLength(2);
+});
+
+test("protected slot lookup finds the exact existing task beyond the first task page", async ({
+  api,
+  apiAs,
+}) => {
+  const project = await seedStandaloneProject(api, await seedCustomer(api));
+  const quotation = await api.createTask({
+    projectId: project.id,
+    taskType: TASK_TYPES.QUOTATION,
+    title: "הצעת מחיר ישנה",
+    description: "משימה קיימת",
+  });
+  for (const index of Array.from({ length: 22 }, (_, value) => value)) {
+    await api.createTask({
+      projectId: project.id,
+      title: `משימה כללית ${index}`,
+      description: "בדיקת דפדוף",
+      dueDate: "2030-01-01",
+    });
+  }
+  const firstPage = await api.send(HTTP_METHODS.GET, `/task?projectId=${project.id}&batchSize=20`);
+  expect(firstPage.status()).toBe(HTTP_STATUS.OK);
+  expect(await firstPage.text()).not.toContain(quotation.id);
+
+  const slots = await api.send(HTTP_METHODS.GET, `/task/project/${project.id}/protected`);
+  expect(slots.status()).toBe(HTTP_STATUS.OK);
+  expect(await slots.json()).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ id: quotation.id, taskType: TASK_TYPES.QUOTATION }),
+    ]),
+  );
+  const engineer = await apiAs(TEST_USERS[USER_ROLES.ENGINEER]);
+  expect(
+    (await engineer.send(HTTP_METHODS.GET, `/task/project/${project.id}/protected`)).status(),
+  ).toBe(HTTP_STATUS.FORBIDDEN);
+  expect(
+    (
+      await api.send(HTTP_METHODS.POST, "/task", {
+        projectId: project.id,
+        taskType: TASK_TYPES.QUOTATION,
+        title: "כפילות",
+        description: "אסור לשמור",
+      })
+    ).status(),
+  ).toBe(HTTP_STATUS.CONFLICT);
+  expect((await api.getTask(quotation.id)).title).toBe("הצעת מחיר ישנה");
 });
 
 test("General duplicates/delete/relink remain allowed; optional dates clear and assignment invents no date", async ({
@@ -275,7 +292,14 @@ test("engineer cannot manually create tasks and claiming protected task preserve
       })
     ).status(),
   ).toBe(HTTP_STATUS.FORBIDDEN);
-  const tasks = await api.getProjectTasks(project.id).then(page => page.items);
+  const tasks = [
+    await api.createTask({
+      projectId: project.id,
+      taskType: TASK_TYPES.QUOTATION,
+      title: "הצעת מחיר",
+      description: "משימה ידנית",
+    }),
+  ];
   expect(
     (await engineer.send(HTTP_METHODS.PATCH, `${buildTaskPath(tasks[0].id)}/claim`)).status(),
   ).toBe(HTTP_STATUS.OK);

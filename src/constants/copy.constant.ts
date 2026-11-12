@@ -122,6 +122,7 @@ export const CUSTOMER_SUMMARY_VALUES = {
 export const TASKS_COPY = {
   REMOVED_MANAGERS_NOTE: "הקצאת משימות למנהלים בלבד",
   NEW_TASK: "משימה חדשה",
+  CREATE_BUTTON: "+ משימה",
   CREATE_DENIED: "אין הרשאה להקצאת משימות",
 } as const;
 
@@ -180,7 +181,7 @@ export const PROJECT_PAGE_COPY = {
   STAGE_PREFIX: "שלב:",
   STAGE_TITLE: "שלב הפרויקט",
   EDIT: "עריכת פרויקט",
-  NEW_TASK: "+ משימה חדשה",
+  NEW_TASK: "+ משימה",
   NOT_FOUND: "הפרויקט לא נמצא",
   ADD_APARTMENT: SHARED_COPY.ADD_APARTMENT,
   TEAM_TITLE: "צוות הפרויקט המוקצה",
