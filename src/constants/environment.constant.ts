@@ -89,7 +89,7 @@ export const TEST_DATABASE = {
 export const TEST_SECRETS = {
   JWT: "gen-air-automation-test-only-secret",
   PLACES_API_KEY: "fake-places-key",
-  QUESTIONNAIRE_CLIENT: "gen-air-automation-questionnaire-client-test-secret",
+  AUTH_CLIENT: "gen-air-automation-auth-client-test-secret",
   PDF_WORKER: "gen-air-automation-pdf-worker-test-only-secret",
 } as const;
 
