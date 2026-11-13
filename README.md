@@ -249,17 +249,3 @@ dev → test integration gate, not a feature requirement.
 With the disposable local stack running, run `npx playwright test --config playwright.import-api.config.ts` for API-only import and customer-contact checks. This configuration uses explicit API login and does not launch a browser or run browser authentication setup. The four feature browser tests remain in the standard configuration and require a permitted browser environment.
 
 The embedded test database explicitly uses UTF-8 regardless of the host locale, and TCP loopback without Unix-domain sockets. A clean locale-less environment otherwise initialized PostgreSQL 17 as `SQL_ASCII`: `SHOW server_encoding` returned `SQL_ASCII` and `length('אמ')` returned 4, causing the existing two-initial Hebrew project-code constraint to reject valid fixture names. Explicit `--encoding=UTF8` fixes the test infrastructure rather than weakening application constraints or replacing Hebrew fixtures.
-
-## Independent questionnaire feature QA
-
-The public questionnaire is a separate service in `Gen-Air-Backend/apps/questionnaire`, not a CRM route. Its tests use a dedicated configuration, without browser-login setup. They are excluded from the CRM-only default configuration.
-
-```sh
-export GEN_AIR_BACKEND_DIR=/absolute/path/to/exact/backend/feature/checkout
-export GEN_AIR_ARTIFACTS_DIR="$(mktemp -d /tmp/genair-questionnaire-qa.XXXXXX)"
-npx playwright test --config playwright.questionnaire.config.ts
-```
-
-This starts the existing isolated stack (ephemeral UTF-8 PostgreSQL, all migrations, fake Places, backend port3100) and the independent questionnaire client on port5181. Tests activate the seeded questionnaire **only in the disposable database**, submit self-reported test identities, and assert original answers and duplicate prevention directly in that database. No live Railway database, employee account, Google Drive data or deployment is used. The lost-response test lets the real backend commit before dropping only the browser response; it does not mock persistence.
-
-If the same isolated stack is already running in the same execution environment, API-only verification can run without a browser using `npx playwright test --config playwright.questionnaire-api.config.ts`. A passing API run does not satisfy the browser/mobile criteria or the feature QA gate. Keep the exact app/Automation refs and artifacts in the handoff. The client port is fixed at5181 to avoid the CRM Vite port5180.

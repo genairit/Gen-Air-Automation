@@ -17,8 +17,4 @@ export const BROWSER_OPTIONS = {
 
 export const DESKTOP_BROWSER = devices["Desktop Chrome"];
 
-export const TEST_IGNORE_PATTERNS = [
-  HOSTED_TESTS.IGNORE_PATTERN,
-  "**/workflows/**",
-  "**/questionnaire/**",
-];
+export const TEST_IGNORE_PATTERNS = [HOSTED_TESTS.IGNORE_PATTERN, "**/workflows/**"];
