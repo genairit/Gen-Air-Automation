@@ -10,7 +10,7 @@ import {
 import {
   USER_ROLES,
   RETIRED_ROLES,
-  USER_ROLE_VALUES,
+  ASSIGNABLE_USER_ROLE_VALUES,
 } from "../../src/constants/user-role.constant.ts";
 
 import {
@@ -29,21 +29,23 @@ const ADMIN = USER_ROLES.SYSTEM_ADMIN;
 const FINANCE = USER_ROLES.FINANCE;
 const ENGINEER = USER_ROLES.ENGINEER;
 
-test("eight assigned roles persist, but the original JWT grants only the current active role", async ({
+test("all assignable roles persist, but the original JWT grants only the current active role", async ({
   api,
   apiAs,
 }) => {
-  const user = await seedMultiRoleUser(api, USER_ROLE_VALUES);
+  const user = await seedMultiRoleUser(api, ASSIGNABLE_USER_ROLE_VALUES);
   const actor = await apiAs(user);
   const before = await actor.send(HTTP_METHODS.GET, API_PATHS.USER);
   expect(before.status()).toBe(200);
-  expect([...actor.session.user.assignedRoles].sort()).toEqual([...USER_ROLE_VALUES].sort());
+  expect([...actor.session.user.assignedRoles].sort()).toEqual(
+    [...ASSIGNABLE_USER_ROLE_VALUES].sort(),
+  );
 
   const switched = await switchRole(actor, FINANCE);
   expect(switched.status()).toBe(200);
   expect(await switched.json()).toMatchObject({
     role: FINANCE,
-    assignedRoles: expect.arrayContaining(USER_ROLE_VALUES),
+    assignedRoles: expect.arrayContaining(ASSIGNABLE_USER_ROLE_VALUES),
   });
   expect(
     (await actor.send(HTTP_METHODS.POST, API_PATHS.USER, buildUserInput(ENGINEER))).status(),

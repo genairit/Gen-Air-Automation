@@ -59,7 +59,7 @@ const line = (catalogueItemId: string, description: string, quantity = "1") => (
 const sourceFixture = async (api: TGenAirApi) => {
   const customer = await seedCustomer(api);
   const project = await seedBuilding(api, customer);
-  const salesAgent = await seedUser(api, USER_ROLES.SALES_AGENT);
+  const salesAgent = await seedUser(api, USER_ROLES.ENGINEER);
   const sourceItem = await createCatalogueFixture({
     description: "Source unit",
     price: "111",

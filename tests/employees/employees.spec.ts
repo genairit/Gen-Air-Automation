@@ -8,7 +8,7 @@ import {
 import {
   USER_ROLES,
   USER_ROLE_LABELS,
-  USER_ROLE_VALUES,
+  ASSIGNABLE_USER_ROLE_VALUES,
 } from "../../src/constants/user-role.constant.ts";
 
 import { seedUser } from "../../src/api/seed-data.ts";
@@ -24,7 +24,7 @@ import { EMPTY_AUTH_STATE } from "../../src/constants/auth-state.constant.ts";
 
 const NEW_EMPLOYEE_PREFIXES = { NAME: "עובדת חדשה", EMAIL: "new-employee" } as const;
 
-for (const role of USER_ROLE_VALUES) {
+for (const role of ASSIGNABLE_USER_ROLE_VALUES) {
   test(`add a ${role} employee, see it in the table and count it under its role`, async ({
     page,
     api,
@@ -50,13 +50,15 @@ for (const role of USER_ROLE_VALUES) {
   });
 }
 
-test("the role picker offers exactly the eight roles", async ({ page }) => {
+test("the role picker offers only assignable roles", async ({ page }) => {
   const employeesPage = createEmployeesPage(page);
 
   await employeesPage.goto();
 
-  await expect(employeesPage.roleOptions).toHaveCount(USER_ROLE_VALUES.length);
-  for (const role of USER_ROLE_VALUES) {
+  await expect(employeesPage.roleOptions).toHaveCount(ASSIGNABLE_USER_ROLE_VALUES.length);
+  await expect(employeesPage.roleCheckbox(USER_ROLES.SALES_AGENT)).toHaveCount(0);
+  await expect(employeesPage.roleTab(USER_ROLES.SALES_AGENT)).toHaveCount(0);
+  for (const role of ASSIGNABLE_USER_ROLE_VALUES) {
     await expect(employeesPage.roleCheckbox(role)).toHaveAccessibleName(USER_ROLE_LABELS[role]);
   }
 });
@@ -95,9 +97,9 @@ test("employee creation requires matching chosen password and the new account ca
   expect(actor.session.user.email).toBe(employee.email);
 });
 
-test("the role filters narrow the table to each of the eight roles", async ({ page, api }) => {
+test("the role filters narrow the table to assignable roles", async ({ page, api }) => {
   const employeesPage = createEmployeesPage(page);
-  const employees = await Promise.all(USER_ROLE_VALUES.map(role => seedUser(api, role)));
+  const employees = await Promise.all(ASSIGNABLE_USER_ROLE_VALUES.map(role => seedUser(api, role)));
 
   await employeesPage.goto();
 

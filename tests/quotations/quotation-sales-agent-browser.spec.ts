@@ -22,7 +22,7 @@ const chooseSalesAgent = async (page: Page, firstName: string): Promise<void> =>
   await page.getByRole("option", { name: new RegExp(firstName) }).click();
 };
 
-test("quotation creator selects a sales employee, changes and clears it, and reload preserves each result", async ({
+test("quotation creator selects an engineer, changes to admin and clears it", async ({
   page,
   api,
 }) => {
@@ -30,8 +30,8 @@ test("quotation creator selects a sales employee, changes and clears it, and rel
     ...buildCustomerInput(),
     paymentTerms: PAYMENT_TERMS.PREPAID,
   });
-  const first = await seedUser(api, USER_ROLES.SALES_AGENT);
-  const second = await seedUser(api, USER_ROLES.SALES_AGENT);
+  const first = await seedUser(api, USER_ROLES.ENGINEER);
+  const second = await seedUser(api, USER_ROLES.SYSTEM_ADMIN);
   const quote = createQuotationPage(page);
 
   await page.goto("/quotations");
@@ -132,7 +132,7 @@ test("quotation editor hides employee selection from a quotation-only user while
     ...buildCustomerInput(),
     paymentTerms: PAYMENT_TERMS.PREPAID,
   });
-  const agent = await seedUser(api, USER_ROLES.SALES_AGENT);
+  const agent = await seedUser(api, USER_ROLES.ENGINEER);
   const created = await quotationDocument(
     await api.send(HTTP_METHODS.POST, "/quotation", {
       customerId: customer.id,
@@ -159,7 +159,7 @@ test("quotation editor preserves a former agent name and retries a failed agent 
   api,
 }) => {
   const customer = await api.createCustomer(buildCustomerInput());
-  const agent = await seedUser(api, USER_ROLES.SALES_AGENT);
+  const agent = await seedUser(api, USER_ROLES.ENGINEER);
   const created = await quotationDocument(
     await api.send(HTTP_METHODS.POST, "/quotation", {
       customerId: customer.id,
