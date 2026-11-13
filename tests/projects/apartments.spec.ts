@@ -1,6 +1,7 @@
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { SEED_VALUES } from "../../src/constants/seed.constant.ts";
 import { createProjectPage } from "../../src/pages/project.page.ts";
+import { findCardByTitle } from "../../src/pages/card.component.ts";
 import { buildApartmentRoute } from "../../src/utilities/route.utility.ts";
 import { PROJECT_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
 import { readTabCount, expectTabSelected } from "../../src/pages/tab.component.ts";
@@ -33,11 +34,11 @@ test("add an apartment to a building and see it listed and counted", async ({ pa
 
   await expect(projectPage.findApartmentRow(formatApartmentName(number))).toBeVisible();
   await expect
-    .poll(() => readTabCount(projectPage.statusTab(PROJECT_STATUS_NAMES.DRAFT)))
+    .poll(() => readTabCount(projectPage.statusTab(PROJECT_STATUS_NAMES.NOT_STARTED)))
     .toBe(SINGLE_APARTMENT_COUNT);
 });
 
-test("an apartment page shows its contact and the values inherited from the building", async ({
+test("an apartment page shows its team and the values inherited from the building", async ({
   page,
   api,
 }) => {
@@ -48,7 +49,8 @@ test("an apartment page shows its contact and the values inherited from the buil
   await apartmentPage.goto(building.id, apartment.id);
 
   await expect(page.getByText(apartment.code)).toBeVisible();
-  await expect(page.getByText(SEED_VALUES.CUSTOMER_CONTACT_NAME)).toBeVisible();
+  await expect(findCardByTitle(page, "צוות הדירה")).toBeVisible();
+  await expect(page.getByText(SEED_VALUES.CUSTOMER_CONTACT_NAME, { exact: true })).toHaveCount(0);
   await expect(page.getByRole("link", { name: formatBuildingLink(building.name) })).toBeVisible();
 });
 
@@ -68,7 +70,7 @@ test("change an apartment stage independently of its building", async ({ page, a
   await expect
     .poll(() => readTabCount(projectPage.statusTab(PROJECT_STATUS_NAMES.IN_PROGRESS)))
     .toBe(SINGLE_APARTMENT_COUNT);
-  await expect(projectPage.stagePicker).toHaveValue(PROJECT_STATUS_NAMES.DRAFT);
+  await expect(projectPage.stagePicker).toHaveValue(PROJECT_STATUS_NAMES.NOT_STARTED);
 });
 
 test("save notes on an apartment", async ({ page, api }) => {

@@ -18,6 +18,7 @@ export interface IProjectFormInput {
 export const createProjectFormPage = (page: Page) => {
   const form = findMainContent(page);
   const nameInput = findFieldByTitle(form, PROJECT_FORM_COPY.NAME);
+  const notesInput = findFieldByTitle(form, PROJECT_FORM_COPY.NOTES_LABEL);
   const addressVerified = page.getByText(PROJECT_FORM_COPY.ADDRESS_VERIFIED);
   const contactNameInput = form.getByPlaceholder(PROJECT_FORM_COPY.CONTACT_NAME_PLACEHOLDER);
   const contactPhoneInput = form.getByPlaceholder(PROJECT_FORM_COPY.CONTACT_PHONE_PLACEHOLDER);
@@ -74,6 +75,7 @@ export const createProjectFormPage = (page: Page) => {
 
   return {
     nameInput,
+    notesInput,
     saveButton,
     editDenied,
     addressInput,

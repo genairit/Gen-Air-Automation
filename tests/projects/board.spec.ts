@@ -23,15 +23,15 @@ const { defaultBrowserType: _browserType, ...PHONE } = devices["Pixel 7"];
 
 test("a new project is counted under its status and found by search", async ({ page, api }) => {
   const boardPage = createBoardPage(page);
-  const draftTab = boardPage.statusTab(PROJECT_STATUS_NAMES.DRAFT);
+  const notStartedTab = boardPage.statusTab(PROJECT_STATUS_NAMES.NOT_STARTED);
   const project = await seedStandaloneProject(api, await seedCustomer(api));
-  const draftCount = await api.countProjectsInStage(PROJECT_STATUS_NAMES.DRAFT);
+  const notStartedCount = await api.countProjectsInStage(PROJECT_STATUS_NAMES.NOT_STARTED);
 
   await boardPage.goto();
 
-  await expect.poll(() => readTabCount(draftTab)).toBe(draftCount);
+  await expect.poll(() => readTabCount(notStartedTab)).toBe(notStartedCount);
 
-  await draftTab.click();
+  await notStartedTab.click();
   await boardPage.searchBox.fill(project.name);
 
   await expect(boardPage.findRow(project.name)).toBeVisible();
@@ -81,9 +81,11 @@ test("open a project from the board, change its stage in details, and see the bo
   const timelineEntries = projectPage.timeline.getByRole("listitem");
 
   await expect(timelineEntries).toHaveCount(TIMELINE_ENTRIES_AFTER_ONE_CHANGE);
-  await expect(timelineEntries.filter({ hasText: PROJECT_STATUS_NAMES.IN_PROGRESS })).toHaveCount(
-    1,
-  );
+  await expect(
+    timelineEntries.filter({
+      has: page.getByText(PROJECT_STATUS_NAMES.IN_PROGRESS, { exact: true }),
+    }),
+  ).toHaveCount(1);
 
   await boardPage.goto();
   await boardPage.searchBox.fill(project.name);
@@ -136,7 +138,7 @@ test.describe("mobile layout", () => {
       page
         .getByRole("button", { name: project.name })
         .locator("..")
-        .getByText(`${PROJECT_PAGE_COPY.STAGE_PREFIX} ${PROJECT_STATUS_NAMES.DRAFT}`, {
+        .getByText(`${PROJECT_PAGE_COPY.STAGE_PREFIX} ${PROJECT_STATUS_NAMES.NOT_STARTED}`, {
           exact: true,
         }),
     ).toBeVisible();

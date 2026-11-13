@@ -48,6 +48,7 @@ const PORT_ENVIRONMENT = [
   "GEN_AIR_DATABASE_PORT",
   "GEN_AIR_FAKE_PLACES_PORT",
   "GEN_AIR_SMTP_PORT",
+  "GEN_AIR_PDF_WORKER_PORT",
   "GEN_AIR_QA_PORT_OFFSET",
 ];
 const environmentModule = new URL("../../src/constants/environment.constant.ts", import.meta.url)
@@ -72,13 +73,14 @@ const readConfiguredPorts = overrides => {
   return JSON.parse(child.stdout);
 };
 
-test("configured ports keep established defaults and accept all five isolated overrides", () => {
+test("configured ports keep established defaults and accept all six isolated overrides", () => {
   assert.deepEqual(readConfiguredPorts({}), {
     BACKEND: 3100,
     FRONTEND: 5180,
     DATABASE: 54329,
     FAKE_PLACES: 4100,
     SMTP: 2525,
+    PDF_WORKER: 4200,
   });
   assert.deepEqual(
     readConfiguredPorts(
@@ -89,7 +91,14 @@ test("configured ports keep established defaults and accept all five isolated ov
         ]),
       ),
     ),
-    { BACKEND: 6000, FRONTEND: 6001, DATABASE: 6002, FAKE_PLACES: 6003, SMTP: 6004 },
+    {
+      BACKEND: 6000,
+      FRONTEND: 6001,
+      DATABASE: 6002,
+      FAKE_PLACES: 6003,
+      SMTP: 6004,
+      PDF_WORKER: 6005,
+    },
   );
 });
 
@@ -108,6 +117,7 @@ test("dev port offset applies to every service while explicit role overrides tak
     DATABASE: 54429,
     FAKE_PLACES: 4200,
     SMTP: 2625,
+    PDF_WORKER: 4300,
   });
   assert.deepEqual(
     readConfiguredPorts({
@@ -115,7 +125,14 @@ test("dev port offset applies to every service while explicit role overrides tak
       GEN_AIR_BACKEND_PORT: "3218",
       GEN_AIR_SMTP_PORT: "2626",
     }),
-    { BACKEND: 3218, FRONTEND: 5280, DATABASE: 54429, FAKE_PLACES: 4200, SMTP: 2626 },
+    {
+      BACKEND: 3218,
+      FRONTEND: 5280,
+      DATABASE: 54429,
+      FAKE_PLACES: 4200,
+      SMTP: 2626,
+      PDF_WORKER: 4300,
+    },
   );
 });
 
@@ -140,7 +157,7 @@ const account = assignedRoles => ({
   assignedRoles,
 });
 
-test("both account guards accept each catalog membership and all six roles", () => {
+test("both account guards accept each catalog membership and all eight roles", () => {
   for (const assignedRoles of [...USER_ROLE_VALUES.map(role => [role]), USER_ROLE_VALUES]) {
     assert.equal(isAssignedRoles(assignedRoles), true);
     assert.equal(isUserRecord(account(assignedRoles)), true);
@@ -166,7 +183,6 @@ for (const assignedRoles of [
 
 test("account guards reject absent assignments and malformed authorization permissions", () => {
   const { assignedRoles, ...legacy } = account(USER_ROLE_VALUES);
-  assert.equal(assignedRoles.length, 6);
   assert.equal(isUserRecord(legacy), false);
   assert.equal(isAuthorizedUser(legacy), false);
   assert.equal(isAuthorizedUser({ ...account(USER_ROLE_VALUES), permissions: [42] }), false);

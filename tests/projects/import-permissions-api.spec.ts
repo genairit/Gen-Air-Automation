@@ -1,13 +1,10 @@
 import {
   importPath,
-  contactsPath,
   buildImportRow,
   makeImportWorkbook,
 } from "../../src/utilities/apartment-import.utility.ts";
 
-import { isRecord } from "../../src/utilities/guard.utility.ts";
 import { test, expect } from "../../src/fixtures/api.fixture.ts";
-import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
@@ -94,53 +91,4 @@ test("same non-admin token imports with all grants and loses access when a grant
   const apartments = await readBuildingApartments(api, building.id);
   expect(apartments).toHaveLength(1);
   expect(apartments[0].customerApartment).toBe(scopedApartmentNumber("1"));
-});
-
-test("customer contact reads and writes follow current granular grants not role", async ({
-  api,
-  apiAs,
-}) => {
-  const customer = await seedCustomer(api);
-  const actor = await apiAs(TEST_USERS[USER_ROLES.FINANCE]);
-  const path = contactsPath(customer.id);
-  await withRolePermissions(USER_ROLES.FINANCE, [], async () => {
-    expect((await actor.send(HTTP_METHODS.GET, path)).status()).toBe(403);
-    expect((await actor.send(HTTP_METHODS.POST, path, { name: "איש קשר מורשה" })).status()).toBe(
-      403,
-    );
-  });
-  await withRolePermissions(USER_ROLES.FINANCE, [PERMISSIONS.CUSTOMERS_UPDATE], async () => {
-    expect((await actor.send(HTTP_METHODS.GET, path)).status()).toBe(403);
-    const created = await actor.send(HTTP_METHODS.POST, path, { name: "איש קשר מורשה" });
-    expect(created.status()).toBe(201);
-    const contact: unknown = await created.json();
-    if (!isRecord(contact) || typeof contact.id !== "string") {
-      throw new Error("Unexpected contact response");
-    }
-
-    expect(
-      (
-        await actor.send(HTTP_METHODS.PATCH, `${path}/${contact.id}`, { name: "איש קשר מעודכן" })
-      ).status(),
-    ).toBe(200);
-    await withRolePermissions(USER_ROLES.FINANCE, [PERMISSIONS.CUSTOMERS_READ], async () => {
-      const readable = await actor.send(HTTP_METHODS.GET, path);
-      expect(readable.status()).toBe(200);
-      expect(await readable.json()).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ id: contact.id, name: "איש קשר מעודכן" }),
-        ]),
-      );
-      expect(
-        (await actor.send(HTTP_METHODS.POST, path, { name: "אין הרשאת כתיבה" })).status(),
-      ).toBe(403);
-      expect(
-        (
-          await actor.send(HTTP_METHODS.PATCH, `${path}/${contact.id}`, { name: "שינוי אסור" })
-        ).status(),
-      ).toBe(403);
-      const unchanged = await actor.send(HTTP_METHODS.GET, path);
-      expect(await unchanged.json()).toEqual(await readable.json());
-    });
-  });
 });

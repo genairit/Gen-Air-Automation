@@ -15,12 +15,14 @@ import type { Page } from "@playwright/test";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { MIME_TYPES } from "../../src/constants/domain.constant.ts";
 import { createApartmentPage } from "../../src/pages/apartment.page.ts";
+import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
 import { ROLE_ACCESS } from "../../src/constants/role-access.constant.ts";
 import { USER_ROLE_VALUES } from "../../src/constants/user-role.constant.ts";
 import { getAuthStatePath } from "../../src/utilities/auth-state.utility.ts";
 import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
 import { DRIVE_COPY, PROJECT_PAGE_COPY } from "../../src/constants/copy.constant.ts";
 import { createDriveManagement } from "../../src/pages/drive-management.component.ts";
+import { BASELINE_PERMISSIONS } from "../../src/constants/permission-baseline.constant.ts";
 import { DRIVE_MANAGEMENT_COPY as COPY } from "../../src/constants/drive-management.constant.ts";
 
 const PDF = {
@@ -229,12 +231,22 @@ for (const role of USER_ROLE_VALUES) {
       await mockDriveManagement(page, project.id);
       const ui = createDriveManagement(page);
       await ui.goto(project.id);
+      const grants = BASELINE_PERMISSIONS[role];
+      if (!grants.includes(PERMISSIONS.DRIVE_READ)) {
+        await expect(ui.driveCard).toHaveCount(0);
+        return;
+      }
       await ui.expandNested();
       await expect(ui.file).toBeVisible();
       await expect(ui.move).toHaveCount(ROLE_ACCESS[role].canEditProject ? 1 : 0);
       await expect(ui.trash).toHaveCount(ROLE_ACCESS[role].canEditProject ? 1 : 0);
-      await expect(ui.uploadInput).toBeEnabled();
-      await expect(page.getByRole("button", { name: COPY.CHOOSE, exact: true })).toBeEnabled();
+      if (grants.includes(PERMISSIONS.DRIVE_UPLOAD)) {
+        await expect(ui.uploadInput).toBeEnabled();
+        await expect(page.getByRole("button", { name: COPY.CHOOSE, exact: true })).toBeEnabled();
+      } else {
+        await expect(ui.uploadInput).toHaveCount(0);
+        await expect(page.getByRole("button", { name: COPY.CHOOSE, exact: true })).toHaveCount(0);
+      }
     });
   });
 }

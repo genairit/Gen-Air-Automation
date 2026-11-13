@@ -135,21 +135,31 @@ test("search is literal and server-side; stage counts ignore the selected stage 
   const customer = await seedCustomer(api);
   const exact = await seedStandaloneProject(api, customer);
   const other = await seedStandaloneProject(api, customer);
-  const pending = await api.findProjectStage(PROJECT_STATUS_NAMES.PENDING);
-  const done = await api.findProjectStage(PROJECT_STATUS_NAMES.DONE);
+  const waitingResponse = await api.findProjectStage(PROJECT_STATUS_NAMES.WAITING_RESPONSE);
+  const completedStage = await api.findProjectStage(PROJECT_STATUS_NAMES.COMPLETED);
   await updateProjectRelationFixture(exact.id, { name: createUniqueName("פרויקט %_ ייחודי") });
   expect(
-    (await api.send(HTTP_METHODS.PATCH, `/project/${exact.id}`, { stageId: pending.id })).ok(),
+    (
+      await api.send(HTTP_METHODS.PATCH, `/project/${exact.id}`, {
+        stageId: waitingResponse.id,
+        stageNote: "ממתינים לתשובת הלקוח",
+      })
+    ).ok(),
   ).toBe(true);
   expect(
-    (await api.send(HTTP_METHODS.PATCH, `/project/${other.id}`, { stageId: done.id })).ok(),
+    (
+      await api.send(HTTP_METHODS.PATCH, `/project/${other.id}`, { stageId: completedStage.id })
+    ).ok(),
   ).toBe(true);
   expect(
     (await readCustomerProjects(api, customer.id, { search: "%_" })).items.map(item => item.id),
   ).toEqual([exact.id]);
-  const filtered = await readCustomerProjects(api, customer.id, { stageId: pending.id });
+  const filtered = await readCustomerProjects(api, customer.id, { stageId: waitingResponse.id });
   expect(filtered.items.map(item => item.id)).toEqual([exact.id]);
-  expect(filtered.counts.byStage).toMatchObject({ [pending.id]: 1, [done.id]: 1 });
+  expect(filtered.counts.byStage).toMatchObject({
+    [waitingResponse.id]: 1,
+    [completedStage.id]: 1,
+  });
   const invalidQueries: Record<string, string>[] = [
     { batchCursor: "bad" },
     { batchSize: "0" },
@@ -185,7 +195,7 @@ test("both customer-read and project-read grants are required and live revocatio
   );
 });
 
-test("parent context search returns only the customer's apartment and inherited teams expose no user secrets", async ({
+test("parent context search returns only the customer's apartment and its team exposes no user secrets", async ({
   api,
 }) => {
   const customer = await seedCustomer(api);
@@ -194,12 +204,12 @@ test("parent context search returns only the customer's apartment and inherited 
   const building = await seedProject(api, {
     customer: other,
     projectTypeName: PROJECT_TYPE_NAMES.RESIDENTIAL_BUILDING,
-    members: [{ userId: engineer.id, role: USER_ROLES.ENGINEER }],
   });
   const apartment = await api.createApartment(building.id, {
     customerId: customer.id,
     customerFloor: 4,
     customerApartment: scopedApartmentNumber("51"),
+    members: [{ userId: engineer.id, role: USER_ROLES.ENGINEER }],
   });
   for (const search of [building.name, building.code]) {
     const page = await readCustomerProjects(api, customer.id, { search });

@@ -33,3 +33,34 @@ export const selectOption = async (
 
   await option.click();
 };
+
+const MAX_KEYBOARD_STEPS = 20;
+
+const readActiveOptionText = async (page: Page, combobox: Locator): Promise<string | null> => {
+  const activeId = await combobox.getAttribute("aria-activedescendant");
+
+  if (!activeId) {
+    return null;
+  }
+
+  return page.locator(`[id=${JSON.stringify(activeId)}]`).textContent();
+};
+
+export const selectOptionByKeyboard = async (
+  page: Page,
+  combobox: Locator,
+  optionLabel: string,
+): Promise<void> => {
+  await combobox.focus();
+
+  for (const _ of Array.from({ length: MAX_KEYBOARD_STEPS })) {
+    await combobox.press("ArrowDown");
+
+    if ((await readActiveOptionText(page, combobox))?.trim() === optionLabel) {
+      await combobox.press("Enter");
+      return;
+    }
+  }
+
+  throw new Error(`Keyboard navigation never reached the "${optionLabel}" option`);
+};

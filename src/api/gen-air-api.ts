@@ -94,8 +94,10 @@ export const createGenAirApi = (request: APIRequestContext, session: ISession) =
     return projectType;
   };
 
+  const getProjectStages = () => get(API_PATHS.PROJECT_STAGE, isProjectStageList);
+
   const findProjectStage = async (stageName: string): Promise<IProjectStage> => {
-    const stages = await get(API_PATHS.PROJECT_STAGE, isProjectStageList);
+    const stages = await getProjectStages();
     const stage = stages.find(candidate => candidate.name === stageName);
 
     if (!stage) {
@@ -157,6 +159,7 @@ export const createGenAirApi = (request: APIRequestContext, session: ISession) =
     findTaskIds,
     readRoleCounts,
     findProjectType,
+    getProjectStages,
     findProjectStage,
     countUsersInRole,
     countMyTasksInStatus,

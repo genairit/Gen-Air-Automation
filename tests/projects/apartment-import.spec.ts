@@ -5,6 +5,7 @@ import {
 } from "../../src/utilities/apartment-import.utility.ts";
 
 import { readFile } from "node:fs/promises";
+import { isRecord } from "../../src/utilities/guard.utility.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { createProjectPage } from "../../src/pages/project.page.ts";
@@ -15,7 +16,7 @@ import { APARTMENT_IMPORT } from "../../src/constants/apartment-import.constant.
 import { scopedApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { seedBuilding, seedCustomer, buildCustomerInput } from "../../src/api/seed-data.ts";
 
-test("selecting XLSX immediately imports and finish refreshes the building", async ({
+test("selecting XLSX imports international customer and contact numbers and refreshes the building", async ({
   page,
   api,
 }) => {
@@ -27,11 +28,17 @@ test("selecting XLSX immediately imports and finish refreshes the building", asy
   await expect(dialog.getByText("אין שלב תצוגה מקדימה", { exact: false })).toBeVisible();
   await expect(dialog).toHaveCSS("border-radius", "28px");
   const fileInput = dialog.locator('input[type="file"]');
-  await expect(fileInput.locator("..")).toHaveCSS("border-style", "dashed");
-  await expect(fileInput.locator("..")).toHaveCSS("border-radius", "22px");
+  await expect(fileInput.locator("xpath=../..")).toHaveCSS("border-style", "dashed");
+  await expect(fileInput.locator("xpath=../..")).toHaveCSS("border-radius", "22px");
   const chooserEvent = page.waitForEvent("filechooser");
   await fileInput.click();
   const row = buildImportRow(buildCustomerInput(), scopedApartmentNumber("17"));
+  const customerPhoneColumn = APARTMENT_IMPORT.HEADERS.indexOf("טלפון לקוח");
+  const contactPhoneColumn = APARTMENT_IMPORT.HEADERS.indexOf("טלפון איש קשר");
+  expect(customerPhoneColumn).toBeGreaterThanOrEqual(0);
+  expect(contactPhoneColumn).toBeGreaterThanOrEqual(0);
+  row[customerPhoneColumn] = "+442071838750";
+  row[contactPhoneColumn] = "+12025550123";
   await (
     await chooserEvent
   ).setFiles({
@@ -43,6 +50,31 @@ test("selecting XLSX immediately imports and finish refreshes the building", asy
   await expect(dialog.getByRole("status")).toHaveCSS("background-color", "rgb(255, 246, 224)");
   await expect(dialog.getByRole("status")).toHaveCSS("direction", "rtl");
   await expect(dialog.getByRole("status").locator("b")).toHaveCSS("text-align", /^(start|right)$/);
+  const imported = await readBuildingApartments(api, building.id);
+  expect(imported).toHaveLength(1);
+  const importedCustomer = await api.send(HTTP_METHODS.GET, `/customer/${imported[0].customerId}`);
+  const customer: unknown = await importedCustomer.json();
+  expect(customer).toMatchObject({ phone: null, primaryContactId: expect.any(String) });
+  const importedContacts = await api.send(HTTP_METHODS.GET, `/project/${imported[0].id}/contacts`);
+  const links: unknown = await importedContacts.json();
+  expect(Array.isArray(links)).toBe(true);
+  if (!Array.isArray(links)) {
+    throw new Error("Imported project contact response is not an array");
+  }
+  expect(
+    links.some(
+      link =>
+        isRecord(link) &&
+        isRecord(link.contact) &&
+        link.contact.id === (isRecord(customer) ? customer.primaryContactId : null) &&
+        link.contact.phone === "+442071838750",
+    ),
+  ).toBe(true);
+  expect(
+    links.some(
+      link => isRecord(link) && isRecord(link.contact) && link.contact.phone === "+12025550123",
+    ),
+  ).toBe(true);
   await expect(
     dialog.getByText("דירות קיימות לא עודכנו ולא נמחקו.", { exact: false }),
   ).toBeVisible();
@@ -246,8 +278,9 @@ test("engineering user sees customer contacts read-only and cannot open apartmen
   const building = await seedBuilding(api, customer);
   const page = await openPageAs(TEST_USERS[USER_ROLES.ENGINEER]);
   await page.goto(`/customers/${customer.id}`);
-  await expect(page.getByText("אנשי הקשר של הלקוח", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "הוספת איש קשר", exact: true })).toHaveCount(0);
+  await expect(page.getByText("איש קשר של הלקוח", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "צור איש קשר", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "בחר מהמדריך", exact: true })).toHaveCount(0);
   await createProjectPage(page).goto(building.id);
   await expect(page.getByRole("button", { name: APARTMENT_IMPORT.OPEN, exact: true })).toHaveCount(
     0,

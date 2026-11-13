@@ -9,12 +9,14 @@ const REPOSITORIES_ROOT = resolve(AUTOMATION_ROOT, "..");
 
 export const IS_CI = process.env.CI === "true";
 export const EMAIL_QA_ENABLED = process.env.GEN_AIR_EMAIL_QA !== "false";
+export const PDF_QA_ENABLED = process.env.GEN_AIR_PDF_QA === "true";
 export const IS_SPRINT_ALMON_CLEANUP_ENABLED =
   process.env.GEN_AIR_TEST_SPRINT_ALMON_CLEANUP === "true";
 
 export const APP_DIRECTORIES = {
   BACKEND: process.env.GEN_AIR_BACKEND_DIR ?? resolve(REPOSITORIES_ROOT, "Gen-Air-Backend"),
   FRONTEND: process.env.GEN_AIR_FRONTEND_DIR ?? resolve(REPOSITORIES_ROOT, "Gen-Air-Frontend"),
+  WORKER: process.env.GEN_AIR_WORKER_DIR ?? resolve(REPOSITORIES_ROOT, "Gen-Air-Worker"),
 } as const;
 
 const CHECKOUT_ID = createHash("sha256").update(AUTOMATION_ROOT).digest("hex").slice(0, 12);
@@ -25,6 +27,7 @@ const ARTIFACTS_ROOT = resolve(
 
 export const AUTOMATION_DIRECTORIES = {
   AUTH: resolve(ARTIFACTS_ROOT, "auth"),
+  FIXTURES: resolve(ARTIFACTS_ROOT, "fixtures"),
   HTML: resolve(ARTIFACTS_ROOT, "html"),
   JSON: resolve(ARTIFACTS_ROOT, "results.json"),
   RESULTS: resolve(ARTIFACTS_ROOT, "test-results"),
@@ -55,6 +58,11 @@ export const PORTS = {
     4100 + PORT_OFFSET,
   ),
   SMTP: readPort("GEN_AIR_SMTP_PORT", process.env.GEN_AIR_SMTP_PORT ?? null, 2525 + PORT_OFFSET),
+  PDF_WORKER: readPort(
+    "GEN_AIR_PDF_WORKER_PORT",
+    process.env.GEN_AIR_PDF_WORKER_PORT ?? null,
+    4200 + PORT_OFFSET,
+  ),
 } as const;
 
 export const LOCAL_HOST = "localhost";
@@ -65,6 +73,7 @@ export const URLS = {
   BACKEND: `${LOCAL_ORIGIN}:${PORTS.BACKEND}`,
   FRONTEND: `${LOCAL_ORIGIN}:${PORTS.FRONTEND}`,
   FAKE_PLACES: `${LOCAL_ORIGIN}:${PORTS.FAKE_PLACES}/v1`,
+  PDF_WORKER: `${LOCAL_ORIGIN}:${PORTS.PDF_WORKER}`,
 } as const;
 
 // Throwaway credentials for the ephemeral local database and test-only token signing; they protect nothing.
@@ -81,6 +90,7 @@ export const TEST_SECRETS = {
   JWT: "gen-air-automation-test-only-secret",
   PLACES_API_KEY: "fake-places-key",
   QUESTIONNAIRE_CLIENT: "gen-air-automation-questionnaire-client-test-secret",
+  PDF_WORKER: "gen-air-automation-pdf-worker-test-only-secret",
 } as const;
 
 export const STACK_TIMEOUTS = {

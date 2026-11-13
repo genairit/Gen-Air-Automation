@@ -1,11 +1,12 @@
 import type { Page } from "@playwright/test";
 import { findTableRow } from "./table.component.ts";
 import { findCountedTab } from "./tab.component.ts";
-import { selectOption } from "./select.component.ts";
 import { findListUnderTitle } from "./field.component.ts";
 import { PROJECT_PAGE_COPY } from "../constants/copy.constant.ts";
 import { buildProjectRoute } from "../utilities/route.utility.ts";
 import { buildPrefixPattern } from "../utilities/regex.utility.ts";
+import { selectOption, selectOptionByKeyboard } from "./select.component.ts";
+import { BULK_STAGE_COPY, formatSelectApartmentLabel } from "../constants/stage-reason.constant.ts";
 
 export const createProjectPage = (page: Page) => {
   const driveCard = page.getByRole("region", { name: PROJECT_PAGE_COPY.FOLDERS_TITLE });
@@ -31,6 +32,21 @@ export const createProjectPage = (page: Page) => {
 
   const changeStage = (stageName: string) => selectOption(page, stagePicker, stageName);
 
+  const bulkStagePicker = page
+    .getByRole("combobox")
+    .and(page.getByPlaceholder(BULK_STAGE_COPY.CHANGE_STAGE));
+
+  const selectApartment = (apartmentNumber: string) =>
+    page.getByRole("checkbox", { name: formatSelectApartmentLabel(apartmentNumber), exact: true });
+
+  const selectionCaption = (count: number) =>
+    page.getByText(`${count} ${BULK_STAGE_COPY.SELECTED_SUFFIX}`, { exact: true });
+
+  const changeSelectedStage = (stageName: string) => selectOption(page, bulkStagePicker, stageName);
+
+  const changeSelectedStageByKeyboard = (stageName: string) =>
+    selectOptionByKeyboard(page, bulkStagePicker, stageName);
+
   return {
     driveCard,
     driveLogo: driveCard.locator('img[src*="/gdrive"][aria-hidden="true"]'),
@@ -45,6 +61,11 @@ export const createProjectPage = (page: Page) => {
     statusTab,
     stagePicker,
     changeStage,
+    bulkStagePicker,
+    selectApartment,
+    selectionCaption,
+    changeSelectedStage,
+    changeSelectedStageByKeyboard,
     driveFolder,
     findApartmentRow,
   };

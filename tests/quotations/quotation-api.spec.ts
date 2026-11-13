@@ -780,7 +780,7 @@ test("status counts cover all statuses beyond pagination and exclude deleted quo
   const deleted = await createQuotation(api, customer.id);
   await setQuotationCountFixture(deleted.id, QUOTATION.STATUS.APPROVED);
   await softDeleteQuotationFixture(deleted.id);
-  const expected = { all: 23, draft: 21, review: 1, approved: 1 };
+  const expected = { all: 23, draft: 21, review: 1, approved: 1, cancelled: 0 };
   expect(await quotationStatusCounts(api, customer.name)).toEqual(expected);
   const page = await quotationPage(
     await api.send(
@@ -815,7 +815,7 @@ test("status counts share joined search, trim whitespace, escape literals and re
     projectId: project.id,
     brand: QUOTATION.BRAND,
   });
-  const expected = { all: 1, draft: 1, review: 0, approved: 0 };
+  const expected = { all: 1, draft: 1, review: 0, approved: 0, cancelled: 0 };
   for (const search of [saved.number, customer.name.toUpperCase(), project.name]) {
     expect(await quotationStatusCounts(api, `  ${search}  `)).toEqual(expected);
     const page = await quotationPage(
@@ -844,6 +844,7 @@ test("status counts share joined search, trim whitespace, escape literals and re
     draft: 2,
     review: 0,
     approved: 0,
+    cancelled: 0,
   });
   expect(await quotationStatusCounts(api, `${literalPrefix}%_`)).toEqual(expected);
   expect(await quotationStatusCounts(api, customer.name)).toEqual(expected);
@@ -852,6 +853,7 @@ test("status counts share joined search, trim whitespace, escape literals and re
     draft: 0,
     review: 0,
     approved: 0,
+    cancelled: 0,
   });
   expect(await quotationStatusCounts(api, " ")).toEqual(await quotationStatusCounts(api));
   const retained = await quotationDocument(
@@ -878,6 +880,7 @@ test("status counts enforce live read grants and strict query boundaries", async
       draft: 0,
       review: 0,
       approved: 0,
+      cancelled: 0,
     });
     await withRolePermissions(USER_ROLES.ENGINEER, [], async () => {
       expect((await engineer.send(HTTP_METHODS.GET, "/quotation/status-counts")).status()).toBe(

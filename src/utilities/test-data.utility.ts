@@ -1,4 +1,8 @@
+import { resolve } from "node:path";
+import { mkdirSync } from "node:fs";
+import { randomInt } from "node:crypto";
 import { TEST_DATA_FORMATS } from "../constants/test-data.constant.ts";
+import { AUTOMATION_DIRECTORIES } from "../constants/environment.constant.ts";
 
 const runId = Date.now().toString(36);
 const sequence = { value: 0 };
@@ -41,7 +45,31 @@ const createRandomDigits = (length: number) =>
   Array.from({ length }, () => Math.floor(Math.random() * TEST_DATA_FORMATS.DECIMAL_BASE)).join("");
 
 export const createCompanyNumber = (): string => {
-  const body = createRandomDigits(TEST_DATA_FORMATS.COMPANY_NUMBER_BODY_LENGTH);
+  // Atomic reservations survive Playwright worker restarts.
+  const directory = resolve(AUTOMATION_DIRECTORIES.FIXTURES, "company-numbers");
+  mkdirSync(directory, { recursive: true });
+  const capacity = TEST_DATA_FORMATS.DECIMAL_BASE ** TEST_DATA_FORMATS.COMPANY_NUMBER_BODY_LENGTH;
+  const initial = randomInt(capacity);
+  const body = (() => {
+    const cursor = { offset: 0 };
+    while (cursor.offset < capacity) {
+      const offset = cursor.offset;
+      cursor.offset += 1;
+      const candidate = String((initial + offset) % capacity).padStart(
+        TEST_DATA_FORMATS.COMPANY_NUMBER_BODY_LENGTH,
+        "0",
+      );
+      try {
+        mkdirSync(resolve(directory, candidate));
+        return candidate;
+      } catch (error) {
+        if (!(error instanceof Error) || !("code" in error) || error.code !== "EEXIST") {
+          throw error;
+        }
+      }
+    }
+    throw new Error("The disposable test database exhausted its company-number fixture pool");
+  })();
   const digits = `${TEST_DATA_FORMATS.COMPANY_NUMBER_PREFIX}${body}`;
 
   return `${digits}${computeCheckDigit(digits)}`;

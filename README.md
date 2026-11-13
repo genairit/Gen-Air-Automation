@@ -31,6 +31,10 @@ For parallel isolated stacks, override ports with `GEN_AIR_BACKEND_PORT`,
 otherwise the offset shifts the established default port. Every resolved port is validated.
 Set `GEN_AIR_ARTIFACTS_DIR` to a unique OS temporary directory for each run; database, authentication,
 JSON/HTML reports, screenshots and traces stay beneath that directory.
+For targeted checks against an app revision that predates a newly added role, set
+`GEN_AIR_QA_SETUP_ROLES` to a comma-separated list of roles needed by those checks (for example,
+`system_admin`). This scopes disposable user seeding and authentication setup. The default runs all
+roles; full regression must leave this unset.
 
 Card 98's [multiple-role coverage matrix](docs/multiple-roles-coverage.md) documents the targeted
 feature and affected regression checks, including real and simulated boundaries.
@@ -202,6 +206,22 @@ runs with test-only allowlisted addresses, empty Drive credentials, and no SMTP 
 test messages remain under the private artifact directory and must not be uploaded.
 `GEN_AIR_QA_PORT_OFFSET` shifts the app, database, Places, and SMTP ports when another local stack
 is active.
+
+Quotation PDF QA uses the real renderer from an adjacent Gen-Air-Worker checkout. Set
+`GEN_AIR_PDF_QA=true` and provide a local Chromium executable through
+`CHROMIUM_EXECUTABLE_PATH`; `GEN_AIR_WORKER_DIR` overrides the adjacent checkout path.
+The suite starts an isolated authenticated HTTP harness around the renderer because the
+Worker's queue process requires RabbitMQ. The Nest Worker HTTP controller and RabbitMQ
+consumer are covered separately by Worker tests. The main backend, disposable Postgres,
+and fake Google Drive run in the normal Automation stack. Generated PDF evidence stays
+under `GEN_AIR_ARTIFACTS_DIR`.
+
+```bash
+export GEN_AIR_PDF_QA=true
+export CHROMIUM_EXECUTABLE_PATH=/absolute/path/to/chromium
+export GEN_AIR_ARTIFACTS_DIR="$(mktemp -d /tmp/genair-pdf-qa.XXXXXX)"
+npx playwright test tests/quotations/quotation-pdf.spec.ts --project=chromium --retries=0
+```
 
 ```bash
 export GEN_AIR_BACKEND_DIR=/absolute/path/to/reviewed/backend

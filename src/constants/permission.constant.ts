@@ -6,6 +6,7 @@ export const PERMISSIONS = {
   QUOTATIONS_UPDATE: QUOTATION_PERMISSIONS.UPDATE,
   QUOTATIONS_DELETE: QUOTATION_PERMISSIONS.DELETE,
   QUOTATIONS_APPROVE: QUOTATION_PERMISSIONS.APPROVE,
+  QUOTATIONS_EXPORT: QUOTATION_PERMISSIONS.EXPORT,
   CATALOGUE_MANAGE: QUOTATION_PERMISSIONS.CATALOGUE_MANAGE,
   PROJECTS_READ: "projects.read",
   PROJECTS_CREATE: "projects.create",
@@ -41,6 +42,16 @@ export const PERMISSIONS = {
   DRIVE_TEMPLATES_UPDATE: "drive_templates.update",
   DRIVE_TEMPLATES_DELETE: "drive_templates.delete",
   ADDRESSES_LOOKUP: "addresses.lookup",
+  BOQ_TEMPLATES_MANAGE: "boq_templates.manage",
+  PROJECT_BOQ_READ: "project_boq.read",
+  PROJECT_BOQ_MANAGE: "project_boq.manage",
+  SUPPLIER_AGREEMENTS_MANAGE: "supplier_agreements.manage",
+  PURCHASE_REQUESTS_REVIEW: "purchase_requests.review",
+  PURCHASE_ORDERS_APPROVE: "purchase_orders.approve",
+  PURCHASE_ORDERS_SEND: "purchase_orders.send",
+  EXECUTION_HANDOFFS_MANAGE: "execution_handoffs.manage",
+  SUBCONTRACTOR_SETTLEMENTS_APPROVE: "subcontractor_settlements.approve",
+  PAYMENTS_RECORD: "payments.record",
 } as const;
 
 export type PermissionType = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -52,6 +63,21 @@ export const PERMISSION_COPY = {
 };
 export const PERMISSION_MIGRATION = "20261025093708_add_feature_permissions.sql";
 
+const PURCHASING_PERMISSION_VALUES = [
+  PERMISSIONS.BOQ_TEMPLATES_MANAGE,
+  PERMISSIONS.PROJECT_BOQ_READ,
+  PERMISSIONS.PROJECT_BOQ_MANAGE,
+  PERMISSIONS.SUPPLIER_AGREEMENTS_MANAGE,
+  PERMISSIONS.PURCHASE_REQUESTS_REVIEW,
+  PERMISSIONS.PURCHASE_ORDERS_APPROVE,
+  PERMISSIONS.PURCHASE_ORDERS_SEND,
+  PERMISSIONS.EXECUTION_HANDOFFS_MANAGE,
+  PERMISSIONS.SUBCONTRACTOR_SETTLEMENTS_APPROVE,
+  PERMISSIONS.PAYMENTS_RECORD,
+];
+
 export const INITIAL_PERMISSION_VALUES = PERMISSION_VALUES.filter(
-  key => !Object.values(QUOTATION_PERMISSIONS).some(quotationKey => quotationKey === key),
+  key =>
+    !Object.values(QUOTATION_PERMISSIONS).some(quotationKey => quotationKey === key) &&
+    !PURCHASING_PERMISSION_VALUES.some(purchasingKey => purchasingKey === key),
 );

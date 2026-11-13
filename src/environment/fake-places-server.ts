@@ -33,9 +33,12 @@ const toPrediction = (place: IFakePlace) => ({
 const toPlaceDetails = (place: IFakePlace) => ({
   id: place.placeId,
   formattedAddress: place.formattedAddress,
+  ...(place.location ? { location: place.location } : {}),
   addressComponents: [
     { types: ["locality"], longText: place.city, shortText: place.city },
-    { types: ["country"], longText: countryCode(place), shortText: countryCode(place) },
+    ...(place.countryCode === null
+      ? []
+      : [{ types: ["country"], longText: countryCode(place), shortText: countryCode(place) }]),
   ],
 });
 
