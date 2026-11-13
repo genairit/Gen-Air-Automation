@@ -14,7 +14,7 @@ import {
 import {
   USER_ROLES,
   USER_ROLE_LABELS,
-  USER_ROLE_VALUES,
+  ASSIGNABLE_USER_ROLE_VALUES,
 } from "../../src/constants/user-role.constant.ts";
 
 import { API_PATHS } from "../../src/constants/api.constant.ts";
@@ -47,7 +47,7 @@ test("employee account and access sections form a compact desktop layout", async
   await expect(accessHeading).toBeVisible();
   await expect(nameField).toBeVisible();
   await expect(emailField).toBeVisible();
-  await expect(roleGroup.getByRole("checkbox")).toHaveCount(USER_ROLE_VALUES.length);
+  await expect(roleGroup.getByRole("checkbox")).toHaveCount(ASSIGNABLE_USER_ROLE_VALUES.length);
   await expect(employees.addButton).toBeVisible();
   const accountBox = await readBoundingBox(accountHeading);
   const accessBox = await readBoundingBox(accessHeading);
@@ -84,7 +84,7 @@ test("employee form stays readable and actionable at 390px", async ({ page }, te
   await expect(nameField).toBeVisible();
   await expect(emailField).toBeVisible();
   await expect(employees.addButton).toBeVisible();
-  await expect(employees.roleOptions).toHaveCount(USER_ROLE_VALUES.length);
+  await expect(employees.roleOptions).toHaveCount(ASSIGNABLE_USER_ROLE_VALUES.length);
   const adminBox = await readBoundingBox(employees.roleCheckbox(USER_ROLES.SYSTEM_ADMIN));
   const engineerBox = await readBoundingBox(employees.roleCheckbox(USER_ROLES.ENGINEER));
   const secretaryBox = await readBoundingBox(employees.roleCheckbox(USER_ROLES.SECRETARY));

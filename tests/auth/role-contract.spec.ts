@@ -15,6 +15,7 @@ import {
   NON_MEMBER_ROLES,
   USER_ROLE_VALUES,
   PROJECT_MEMBER_ROLES,
+  ASSIGNABLE_USER_ROLE_VALUES,
 } from "../../src/constants/user-role.constant.ts";
 
 import {
@@ -22,9 +23,11 @@ import {
   expectBadRequest,
 } from "../../src/utilities/response-assertion.utility.ts";
 
+import { switchRole } from "../../src/api/multi-role.ts";
 import { API_PATHS } from "../../src/constants/api.constant.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
+import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { assignTaskBypassingApi } from "../../src/environment/legacy-data.ts";
 import { buildTaskPath, buildProjectPath } from "../../src/utilities/api-path.utility.ts";
@@ -33,7 +36,7 @@ const RENAMED_TASK_PREFIX = "משימה עם אחראי ותיק";
 
 const sortRoles = (roles: readonly string[]) => [...roles].sort();
 
-test("role counts report exactly the eight roles", async ({ api }) => {
+test("role counts preserve the historical sales enum value", async ({ api }) => {
   const counts = await api.readRoleCounts();
 
   expect(sortRoles(Object.keys(counts))).toEqual(sortRoles([...USER_ROLE_VALUES, "total"]));
@@ -43,7 +46,7 @@ test("role counts report exactly the eight roles", async ({ api }) => {
   }
 });
 
-for (const role of USER_ROLE_VALUES) {
+for (const role of ASSIGNABLE_USER_ROLE_VALUES) {
   test(`an employee can be created with the ${role} role`, async ({ api }) => {
     const employee = await seedUser(api, role);
     const counts = await api.readRoleCounts();
@@ -60,6 +63,24 @@ test("creating an employee with the retired lead_installer role is rejected", as
   };
 
   await expectBadRequest(await api.send(HTTP_METHODS.POST, API_PATHS.USER, input));
+});
+
+test("retired sales role cannot be assigned or activated", async ({ api, apiAs }) => {
+  const input = buildUserInput(USER_ROLES.ENGINEER);
+  const engineer = await seedUser(api, USER_ROLES.ENGINEER);
+
+  await expectBadRequest(
+    await api.send(HTTP_METHODS.POST, API_PATHS.USER, {
+      ...input,
+      assignedRoles: [USER_ROLES.SALES_AGENT],
+    }),
+  );
+  await expectBadRequest(
+    await api.send(HTTP_METHODS.PATCH, `${API_PATHS.USER}/${engineer.id}`, {
+      assignedRoles: [USER_ROLES.SALES_AGENT],
+    }),
+  );
+  await expectBadRequest(await switchRole(await apiAs(engineer), USER_ROLES.SALES_AGENT));
 });
 
 test("a project keeps one member in each of the four member slots", async ({ api }) => {
@@ -79,8 +100,15 @@ test("a project keeps one member in each of the four member slots", async ({ api
 });
 
 for (const role of NON_MEMBER_ROLES) {
-  test(`${role} is rejected as a project member role on create and update`, async ({ api }) => {
-    const member = { role, userId: (await seedUser(api, role)).id };
+  test(`${role} is rejected as a project member role on create and update`, async ({
+    api,
+    apiAs,
+  }) => {
+    const userId =
+      role === USER_ROLES.SALES_AGENT
+        ? (await apiAs(TEST_USERS[USER_ROLES.SALES_AGENT])).session.user.id
+        : (await seedUser(api, role)).id;
+    const member = { role, userId };
     const customer = await seedCustomer(api);
     const input = await buildStandaloneProjectInput(api, customer, [member]);
     const project = await seedStandaloneProject(api, customer);

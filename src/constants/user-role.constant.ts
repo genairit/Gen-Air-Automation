@@ -22,6 +22,10 @@ export const USER_ROLE_VALUES: UserRoleType[] = [
   USER_ROLES.PURCHASING_EXECUTION_MANAGER,
 ];
 
+export const ASSIGNABLE_USER_ROLE_VALUES: UserRoleType[] = USER_ROLE_VALUES.filter(
+  role => role !== USER_ROLES.SALES_AGENT,
+);
+
 export const PROJECT_MEMBER_ROLES = [
   USER_ROLES.ENGINEER,
   USER_ROLES.SECRETARY,
@@ -44,7 +48,7 @@ export const RETIRED_ROLES = {
 
 export const USER_ROLE_LABELS: Record<UserRoleType, string> = {
   [USER_ROLES.FINANCE]: "מחלקת כספים",
-  [USER_ROLES.SALES_AGENT]: "סוכן מכירות",
+  [USER_ROLES.SALES_AGENT]: "תפקיד ישן: סוכן מכירות",
   [USER_ROLES.ENGINEER]: "עובד הנדסה",
   [USER_ROLES.INSTALLER]: "מתקין",
   [USER_ROLES.SECRETARY]: "מזכירה",
@@ -55,7 +59,7 @@ export const USER_ROLE_LABELS: Record<UserRoleType, string> = {
 
 export const USER_ROLE_PLURAL_LABELS: Record<UserRoleType, string> = {
   [USER_ROLES.FINANCE]: "כספים",
-  [USER_ROLES.SALES_AGENT]: "סוכני מכירות",
+  [USER_ROLES.SALES_AGENT]: "תפקיד ישן",
   [USER_ROLES.ENGINEER]: "הנדסה",
   [USER_ROLES.INSTALLER]: "מתקינים",
   [USER_ROLES.SECRETARY]: "מזכירות",

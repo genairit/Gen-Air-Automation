@@ -2,8 +2,8 @@ import {
   RETIRED_ROLES,
   NON_MEMBER_ROLES,
   USER_ROLE_LABELS,
-  USER_ROLE_VALUES,
   PROJECT_MEMBER_ROLES,
+  ASSIGNABLE_USER_ROLE_VALUES,
 } from "../../src/constants/user-role.constant.ts";
 
 import {
@@ -164,7 +164,7 @@ test("the form offers four optional member slots that each list only their role"
   page,
   api,
 }) => {
-  const employees = await Promise.all(USER_ROLE_VALUES.map(role => seedUser(api, role)));
+  const employees = await Promise.all(ASSIGNABLE_USER_ROLE_VALUES.map(role => seedUser(api, role)));
   const formPage = createProjectFormPage(page);
 
   await formPage.goto();
