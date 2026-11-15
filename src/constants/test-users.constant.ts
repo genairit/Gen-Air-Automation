@@ -45,6 +45,14 @@ export const TEST_USERS: Record<UserRoleType, ITestUser> = {
     role: USER_ROLES.ENGINEER,
     email: buildTestEmail("engineer"),
   },
+  [USER_ROLES.ENGINEERING_LEAD]: {
+    lastName: "הנדסה",
+    firstName: "ראש צוות",
+    phone: "0521000009",
+    password: TEST_PASSWORD,
+    role: USER_ROLES.ENGINEERING_LEAD,
+    email: buildTestEmail("engineering-lead"),
+  },
   [USER_ROLES.FINANCE]: {
     lastName: "כספים",
     firstName: "חשב",

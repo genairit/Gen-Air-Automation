@@ -34,6 +34,7 @@ export const ROLE_ACCESS: Record<UserRoleType, IRoleAccess> = {
     canClaimTasks: true,
     canChangeTaskStatus: true,
   },
+  [USER_ROLES.ENGINEERING_LEAD]: NO_ACCESS,
   [USER_ROLES.SECRETARY]: PROJECT_EDITOR_ACCESS,
   [USER_ROLES.PROJECT_MANAGER]: PROJECT_EDITOR_ACCESS,
   [USER_ROLES.FINANCE]: NO_ACCESS,
