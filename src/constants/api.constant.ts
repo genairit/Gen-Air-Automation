@@ -4,6 +4,7 @@ export const API_SEGMENTS = {
   STAGE: "stage",
   CLAIM: "claim",
   STATUS: "status",
+  PROTECTED: "protected",
   URGENCY: "urgency",
   APARTMENTS: "apartments",
 } as const;
