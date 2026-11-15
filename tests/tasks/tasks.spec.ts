@@ -30,6 +30,7 @@ import { isTaskUpdateResponse } from "../../src/utilities/response.utility.ts";
 import { ROUTE_PATTERNS } from "../../src/constants/route-patterns.constant.ts";
 import { readTabCount, expectTabSelected } from "../../src/pages/tab.component.ts";
 import { USER_ROLES, USER_ROLE_VALUES } from "../../src/constants/user-role.constant.ts";
+import { getUpcomingDate, toDateInputValue } from "../../src/pages/date-field.component.ts";
 import { createTaskPage, createTasksPage, createTaskFormPage } from "../../src/pages/tasks.page.ts";
 
 const { defaultBrowserType: _browserType, ...PHONE } = devices["Pixel 7"];
@@ -43,7 +44,7 @@ const NON_ENGINEER_USERS = USER_ROLE_VALUES.filter(role => role !== USER_ROLES.E
 const HISTORY_ENTRIES_AFTER_ONE_CHANGE = 2;
 
 const NEW_TASK = {
-  dueDate: "2030-01-15",
+  dueDate: toDateInputValue(getUpcomingDate(14)),
   titlePrefix: "משימה מהטופס",
   description: "להכין הצעת מחיר ללקוח",
 } as const;

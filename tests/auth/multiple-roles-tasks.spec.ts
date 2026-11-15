@@ -8,6 +8,7 @@ import { TASK_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { createTestDatabaseClient } from "../../src/environment/test-database-client.ts";
 import { USER_ROLES, USER_ROLE_LABELS } from "../../src/constants/user-role.constant.ts";
+import { getUpcomingDate, toDateInputValue } from "../../src/pages/date-field.component.ts";
 import { createTaskFormPage, createTaskPage, createTasksPage } from "../../src/pages/tasks.page.ts";
 
 const ADMIN = USER_ROLES.SYSTEM_ADMIN;
@@ -25,7 +26,7 @@ test("an assigned engineer remains selectable beyond the first lazy options batc
   const form = createTaskFormPage(page);
   await form.goto();
   await form.fillDetails({
-    dueDate: "2030-01-15",
+    dueDate: toDateInputValue(getUpcomingDate(14)),
     title: "QA multi-role assignee",
     description: "QA lazy role-picker regression",
     assigneeName: formatFullName(engineer),
