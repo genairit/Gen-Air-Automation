@@ -18,6 +18,11 @@ export const createQuotationEmailPage = (page: Page) => {
     await dialog.getByRole("button", { name: "סמן כאדריכל" }).click();
   };
 
+  const chooseQuotation = async (number: string) => {
+    await dialog.getByRole("combobox", { name: "הצעת מחיר לתוכנית" }).click();
+    await page.getByRole("option", { name: new RegExp(number) }).click();
+  };
+
   const setVersion = (version: string) => dialog.getByPlaceholder("לדוגמה: 03").fill(version);
   const continueToFiles = () => nextButton.click();
   const openNestedFolder = () => dialog.getByRole("button", { name: "📁 תיקיית משנה" }).click();
@@ -34,6 +39,7 @@ export const createQuotationEmailPage = (page: Page) => {
     cancel,
     chooseZip,
     choosePlan,
+    chooseQuotation,
     setVersion,
     chooseArchitect,
     continueToFiles,

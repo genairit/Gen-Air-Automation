@@ -7,7 +7,14 @@ import { appendFile, mkdir, readFile } from "node:fs/promises";
 const originalLoad = Module._load;
 const folderMimeType = "application/vnd.google-apps.folder";
 const projectIdFrom = (id, prefix) => (id.startsWith(prefix) ? id.slice(prefix.length) : null);
-const item = (id, name, mimeType, parents) => ({ id, name, mimeType, parents, trashed: false });
+const item = (id, name, mimeType, parents) => ({
+  id,
+  name,
+  mimeType,
+  parents,
+  version: "1",
+  trashed: false,
+});
 const projectRoot = projectId => `qa-project-${projectId}`;
 const nestedFolder = projectId => `qa-nested-${projectId}`;
 const planFile = projectId => `qa-plan-${projectId}`;
@@ -50,6 +57,11 @@ const dynamicMetadata = [
       item(id, "תוכנית לביצוע.pdf", "application/pdf", [nestedFolder(projectId)]),
   },
   {
+    prefix: "qa-revised-plan-",
+    create: (id, projectId) =>
+      item(id, "תוכנית לביצוע מעודכנת.pdf", "application/pdf", [nestedFolder(projectId)]),
+  },
+  {
     prefix: "qa-zip-",
     create: (id, projectId) => item(id, "מסמכים.zip", "application/zip", [nestedFolder(projectId)]),
   },
@@ -81,7 +93,20 @@ const displayItem = source => ({
 const fakeMethods = {
   isConfigured: () => true,
   getProjectsRootFolderId: () => "qa-drive-root",
-  getFileMetadata: async id => metadata(id),
+  getFileMetadata: async id => {
+    const file = metadata(id);
+    const directory = process.env.GEN_AIR_FAKE_DRIVE_STATE_DIR;
+    if (!file || !directory) {
+      return file;
+    }
+    const version = await readFile(join(directory, `version-${id}`), "utf8").catch(error => {
+      if (error.code === "ENOENT") {
+        return file.version;
+      }
+      throw error;
+    });
+    return { ...file, version: version.trim() };
+  },
   findParentIds: async id => metadata(id)?.parents ?? null,
   ensureFolder: async (name, parentId, projectId) => {
     const key = folderKey(parentId, name);
@@ -144,6 +169,7 @@ const fakeMethods = {
   downloadFile: async id => {
     const contentByPrefix = {
       "qa-plan-": Buffer.from("%PDF-1.4\nQA plan\n"),
+      "qa-revised-plan-": Buffer.from("%PDF-1.4\nQA revised plan\n"),
       "qa-zip-": Buffer.from([0x50, 0x4b, 0x03, 0x04, 0, 0, 0, 0]),
     };
     const prefix = Object.keys(contentByPrefix).find(candidate => id.startsWith(candidate));
