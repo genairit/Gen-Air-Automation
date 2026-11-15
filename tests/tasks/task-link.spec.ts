@@ -141,7 +141,7 @@ test("project card deliberately creates a quotation task and reopens the occupie
   await createProjectPage(page).goto(project.id);
   await expect(page.getByText(title, { exact: true })).toBeVisible();
   await createProjectPage(page).newTaskButton.click();
-  await page.getByRole("menuitem", { name: /פתח משימה קיימת.*הצעת מחיר/ }).click();
+  await page.getByRole("menuitem", { name: /הצעת מחיר.*פתח משימה קיימת/ }).click();
   await expect(page).toHaveURL(new RegExp(`/tasks/${task.id}$`));
 });
 
