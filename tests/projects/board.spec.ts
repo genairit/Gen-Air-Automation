@@ -14,12 +14,38 @@ import { createProjectPage } from "../../src/pages/project.page.ts";
 import { PROJECT_PAGE_COPY } from "../../src/constants/copy.constant.ts";
 import { buildProjectRoute } from "../../src/utilities/route.utility.ts";
 import { expectSingleResultRow } from "../../src/pages/table.component.ts";
-import { PROJECT_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
 import { buildProjectStagePath } from "../../src/utilities/api-path.utility.ts";
+import { PROJECT_TYPE_NAMES, PROJECT_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
 
 const TIMELINE_ENTRIES_AFTER_ONE_CHANGE = 2;
 
 const { defaultBrowserType: _browserType, ...PHONE } = devices["Pixel 7"];
+
+test("the board has no manager filter and retains project type filtering", async ({
+  page,
+  api,
+}) => {
+  const boardPage = createBoardPage(page);
+  const customer = await seedCustomer(api);
+  const building = await seedBuilding(api, customer);
+  const commercial = await seedStandaloneProject(api, customer);
+
+  await boardPage.goto();
+
+  await expect(page.getByText("כל המנהלים", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("combobox")).toHaveCount(1);
+  await expect(boardPage.searchBox).toBeVisible();
+
+  await page.getByRole("combobox").click();
+  await page.getByRole("option", { name: PROJECT_TYPE_NAMES.COMMERCIAL }).click();
+  await boardPage.searchBox.fill(building.name);
+
+  await expect(boardPage.findRow(building.name)).toHaveCount(0);
+
+  await boardPage.searchBox.fill(commercial.name);
+
+  await expect(boardPage.findRow(commercial.name)).toBeVisible();
+});
 
 test("a new project is counted under its status and found by search", async ({ page, api }) => {
   const boardPage = createBoardPage(page);
@@ -131,6 +157,11 @@ test.describe("mobile layout", () => {
     const project = await seedStandaloneProject(api, await seedCustomer(api));
 
     await boardPage.goto();
+    await expect(page.getByText("כל המנהלים", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("combobox")).toHaveCount(1);
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+      .toBe(true);
     await boardPage.searchBox.fill(project.name);
 
     await expect(page.getByText(project.name)).toBeVisible();
