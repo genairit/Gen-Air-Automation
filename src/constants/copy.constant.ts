@@ -23,7 +23,7 @@ export const LOGIN_COPY = {
 export const NAVIGATION_COPY = {
   TASKS: "משימות",
   LOGOUT: "התנתק",
-  BOARD: "לוח בקרה",
+  BOARD: "תיקים",
   SETTINGS: "הגדרות",
   CUSTOMERS: "לקוחות",
   EMPLOYEES: "ניהול עובדים",
