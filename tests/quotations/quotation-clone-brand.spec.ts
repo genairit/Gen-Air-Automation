@@ -16,6 +16,7 @@ import { PAYMENT_TERMS } from "../../src/constants/domain.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { createQuotationPage } from "../../src/pages/quotation.page.ts";
+import { createDeferred } from "../../src/utilities/deferred.utility.ts";
 import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
 import { selectMuiOption } from "../../src/pages/mui-select.component.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
@@ -501,4 +502,120 @@ test("API rejects missing, stale, same-brand and incompatible mappings without c
   expect(
     (await quotationDocument(await api.send(HTTP_METHODS.GET, quotePath(source.id)))).version,
   ).toBe(source.version);
+});
+
+for (const width of [1440, 900, 390]) {
+  test(`clone replacement cards align long product details and actions at ${width}px`, async ({
+    api,
+    page,
+  }) => {
+    const { source, sourceItem, replacement } = await sourceFixture(api);
+    const secondItem = await createCatalogueFixture({ equipmentTypes: ["עילי"] });
+    const write = quotationWrite(source);
+    const section = write.sections[0];
+    if (!section) {
+      throw new Error("Missing source quotation section");
+    }
+
+    section.items.push(
+      line(
+        secondItem.id,
+        "יחידת מיזוג אוויר נסתרת עם מפרט התקנה מורחב, התאמה לתקרת גבס וחיבורי בקרה לפרויקט מסחרי גדול. הערות נוספות על מיקום היחידה, גישה לתחזוקה והתקנת התרמוסטט בחדר ההנדסה.",
+      ),
+    );
+    const updated = await saveQuotation(api, source.id, write);
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto(`/quotations?cloneFrom=${updated.id}`);
+    await selectMuiOption(page, page.getByLabel("חברת מיזוג חדשה"), QUOTATION.OTHER_BRAND);
+    const cards = page.getByRole("region", { name: /^חלופה לפריט / });
+    await expect(cards).toHaveCount(2);
+    const first = page.getByRole("region", { name: `חלופה לפריט ${sourceItem.sku}`, exact: true });
+    const second = page.getByRole("region", { name: `חלופה לפריט ${secondItem.sku}`, exact: true });
+    for (const card of [first, second]) {
+      await card.getByRole("searchbox").fill(replacement.sku);
+      await expect(card.locator("strong")).toHaveText(replacement.sku);
+      await expect(card.getByRole("button", { name: "אשר חלופה מוצעת" })).toBeVisible();
+      await expect(card).toHaveCSS("border-radius", "22px");
+      await expect(card).toHaveCSS("direction", "rtl");
+      const dimensions = await card.evaluate(element => ({
+        width: element.clientWidth,
+        contentWidth: element.scrollWidth,
+      }));
+      expect(dimensions.contentWidth).toBeLessThanOrEqual(dimensions.width);
+      await expect(card.getByText("₪222.00", { exact: true })).toBeVisible();
+    }
+
+    const firstSearch = await first.getByRole("searchbox").boundingBox();
+    const secondSearch = await second.getByRole("searchbox").boundingBox();
+    const firstAction = await first.getByRole("button").boundingBox();
+    const secondAction = await second.getByRole("button").boundingBox();
+    const firstCard = await first.boundingBox();
+    const secondCard = await second.boundingBox();
+    if (
+      !firstSearch ||
+      !secondSearch ||
+      !firstAction ||
+      !secondAction ||
+      !firstCard ||
+      !secondCard
+    ) {
+      throw new Error("Replacement cards must have visible fields and actions");
+    }
+
+    if (Math.abs(firstCard.y - secondCard.y) < 2) {
+      expect(Math.abs(firstSearch.y - secondSearch.y)).toBeLessThanOrEqual(2);
+      expect(Math.abs(firstAction.y - secondAction.y)).toBeLessThanOrEqual(2);
+    }
+    expect(firstAction.width).toBeGreaterThan(firstCard.width - 40);
+    expect(secondAction.width).toBeGreaterThan(secondCard.width - 40);
+    const documentWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    expect(documentWidth).toBeLessThanOrEqual(width);
+    await page.screenshot({
+      path: test.info().outputPath(`clone-replacement-cards-${width}.png`),
+      fullPage: true,
+    });
+    await first.getByRole("button", { name: "אשר חלופה מוצעת" }).click();
+    await expect(first.getByRole("status")).toContainText("נבחרה חלופה:");
+    await expect(first.getByRole("button", { name: "אשר חלופה מוצעת" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "צור הצעה חדשה" })).toBeDisabled();
+  });
+}
+
+test("clone replacement feedback distinguishes pending, no match and request errors", async ({
+  api,
+  page,
+}) => {
+  const { source, sourceItem } = await sourceFixture(api);
+  await page.goto(`/quotations?cloneFrom=${source.id}`);
+  await selectMuiOption(page, page.getByLabel("חברת מיזוג חדשה"), QUOTATION.OTHER_BRAND);
+  const card = page.getByRole("region", { name: `חלופה לפריט ${sourceItem.sku}`, exact: true });
+  await expect(card.getByRole("button", { name: "אשר חלופה מוצעת" })).toBeVisible();
+  const search = card.getByRole("searchbox");
+  const blocked = createDeferred();
+  const observed = createDeferred();
+  await page.route("**/catalogue-item?**", async route => {
+    const query = new URL(route.request().url()).searchParams.get("search");
+    if (query === "QA-pending-empty") {
+      observed.resolve();
+      await blocked.promise;
+      await route.fulfill({ json: [] });
+      return;
+    }
+    if (query === "QA-request-error") {
+      await route.fulfill({ status: 500, json: { message: "QA catalogue unavailable" } });
+      return;
+    }
+
+    await route.continue();
+  });
+  await search.fill("QA-pending-empty");
+  await observed.promise;
+  await expect(card.getByRole("status")).toHaveText("מחפש חלופות...");
+  blocked.resolve();
+  await expect(card.getByRole("status")).toContainText("לא נמצאה חלופה תואמת");
+  await expect(card.getByRole("button", { name: "אשר חלופה מוצעת" })).toHaveCount(0);
+  await search.fill("QA-request-error");
+  await expect(card.getByRole("alert")).toContainText("QA catalogue unavailable");
+  await expect(page.getByRole("button", { name: "צור הצעה חדשה" })).toBeDisabled();
+  await expect(card.getByRole("button", { name: "אשר חלופה מוצעת" })).toHaveCount(0);
 });
