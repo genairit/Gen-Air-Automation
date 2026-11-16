@@ -509,7 +509,7 @@ for (const width of [1440, 900, 390]) {
     api,
     page,
   }) => {
-    const { source, sourceItem } = await sourceFixture(api);
+    const { source, sourceItem, replacement } = await sourceFixture(api);
     const secondItem = await createCatalogueFixture({ equipmentTypes: ["עילי"] });
     const write = quotationWrite(source);
     const section = write.sections[0];
@@ -532,6 +532,8 @@ for (const width of [1440, 900, 390]) {
     const first = page.getByRole("region", { name: `חלופה לפריט ${sourceItem.sku}`, exact: true });
     const second = page.getByRole("region", { name: `חלופה לפריט ${secondItem.sku}`, exact: true });
     for (const card of [first, second]) {
+      await card.getByRole("searchbox").fill(replacement.sku);
+      await expect(card.locator("strong")).toHaveText(replacement.sku);
       await expect(card.getByRole("button", { name: "אשר חלופה מוצעת" })).toBeVisible();
       await expect(card).toHaveCSS("border-radius", "22px");
       await expect(card).toHaveCSS("direction", "rtl");
