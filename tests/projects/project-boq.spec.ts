@@ -401,6 +401,15 @@ test("procurement manager opens project BOQ, selects approved source and sees pu
   await page.getByRole("button", { name: "צור כתב רכש" }).click();
   await expect(page.getByText(`הצעה ${approved.number} · גרסה ${approved.version}`)).toBeVisible();
   await expect(page.getByText(fixed.code).first()).toBeVisible();
+  const tabs = page.getByRole("tablist", { name: "קטגוריות חומרים" }).getByRole("tab");
+  await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tabpanel")).toContainText("נדרש 5");
+  await expect(page.getByText("כמות נדרשת טרם נקבעה")).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /סמן הוזמן/ }).last()).toBeDisabled();
+  await page.getByText("מפרט ומקור כמות").first().click();
+  await expect(page.getByText("QA system · QA equipment").first()).toBeVisible();
+  await expect(page.getByText("Spec QA · מקור: לפי קטלוג")).toBeVisible();
+  await expect(page.getByText(/כמות מקור: 5 unit/)).toBeVisible();
   await page.getByPlaceholder("לא הוזנה").first().fill("12.50");
   await page.getByRole("button", { name: "שמור" }).first().click();
   await expect(page.getByText("₪62.5")).toHaveCount(2);
