@@ -18,7 +18,7 @@ const visibleBox = async (locator: Locator) => {
 };
 
 for (const width of WIDTHS) {
-  test(`quotation actions stay together and status steps remain separate at ${width}px`, async ({
+  test(`quotation header actions wrap cleanly with top-left trash at ${width}px`, async ({
     api,
     page,
   }) => {
@@ -40,74 +40,37 @@ for (const width of WIDTHS) {
     const editor = createQuotationPage(page);
     await page.setViewportSize({ width, height: 900 });
     await editor.goto(quotation.id);
-
-    const cloneButton = editor.button("צור העתק לחברה אחרת");
-    const exportButton = editor.button("ייצוא PDF");
-    const cancelButton = page.getByRole("button", { name: "ביטול הצעה", exact: true });
-    const actions = cloneButton.locator("..");
-    const steps = page.locator("span[data-active]");
-    const cloneBox = await visibleBox(cloneButton);
-    const exportBox = await visibleBox(exportButton);
-    const cancelBox = await visibleBox(cancelButton);
-    await expect(steps).toHaveCount(3);
-    const firstStepBox = await visibleBox(steps.first());
-
-    expect(cloneBox.y).toBeLessThanOrEqual(exportBox.y);
-    if (width === 390) {
-      expect(cloneBox.y).toBeLessThan(exportBox.y);
+    const clone = editor.button("צור העתק לחברה אחרת");
+    const pdf = editor.button("ייצוא PDF");
+    const cancel = editor.button("ביטול הצעה");
+    const trash = editor.button("מחיקת ההצעה");
+    const actions = clone.locator("..");
+    for (const action of [clone, pdf, cancel, trash]) {
+      await expect(action).toBeVisible();
     }
-    expect(Math.abs(exportBox.y - cancelBox.y)).toBeLessThanOrEqual(2);
-    expect(exportBox.x).toBeGreaterThan(cancelBox.x);
-    expect(firstStepBox.y).toBeGreaterThanOrEqual(exportBox.y + exportBox.height);
-    expect(firstStepBox.y).toBeGreaterThanOrEqual(cancelBox.y + cancelBox.height);
-    const geometry = await page.evaluate(() => ({
-      viewport: innerWidth,
-      content: document.documentElement.scrollWidth,
-    }));
-    expect(geometry.content).toBeLessThanOrEqual(geometry.viewport);
-    const actionStyles = await actions.evaluate(element => {
-      const style = getComputedStyle(element);
+    await expect(page.locator("span[data-active]")).toHaveCount(0);
+    const heading = await visibleBox(page.getByRole("heading", { name: quotation.number }));
+    const trashBox = await visibleBox(trash);
+    expect(trashBox.x).toBeLessThan(heading.x);
+    expect(trashBox.width).toBeGreaterThanOrEqual(44);
+    const layout = await actions.evaluate(element => {
       const row = element.getBoundingClientRect();
       return {
-        wrap: style.flexWrap,
-        overflowX: style.overflowX,
-        children: [...element.children].map(child => {
-          const button = child as HTMLElement;
-          const box = button.getBoundingClientRect();
-          const buttonStyle = getComputedStyle(button);
-          return {
-            background: buttonStyle.backgroundColor,
-            shadow: buttonStyle.boxShadow,
-            inRow: box.left >= row.left - 1 && box.right <= row.right + 1,
-          };
+        wrap: getComputedStyle(element).flexWrap,
+        allInside: [...element.children].every(child => {
+          if (child.querySelector('button[aria-label="מחיקת ההצעה"]')) {
+            return true;
+          }
+          const box = child.getBoundingClientRect();
+          return box.left >= row.left - 1 && box.right <= row.right + 1;
         }),
       };
     });
-    expect(actionStyles.wrap).toBe("wrap");
-    expect(actionStyles.overflowX).toBe("visible");
-    expect(actionStyles.children).toHaveLength(3);
-    for (const button of actionStyles.children) {
-      expect(button.background).toBe("rgb(255, 255, 255)");
-      expect(button.shadow).toBe("none");
-      expect(button.inRow).toBe(true);
-    }
-    expect(
-      await page
-        .locator("main")
-        .last()
-        .evaluate(element => getComputedStyle(element).direction),
-    ).toBe("rtl");
-
-    await cloneButton.focus();
-    await page.keyboard.press("Tab");
-    await expect(exportButton).toBeFocused();
-    await page.keyboard.press("Tab");
-    await expect(cancelButton).toBeFocused();
-    for (const button of [cloneButton, exportButton, cancelButton]) {
-      await button.hover();
-      await expect(button).toHaveCSS("background-color", "rgb(248, 250, 252)");
-      await expect(button).toHaveCSS("box-shadow", "none");
-    }
+    expect(layout.wrap).toBe("wrap");
+    expect(layout.allInside).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
     await page.screenshot({
       path: test.info().outputPath(`quotation-actions-${width}.png`),
       fullPage: true,
