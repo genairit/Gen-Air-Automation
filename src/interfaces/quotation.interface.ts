@@ -64,6 +64,14 @@ export interface IQuotationCancellation {
   kind: QuotationCancellationKindType;
   fromStatus: QuotationRestorableStatusType;
 }
+export interface IQuotationRejection {
+  reason: string;
+  rejectedAt: string;
+  rejectedById: string;
+  rejectedByName: string;
+  resubmittedAt: string | null;
+  resubmittedById: string | null;
+}
 export interface IQuotationDocument {
   id: string;
   date: string;
@@ -88,6 +96,7 @@ export interface IQuotationDocument {
   warnings: IQuotationWarning[];
   salesAgentName?: string | null;
   targetPretaxAmount: string | null;
+  rejectionHistory: IQuotationRejection[];
   cancellationHistory: IQuotationCancellation[];
   paymentSchedule: { percent: string; text: string }[];
   cancelledFromStatus: QuotationRestorableStatusType | null;

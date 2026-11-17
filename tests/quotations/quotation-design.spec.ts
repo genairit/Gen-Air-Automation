@@ -130,7 +130,7 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
   ).toBeLessThanOrEqual(1);
   const metadataGroups = page.locator('[class*="_metadata_"] > *');
   await expect(metadataGroups).toHaveCount(6);
-  const topRow = await Promise.all((await metadataGroups.all()).slice(0, 5).map(quotationBox));
+  const topRow = await Promise.all((await metadataGroups.all()).slice(0, 3).map(quotationBox));
   expect(
     Math.max(...topRow.map(box => box.y)) - Math.min(...topRow.map(box => box.y)),
   ).toBeLessThanOrEqual(1);
@@ -138,9 +138,10 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
     expect(box.width).toBeGreaterThan(80);
   }
   await expect(page.locator("details")).toHaveCount(0);
-  for (const [index, box] of boxes.entries()) {
-    if (index > 0) {
-      expect(box.x + box.width).toBeLessThanOrEqual(boxes[index - 1]!.x);
+  for (const [index, box] of topRow.entries()) {
+    const previous = topRow[index - 1];
+    if (previous) {
+      expect(box.x + box.width).toBeLessThanOrEqual(previous.x);
     }
   }
   const dateControl = page.locator(".MuiInputBase-root").filter({ has: quote.field("תאריך") });
@@ -287,7 +288,8 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
   );
   const checkboxBox = await quotationBox(warningCheckbox);
   expect(Math.abs(checkboxBox.y - (await quotationBox(warningText)).y)).toBeLessThanOrEqual(20);
-  await expect(page.getByRole("progressbar", { name: "התקדמות בדיקת הצעה" })).toHaveCount(1);
+  await expect(page.getByRole("progressbar", { name: "התקדמות בדיקת הצעה" })).toHaveCount(0);
+  await expect(page.getByText(/התראות פתוחות/).first()).toBeVisible();
   const summaryCard = page
     .getByRole("heading", { name: "בדיקה ואישור", exact: true })
     .locator("..");

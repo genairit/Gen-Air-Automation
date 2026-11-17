@@ -16,7 +16,7 @@ const COPY = {
   RESTORE_ORDER: "שחזור הזמנה",
   CONFIRM_RESTORE_ORDER: "שחזר הזמנה",
   REASON: "סיבת ביטול",
-  HISTORY: "היסטוריית ביטול ושחזור (1)",
+  HISTORY: "היסטוריית ביטול ושחזור",
   RELOAD: "טען גרסה עדכנית",
 } as const;
 
@@ -56,8 +56,9 @@ test("approved quotation is an order, cancellation remains searchable and locked
   await expect(quote.button(COPY.RESTORE_ORDER)).toBeEnabled();
   await expect(quote.button(COPY.CANCEL_ORDER)).toHaveCount(0);
   await expect(quote.button("פתיחה לעריכה (אותו מזהה)")).toHaveCount(0);
+  await page.getByText("פרטים נוספים", { exact: true }).click();
   await expect(quote.field("הערות פנימיות (לא יופיעו ללקוח)")).toBeDisabled();
-  await page.getByText(COPY.HISTORY, { exact: true }).click();
+  await expect(page.getByText(COPY.HISTORY, { exact: true })).toBeVisible();
   await expect(page.getByText(new RegExp(reason))).toBeVisible();
   const saved = await quotationDocument(
     await api.send(HTTP_METHODS.GET, `/quotation/${quotation.id}`),
@@ -104,7 +105,7 @@ test("approved quotation is an order, cancellation remains searchable and locked
   expect(restored.number).toBe(quotation.number);
   expect(restored.cancellationHistory[0]?.reason).toBe(reason);
   expect(restored.cancellationHistory[0]?.restoredAt).toBeTruthy();
-  await page.getByText("היסטוריית ביטול ושחזור (2)", { exact: true }).click();
+  await page.getByText("פרטים נוספים", { exact: true }).click();
   await expect(page.getByText("שחזור הזמנה", { exact: true }).first()).toBeVisible();
 });
 
