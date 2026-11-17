@@ -59,16 +59,17 @@ test("quotation creator selects an engineer, changes to admin and clears it", as
     );
   }
   await agentPicker.click();
+  const agentSearch = quote.entitySearch(PICKER);
   const agentOption = page.getByRole("option", { name: new RegExp(first.firstName) });
   await expect(agentOption).toBeVisible();
   const employeeNumber = (await agentOption.textContent())?.split("·").at(-1)?.trim() ?? "";
   expect(employeeNumber).not.toBe("");
-  await agentPicker.fill("missing-agent-name");
-  await expect(page.getByText("לא נמצאו תוצאות", { exact: true })).toBeVisible();
-  await agentPicker.fill(employeeNumber);
+  await agentSearch.fill("missing-agent-name");
+  await expect(page.getByRole("option", { name: "אין אפשרויות" })).toBeVisible();
+  await agentSearch.fill(employeeNumber);
   await expect(agentOption).toContainText(employeeNumber);
-  await agentPicker.press("ArrowDown");
-  await agentPicker.press("Enter");
+  await agentSearch.press("ArrowDown");
+  await agentSearch.press("Enter");
   await expect(page.getByRole("combobox", { name: PICKER }).first()).toHaveValue(
     new RegExp(first.firstName),
   );
@@ -104,11 +105,7 @@ test("quotation creator selects an engineer, changes to admin and clears it", as
       new URL(response.url()).pathname.endsWith(`/quotation/${id}`),
   );
   await agentPicker.hover();
-  await page
-    .locator(".MuiAutocomplete-root")
-    .filter({ has: agentPicker })
-    .getByRole("button", { name: "נקה בחירה" })
-    .click();
+  await agentPicker.locator("../..").getByRole("button", { name: "נקה בחירה" }).click();
   expect((await cleared).status()).toBe(200);
   await page.reload();
   await expect(page.getByRole("combobox", { name: PICKER }).first()).toHaveValue("");
@@ -117,7 +114,7 @@ test("quotation creator selects an engineer, changes to admin and clears it", as
   ).toBeNull();
   await page.setViewportSize({ width: 390, height: 844 });
   await expectQuotationWithinViewport(page, [agentPicker, clientPicker]);
-  await agentPicker.focus();
+  await agentPicker.click();
   await expect(page.getByRole("listbox")).toBeVisible();
   await expectQuotationWithinViewport(page, [page.getByRole("listbox")]);
   await agentPicker.press("Escape");

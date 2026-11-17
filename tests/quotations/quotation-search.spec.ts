@@ -16,7 +16,7 @@ import { createQuotation, quotationDocument } from "../../src/api/quotation.api.
 
 const CUSTOMER = "לקוח *";
 const PROJECT = "פרויקט (אופציונלי)";
-const NO_RESULTS = "לא נמצאו תוצאות";
+const NO_RESULTS = "אין אפשרויות";
 const readQuotation = async (api: Parameters<typeof createQuotation>[0], id: string) =>
   quotationDocument(await api.send(HTTP_METHODS.GET, `/quotation/${id}`));
 
@@ -72,10 +72,11 @@ test("direct customer search preserves typed queries across loading and empty re
   });
   try {
     const searched = waitSearch(page, customer.name);
-    await quote.field(CUSTOMER).fill("");
-    await quote.field(CUSTOMER).fill(customer.name);
-    await expect(page.getByText("טוען אפשרויות...", { exact: true })).toBeVisible();
-    await expect(quote.field(CUSTOMER)).toHaveValue(customer.name);
+    await quote.field(CUSTOMER).click();
+    const search = quote.entitySearch(CUSTOMER);
+    await search.fill(customer.name);
+    await expect(page.getByRole("option", { name: "מחפשים…" })).toBeVisible();
+    await expect(search).toHaveValue(customer.name);
     gate.resolve();
     expect((await searched).status()).toBe(200);
     const options = page.getByRole("option", { name: customer.name, exact: true });
@@ -86,15 +87,17 @@ test("direct customer search preserves typed queries across loading and empty re
     const saved = await readQuotation(api, initial.id);
     const missing = `missing-${randomUUID()}`;
     const absent = waitSearch(page, missing);
-    await quote.field(CUSTOMER).fill(missing);
+    await quote.field(CUSTOMER).click();
+    await search.fill(missing);
     expect((await absent).status()).toBe(200);
     await expect(page.getByText(NO_RESULTS, { exact: true })).toBeVisible();
-    await expect(quote.field(CUSTOMER)).toHaveValue(missing);
+    await expect(search).toHaveValue(missing);
     const continued = waitSearch(page, `${missing}a`);
-    await quote.field(CUSTOMER).pressSequentially("a");
+    await search.pressSequentially("a");
     expect((await continued).status()).toBe(200);
-    await expect(quote.field(CUSTOMER)).toHaveValue(`${missing}a`);
-    await quote.field(CUSTOMER).press(KEYBOARD_KEYS.ESCAPE);
+    await expect(search).toHaveValue(`${missing}a`);
+    await search.press(KEYBOARD_KEYS.ESCAPE);
+    await expect(page.getByRole("dialog", { name: CUSTOMER })).toHaveCount(0);
     await expect(quote.field(CUSTOMER)).toHaveValue(target.name);
     expect((await readQuotation(api, initial.id)).version).toBe(saved.version);
     await page.screenshot({
@@ -121,25 +124,28 @@ test("project search stays customer scoped, retains active typing, selects with 
   const field = quote.field(PROJECT);
   await expect(field).toBeVisible();
   await field.click();
+  const search = quote.entitySearch(PROJECT);
   await expect(page.getByRole("option", { name: project.name, exact: true })).toBeVisible();
   await expect(page.getByRole("option", { name: foreignProject.name, exact: true })).toHaveCount(0);
-  await field.fill(project.name);
+  await search.fill(project.name);
   await expect(page.getByRole("option", { name: project.name, exact: true })).toBeVisible();
-  await field.press(KEYBOARD_KEYS.ARROW_DOWN);
-  await quote.saved(() => field.press(KEYBOARD_KEYS.ENTER));
+  await search.press(KEYBOARD_KEYS.ARROW_DOWN);
+  await quote.saved(() => search.press(KEYBOARD_KEYS.ENTER));
   expect((await readQuotation(api, initial.id)).projectId).toBe(project.id);
   const saved = await readQuotation(api, initial.id);
   const missing = `missing-${randomUUID()}`;
   const absent = waitSearch(page, missing);
-  await field.fill(missing);
+  await field.click();
+  await search.fill(missing);
   expect((await absent).status()).toBe(200);
   await expect(page.getByText(NO_RESULTS, { exact: true })).toBeVisible();
-  await expect(field).toHaveValue(missing);
+  await expect(search).toHaveValue(missing);
   const continued = waitSearch(page, `${missing}a`);
-  await field.pressSequentially("a");
+  await search.pressSequentially("a");
   expect((await continued).status()).toBe(200);
-  await expect(field).toHaveValue(`${missing}a`);
-  await field.press(KEYBOARD_KEYS.ESCAPE);
+  await expect(search).toHaveValue(`${missing}a`);
+  await search.press(KEYBOARD_KEYS.ESCAPE);
+  await expect(page.getByRole("dialog", { name: PROJECT })).toHaveCount(0);
   await expect(field).toHaveValue(project.name);
   expect((await readQuotation(api, initial.id)).version).toBe(saved.version);
   await field.focus();
