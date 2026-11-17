@@ -79,7 +79,10 @@ test("order retries, authorized overruns and corrections retain audit history", 
   const { project, lines } = await seedPurchasingProject(api);
   const manager = await apiAs(TEST_USERS[USER_ROLES.PURCHASING_EXECUTION_MANAGER]);
   const engineer = await apiAs(TEST_USERS[USER_ROLES.ENGINEER]);
-  const command = input(lines[0].id, "4");
+  const command = {
+    ...input(lines[0].id, "4"),
+    lines: [{ boqLineId: lines[0].id, quantity: "4", unitCost: "12.5" }],
+  };
   expect((await manager.send(HTTP_METHODS.POST, orderPath(project.id), command)).status()).toBe(
     201,
   );
@@ -94,6 +97,17 @@ test("order retries, authorized overruns and corrections retain audit history", 
     remainingQuantity: "6.00000000",
   });
   expect(purchaseHistory(afterRetry)).toHaveLength(1);
+  expect(purchaseHistory(afterRetry)[0]).toMatchObject({
+    supplierName: "QA supplier",
+    onBehalfOf: "QA installer",
+    orderDate: "2026-11-17",
+    status: PURCHASE_STATUS.ORDERED,
+    createdById: expect.any(String),
+    lines: [expect.objectContaining({ unitCost: "12.5000", currencyCode: "ILS" })],
+    events: [
+      expect.objectContaining({ actorId: expect.any(String), createdAt: expect.any(String) }),
+    ],
+  });
   expect(
     (
       await manager.send(HTTP_METHODS.POST, orderPath(project.id), input(lines[0].id, "7"))
