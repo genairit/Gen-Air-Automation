@@ -374,7 +374,7 @@ test("payment stages replace fixed terms, survive reload and require confirmatio
   await quote.transition("סיימתי, לבדיקה");
   await expect(page.getByText("תנאי תשלום: לפי שלבי תשלום", { exact: true })).toBeVisible();
   await expect(page.getByText("30% Deposit · 70% Delivery", { exact: true })).toBeVisible();
-  await quote.transition("חזרה לטיוטה");
+  await quote.button("עריכה").click();
   await page.getByRole("radio", { name: "תשלום מראש", exact: true }).click();
   await expect(quote.button("מחק שלבים ובחר תנאים")).toBeVisible();
   await quote.button("ביטול").click();
