@@ -29,6 +29,9 @@ export const createEmployeesPage = (page: Page) => {
   const passwordInput = form.locator('input[type="password"]').first();
   const passwordConfirmationInput = form.locator('input[type="password"]').last();
   const roleOptions = form.getByRole("checkbox");
+  const addCard = form
+    .getByRole("heading", { name: EMPLOYEES_COPY.ACCOUNT_SECTION })
+    .locator("xpath=ancestor::section[2]");
   const roleCheckbox = (role: UserRoleType) =>
     form.getByRole("checkbox", { name: USER_ROLE_LABELS[role], exact: true });
 
@@ -65,6 +68,7 @@ export const createEmployeesPage = (page: Page) => {
     passwordConfirmationInput,
     roleCheckbox,
     roleOptions,
+    addCard,
     goto,
     findRow,
     roleTab,

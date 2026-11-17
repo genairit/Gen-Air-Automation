@@ -27,6 +27,7 @@ import { buildBrowserApiPattern } from "../../src/utilities/api-path.utility.ts"
 import { MULTIPLE_ROLES_COPY } from "../../src/constants/multiple-roles.constant.ts";
 
 const DESKTOP_VIEWPORT = { width: 1600, height: 1000 } as const;
+const WIDE_CONTENT_MIN_WIDTH = 1120;
 const ROW_ALIGNMENT_TOLERANCE = 4;
 const CREATE_FAILURE = "QA simulated employee-creation conflict";
 
@@ -50,20 +51,29 @@ test("employee account and access sections form a compact desktop layout", async
   await expect(roleGroup.getByRole("checkbox")).toHaveCount(ASSIGNABLE_USER_ROLE_VALUES.length);
   await expect(employees.addButton).toBeVisible();
   const accountBox = await readBoundingBox(accountHeading);
+  const cardBox = await readBoundingBox(employees.addCard);
+  const pageColumnBox = await readBoundingBox(employees.addCard.locator(".."));
   const accessBox = await readBoundingBox(accessHeading);
   const nameBox = await readBoundingBox(nameField);
   const emailBox = await readBoundingBox(emailField);
   const adminBox = await readBoundingBox(employees.roleCheckbox(USER_ROLES.SYSTEM_ADMIN));
   const engineerBox = await readBoundingBox(employees.roleCheckbox(USER_ROLES.ENGINEER));
+  const engineeringLeadBox = await readBoundingBox(
+    employees.roleCheckbox(USER_ROLES.ENGINEERING_LEAD),
+  );
   const secretaryBox = await readBoundingBox(employees.roleCheckbox(USER_ROLES.SECRETARY));
   const projectManagerBox = await readBoundingBox(
     employees.roleCheckbox(USER_ROLES.PROJECT_MANAGER),
   );
 
   expect(accountBox.y).toBeLessThan(accessBox.y);
+  expect(pageColumnBox.width).toBeGreaterThan(WIDE_CONTENT_MIN_WIDTH);
+  expect(Math.abs(cardBox.x - pageColumnBox.x)).toBeLessThan(ROW_ALIGNMENT_TOLERANCE);
+  expect(Math.abs(cardBox.width - pageColumnBox.width)).toBeLessThan(ROW_ALIGNMENT_TOLERANCE);
   expect(Math.abs(nameBox.y - emailBox.y)).toBeLessThan(ROW_ALIGNMENT_TOLERANCE);
   expect(Math.abs(adminBox.y - engineerBox.y)).toBeLessThan(ROW_ALIGNMENT_TOLERANCE);
-  expect(Math.abs(engineerBox.y - secretaryBox.y)).toBeLessThan(ROW_ALIGNMENT_TOLERANCE);
+  expect(Math.abs(engineerBox.y - engineeringLeadBox.y)).toBeLessThan(ROW_ALIGNMENT_TOLERANCE);
+  expect(secretaryBox.y).toBeGreaterThan(adminBox.y);
   expect(projectManagerBox.y).toBeGreaterThan(adminBox.y);
   expect(nameBox.width).toBeLessThan(DESKTOP_VIEWPORT.width / 2);
   expect(await readHorizontalOverflow(page)).toBe(0);
@@ -100,6 +110,7 @@ test("employee form stays readable and actionable at 390px", async ({ page }, te
   expect(secretaryBox.y).toBeGreaterThan(adminBox.y);
   expect(buttonBox.width).toBeGreaterThan(VIEWPORTS.MOBILE.width * 0.75);
   expect(await isWithinViewportWidth(page, employees.addButton)).toBe(true);
+  expect(await isWithinViewportWidth(page, employees.addCard)).toBe(true);
   expect(await readHorizontalOverflow(page)).toBe(0);
   await page.screenshot({ path: testInfo.outputPath("employee-form-mobile.png"), fullPage: true });
 
