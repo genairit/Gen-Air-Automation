@@ -394,7 +394,7 @@ test("procurement manager opens project BOQ, selects approved source and sees pu
   await expect(page.getByRole("heading", { name: "רכש לפרויקט" })).toBeVisible();
   await expect(page.getByText("אין עדיין כתב רכש לפרויקט.")).toBeVisible();
   await expect(page.getByText("טרם נבחרה הצעה")).toBeVisible();
-  await page.getByRole("combobox", { name: "בחר הצעת מחיר מאושרת" }).click();
+  await page.getByRole("combobox", { name: "הצעת מחיר מאושרת" }).click();
   await page.getByRole("option", { name: new RegExp(approved.number) }).click();
   await page.getByRole("button", { name: "הצג שינויים" }).click();
   await expect(page.getByText(/2 שורות חומר מוצעות/)).toBeVisible();

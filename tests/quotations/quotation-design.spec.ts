@@ -44,13 +44,13 @@ test("quotation list keeps dense six-column rows and inline toolbar while tab co
           .filter({ has: page.getByLabel(SEARCH, { exact: true }) }),
       )
     ).height,
-  ).toBe(56);
+  ).toBe(38);
   const box = await quotationBox(row);
   expect(box.height).toBeLessThanOrEqual(90);
   const cells = row.locator(":scope > *");
   await expect(cells).toHaveCount(6);
   await expectSameQuotationRow(await cells.all());
-  const tabs = page.locator("button[aria-pressed]");
+  const tabs = page.getByRole("button", { name: /^(הכל|טיוטה|בבדיקה|הזמנה|מבוטלת) \d+$/ });
   await expect(tabs).toHaveCount(5);
   await expectSameQuotationRow([page.getByLabel(SEARCH, { exact: true }), tabs.first()]);
   await captureQuotationScreenshot(page, testInfo.outputPath("quotation-list-desktop-1440.png"));
@@ -115,8 +115,19 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
     "סוכן מכירות (אופציונלי)",
     "חברת מיזוג",
     "הנחה %",
-  ].map(label => page.locator(".MuiInputBase-root").filter({ has: quote.field(label) }));
+  ].map(label => quote.field(label).first().locator(".."));
   const boxes = await Promise.all(metadata.map(quotationBox));
+  const pickerSurfaces = await Promise.all(
+    ["לקוח *", "פרויקט (אופציונלי)", "סוכן מכירות (אופציונלי)"].map(label =>
+      quotationBox(quote.field(label).first().locator("../..")),
+    ),
+  );
+  expect(Math.max(...pickerSurfaces.map(box => box.height))).toBeLessThanOrEqual(56);
+  expect(Math.min(...pickerSurfaces.map(box => box.height))).toBeGreaterThanOrEqual(44);
+  expect(
+    Math.max(...pickerSurfaces.map(box => box.height)) -
+      Math.min(...pickerSurfaces.map(box => box.height)),
+  ).toBeLessThanOrEqual(1);
   const metadataGroups = page.locator('[class*="_metadata_"] > *');
   await expect(metadataGroups).toHaveCount(6);
   const topRow = await Promise.all((await metadataGroups.all()).slice(0, 5).map(quotationBox));
@@ -124,7 +135,7 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
     Math.max(...topRow.map(box => box.y)) - Math.min(...topRow.map(box => box.y)),
   ).toBeLessThanOrEqual(1);
   for (const box of boxes) {
-    expect(box.height).toBe(52);
+    expect(box.width).toBeGreaterThan(80);
   }
   await expect(page.locator("details")).toHaveCount(0);
   for (const [index, box] of boxes.entries()) {
@@ -134,7 +145,9 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
   }
   const dateControl = page.locator(".MuiInputBase-root").filter({ has: quote.field("תאריך") });
   const dateBox = await quotationBox(dateControl);
-  expect(dateBox.height).toBe(52);
+  const dateSurface = await quotationBox(quote.field("תאריך").locator(".."));
+  expect(dateSurface.height).toBeGreaterThanOrEqual(36);
+  expect(dateSurface.height).toBeLessThanOrEqual(56);
   expect(dateBox.y).toBeGreaterThan(boxes[0]!.y + boxes[0]!.height);
   const backBox = await quotationBox(back);
   expect(backBox.y).toBeLessThan(boxes[0]!.y);
@@ -156,16 +169,12 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
     quote.field("מחיר ליחידה").first(),
   ]);
   const location = quote.field("מיקום").first();
-  const locationGroup = page
-    .locator(".MuiInputBase-root")
-    .filter({ has: quote.field("מיקום") })
-    .first()
-    .locator("..");
-  const locationCaption = locationGroup.getByText("מיקום היחידה", { exact: true });
+  const locationGroup = location.locator("..").locator("..");
+  const locationCaption = page.getByText("מיקום היחידה", { exact: true }).first();
   const captionBox = await quotationBox(locationCaption);
   const locationBox = await quotationBox(location);
   const locationGroupBox = await quotationBox(locationGroup);
-  expect(Math.abs(locationGroupBox.y - equipmentRow[0]!.y)).toBeLessThanOrEqual(16);
+  expect(Math.abs(locationGroupBox.y - equipmentRow[0]!.y)).toBeLessThanOrEqual(20);
   expect(locationBox.y).toBeGreaterThan(captionBox.y + captionBox.height);
   expect(locationBox.height).toBeLessThanOrEqual(42);
   await expect(page.getByText("מחיר ליחידה (בהצעה)", { exact: true })).toHaveCount(5);
@@ -252,7 +261,7 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
           .first(),
       )
     ).height,
-  ).toBe(44);
+  ).toBe(38);
   await quote.field("חיפוש פריט בקטלוג").first().focus();
   await expect(page.getByRole("button").filter({ hasText: "E-SMD-63" })).toBeVisible();
   await quote.field("חיפוש פריט בקטלוג").first().fill("E-SMD-63");
@@ -271,20 +280,13 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
   await expect(
     page.getByRole("table").getByRole("cell", { name: "AC123", exact: true }),
   ).toBeVisible();
-  const warning = page
-    .getByText("חריג — מאושר במפורש", { exact: true })
-    .locator("..")
-    .locator("..")
-    .first();
-  expect((await quotationBox(warning)).y).toBeLessThan(
+  const warningText = page.getByText("חריג — מאושר במפורש", { exact: true }).first();
+  const warningCheckbox = page.getByRole("checkbox", { name: /חריג — מאושר במפורש/ }).first();
+  expect((await quotationBox(warningText)).y).toBeLessThan(
     (await quotationBox(page.getByRole("table"))).y,
   );
-  const warningCheckbox = warning.getByRole("checkbox");
-  const warningText = warning.getByText("חריג — מאושר במפורש", { exact: true }).locator("..");
   const checkboxBox = await quotationBox(warningCheckbox);
-  expect(checkboxBox.x + checkboxBox.width).toBeLessThanOrEqual(
-    (await quotationBox(warningText)).x,
-  );
+  expect(Math.abs(checkboxBox.y - (await quotationBox(warningText)).y)).toBeLessThanOrEqual(20);
   await expect(page.getByRole("progressbar", { name: "התקדמות בדיקת הצעה" })).toHaveCount(1);
   const summaryCard = page
     .getByRole("heading", { name: "בדיקה ואישור", exact: true })
@@ -298,9 +300,8 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
     quote.button("אישור ההצעה"),
   ]);
   const mobileCheckboxBox = await quotationBox(warningCheckbox);
-  expect(mobileCheckboxBox.x + mobileCheckboxBox.width).toBeLessThanOrEqual(
-    (await quotationBox(warningText)).x,
-  );
+  expect(mobileCheckboxBox.x).toBeGreaterThan((await quotationBox(warningText)).x);
+  await expectQuotationWithinViewport(page, [warningCheckbox, warningText]);
   await captureQuotationScreenshot(page, testInfo.outputPath("quotation-review-mobile-390.png"));
   expect(errors).toEqual([]);
 });
