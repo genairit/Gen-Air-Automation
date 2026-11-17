@@ -47,12 +47,15 @@ const idOf = (value: Record<string, unknown>): string => {
   return value.id;
 };
 
-export const seedPurchasingProject = async (api: TGenAirApi) => {
+export const seedPurchasingProject = async (
+  api: TGenAirApi,
+  categories = ["צנרת QA", "בידוד QA"],
+) => {
   const customer = await seedCustomer(api);
   const project = await seedStandaloneProject(api, customer);
   const catalogue = await createCatalogueFixture();
   const materials = await Promise.all(
-    ["צנרת QA", "בידוד QA"].map(async category => {
+    categories.map(async category => {
       const code = `PUR-${randomUUID().toUpperCase()}`;
       const created = await api.send(HTTP_METHODS.POST, "/material", {
         code,

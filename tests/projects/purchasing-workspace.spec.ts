@@ -221,10 +221,19 @@ test("manager selects across category tabs, records partial order and sees persi
   const first = lines[0].material;
   const second = lines[1].material;
   await expect(page.getByRole("heading", { name: "רכש לפרויקט" })).toBeVisible();
+  const tabs = page.getByRole("tablist", { name: "קטגוריות חומרים" }).getByRole("tab");
+  await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+  await expect(tabs.first()).toContainText(first.category);
+  await expect(tabs.last()).toContainText("הכול");
+  await expect(page.getByRole("tabpanel")).toContainText(first.code);
+  await expect(page.getByRole("tabpanel")).not.toContainText(second.code);
   await page.getByRole("tab", { name: new RegExp(first.category) }).click();
   await page.getByRole("checkbox", { name: new RegExp(`בחר.*${first.code}`) }).check();
+  await expect(page.getByRole("status")).toContainText("נבחרו 1 חומרים");
   await page.getByRole("tab", { name: new RegExp(second.category) }).click();
   await page.getByRole("checkbox", { name: new RegExp(`בחר.*${second.code}`) }).check();
+  await expect(page.getByRole("status")).toContainText("נבחרו 2 חומרים");
+  await expect(page.getByRole("heading", { name: "רכש קבוצתי · 2 שורות" })).toBeVisible();
   await page.getByRole("textbox", { name: "ספק" }).fill("QA shared supplier");
   await page.getByLabel("תאריך הזמנה").fill("2026-11-17");
   await page.getByRole("spinbutton", { name: new RegExp(`כמות.*${first.code}`) }).fill("3");
@@ -243,6 +252,58 @@ test("manager selects across category tabs, records partial order and sees persi
   });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test("category strip scrolls on phone and keyboard navigation keeps material rows filtered", async ({
+  api,
+  openPageAs,
+}) => {
+  const categories = ["מאיידים", "מעבים", "מפוחים", "פנלים", "צנרת", "בידוד"];
+  const { project, lines } = await seedPurchasingProject(api, categories);
+  const page = await openPageAs(TEST_USERS[USER_ROLES.PURCHASING_EXECUTION_MANAGER]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/project-boqs/${project.id}`);
+  const tablist = page.getByRole("tablist", { name: "קטגוריות חומרים" });
+  const tabs = tablist.getByRole("tab");
+  await expect(tabs).toHaveCount(categories.length + 1);
+  await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tabpanel")).toContainText(lines[0].material.code);
+  expect(
+    await tablist.locator("..").evaluate(element => element.scrollWidth > element.clientWidth),
+  ).toBe(true);
+  await tabs.first().focus();
+  await page.keyboard.press("End");
+  await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
+  await expect(tabs.last()).toBeInViewport();
+  const finalLine = lines.at(-1);
+  if (!finalLine) {
+    throw new Error("Expected a generated final material line");
+  }
+
+  await expect(page.getByRole("tabpanel")).toContainText(finalLine.material.code);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test("selection from a lower material row exposes the bulk review controls", async ({
+  api,
+  openPageAs,
+}) => {
+  const { project, lines } = await seedPurchasingProject(api, Array(9).fill("צנרת QA"));
+  const page = await openPageAs(TEST_USERS[USER_ROLES.PURCHASING_EXECUTION_MANAGER]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/project-boqs/${project.id}`);
+  const finalLine = lines.at(-1);
+  if (!finalLine) {
+    throw new Error("Expected a generated final material line");
+  }
+
+  await page.getByRole("checkbox", { name: new RegExp(`בחר.*${finalLine.material.code}`) }).check();
+  await expect(page.getByRole("status")).toContainText("נבחרו 1 חומרים");
+  await expect(page.getByRole("status")).toBeInViewport();
+  await page.getByRole("button", { name: "לרכש קבוצתי" }).click();
+  const reviewHeading = page.getByRole("heading", { name: "רכש קבוצתי · 1 שורות" });
+  await expect(reviewHeading).toBeInViewport();
+  await expect(reviewHeading).toBeFocused();
 });
 
 test("ordered check is direct, failed save retains inputs, and uncheck records a correction", async ({
