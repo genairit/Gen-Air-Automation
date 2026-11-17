@@ -17,11 +17,10 @@ import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts";
 import { createCatalogueFixture } from "../../src/environment/quotation-fixtures.ts";
+import { MATERIAL_STATUS, MATERIAL_BASIS } from "../../src/constants/purchasing.constant.ts";
 
 const BOQ_REVIEW = { PENDING: "pending", CONFIRMED: "confirmed" } as const;
 const MATERIAL_UNIT = { UNIT: "unit", METRE: "m" } as const;
-const MATERIAL_STATUS = { ACTIVE: "active", INACTIVE: "inactive" } as const;
-const MATERIAL_BASIS = { FIXED: "fixed", PROJECT_MEASUREMENT: "project_measurement" } as const;
 const boqPath = (projectId: string) => `/project-boq/${projectId}`;
 const readRecord = async (response: APIResponse): Promise<Record<string, unknown>> => {
   const value: unknown = await response.json();
@@ -382,7 +381,7 @@ test("regeneration sends an unoverridden inactive material back for review", asy
   );
 });
 
-test("procurement manager opens project BOQ, selects approved source and sees editable cost with ledger unavailable", async ({
+test("procurement manager opens project BOQ, selects approved source and sees purchasing workspace", async ({
   api,
   openPageAs,
 }) => {
@@ -392,7 +391,8 @@ test("procurement manager opens project BOQ, selects approved source and sees ed
   await expect(page.getByRole("heading", { name: "כתבי רכש לפרויקטים" })).toBeVisible();
   await page.getByText(project.name, { exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/project-boqs/${project.id}$`));
-  await expect(page.getByText("לא זמין עדיין").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "רכש לפרויקט" })).toBeVisible();
+  await expect(page.getByText("אין עדיין כתב רכש לפרויקט.")).toBeVisible();
   await expect(page.getByText("טרם נבחרה הצעה")).toBeVisible();
   await page.getByRole("combobox", { name: "בחר הצעת מחיר מאושרת" }).click();
   await page.getByRole("option", { name: new RegExp(approved.number) }).click();
@@ -400,9 +400,7 @@ test("procurement manager opens project BOQ, selects approved source and sees ed
   await expect(page.getByText(/2 שורות חומר מוצעות/)).toBeVisible();
   await page.getByRole("button", { name: "צור כתב רכש" }).click();
   await expect(page.getByText(`הצעה ${approved.number} · גרסה ${approved.version}`)).toBeVisible();
-  await expect(page.getByText("לא זמין עדיין")).toHaveCount(3);
-  const materialRow = page.getByText(fixed.code).locator("..", { hasText: fixed.code });
-  await expect(materialRow).toBeVisible();
+  await expect(page.getByText(fixed.code).first()).toBeVisible();
   await page.getByPlaceholder("לא הוזנה").first().fill("12.50");
   await page.getByRole("button", { name: "שמור" }).first().click();
   await expect(page.getByText("₪62.5")).toHaveCount(2);
