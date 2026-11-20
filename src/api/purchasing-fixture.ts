@@ -16,6 +16,13 @@ import { seedCustomer, seedStandaloneProject } from "./seed-data.ts";
 import { createCatalogueFixture } from "../environment/quotation-fixtures.ts";
 import { MATERIAL_STATUS, MATERIAL_BASIS } from "../constants/purchasing.constant.ts";
 
+interface ISeedOrderSupplierOptions {
+  name: string;
+  api: TGenAirApi;
+  lineIds: string[];
+  projectId: string;
+}
+
 export const purchaseRecord = async (response: APIResponse): Promise<Record<string, unknown>> => {
   const value: unknown = await response.json();
   if (!isRecord(value)) {
@@ -45,6 +52,42 @@ const idOf = (value: Record<string, unknown>): string => {
   }
 
   return value.id;
+};
+
+export const seedOrderSupplier = async ({
+  api,
+  name,
+  lineIds,
+  projectId,
+}: ISeedOrderSupplierOptions): Promise<void> => {
+  const supplierResponse = await api.send(HTTP_METHODS.POST, "/supplier-agreement/suppliers", {
+    name,
+    contactName: "QA purchasing",
+  });
+  if (supplierResponse.status() !== 201) {
+    throw new Error(`Supplier setup failed: ${supplierResponse.status()}`);
+  }
+
+  const supplierId = idOf(await purchaseRecord(supplierResponse));
+  for (const boqLineId of lineIds) {
+    const agreement = await api.send(
+      HTTP_METHODS.POST,
+      `/supplier-agreement/projects/${projectId}/agreements`,
+      {
+        boqLineId,
+        supplierId,
+        unitPrice: "1.0000",
+        currencyCode: "ILS",
+        agreedQuantity: "10",
+        effectiveFrom: null,
+        effectiveThrough: null,
+        active: true,
+      },
+    );
+    if (agreement.status() !== 201) {
+      throw new Error(`Agreement setup failed: ${agreement.status()}`);
+    }
+  }
 };
 
 export const seedPurchasingProject = async (
