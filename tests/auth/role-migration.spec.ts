@@ -15,6 +15,11 @@ import { createTestDatabaseClient } from "../../src/environment/test-database-cl
 type TDatabaseClient = ReturnType<typeof createTestDatabaseClient>;
 
 const MIGRATIONS_DIRECTORY = join(APP_DIRECTORIES.BACKEND, "migrations");
+const LATER_USER_ROLES = [
+  USER_ROLES.SALES_AGENT,
+  USER_ROLES.ENGINEERING_LEAD,
+  USER_ROLES.PURCHASING_EXECUTION_MANAGER,
+] as const;
 
 const LEGACY_USERS = [
   { email: "legacy-admin@example.test", role: USER_ROLES.SYSTEM_ADMIN },
@@ -91,7 +96,7 @@ test("the role migration adds engineer and finance, renames lead_installer and d
 
     expect(await readEnumRoles(database)).toEqual(
       USER_ROLE_VALUES.filter(
-        role => role !== USER_ROLES.PURCHASING_EXECUTION_MANAGER && role !== USER_ROLES.SALES_AGENT,
+        role => !LATER_USER_ROLES.some(laterRole => laterRole === role),
       ).sort(),
     );
     expect(await readRoleByEmail(database)).toEqual([
