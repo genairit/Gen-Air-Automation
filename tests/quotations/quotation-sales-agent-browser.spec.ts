@@ -60,6 +60,7 @@ test("quotation creator selects an engineer, changes to admin and clears it", as
   }
   await agentPicker.click();
   const agentSearch = quote.entitySearch(PICKER);
+  await agentSearch.fill(first.firstName);
   const agentOption = page.getByRole("option", { name: new RegExp(first.firstName) });
   await expect(agentOption).toBeVisible();
   const employeeNumber = (await agentOption.textContent())?.split("·").at(-1)?.trim() ?? "";

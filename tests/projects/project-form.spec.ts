@@ -1,4 +1,5 @@
 import {
+  USER_ROLES,
   RETIRED_ROLES,
   NON_MEMBER_ROLES,
   USER_ROLE_LABELS,
@@ -182,7 +183,10 @@ test("the form offers four optional member slots that each list only their role"
     const options = await formPage.openMemberSlot(role);
 
     for (const employee of employees) {
-      const expectedCount = employee.role === role ? 1 : 0;
+      const matchesRole = employee.role === role;
+      const leadInEngineerSlot =
+        role === USER_ROLES.ENGINEER && employee.role === USER_ROLES.ENGINEERING_LEAD;
+      const expectedCount = matchesRole || leadInEngineerSlot ? 1 : 0;
 
       await expect(options.filter({ hasText: formatFullName(employee) })).toHaveCount(
         expectedCount,

@@ -2,6 +2,7 @@ import {
   purchaseLines,
   purchaseRecord,
   purchaseHistory,
+  seedOrderSupplier,
   seedPurchasingProject,
 } from "../../src/api/purchasing-fixture.ts";
 
@@ -216,6 +217,13 @@ test("manager selects across category tabs, records partial order and sees persi
   openPageAs,
 }) => {
   const { project, lines } = await seedPurchasingProject(api);
+  const supplierName = "QA shared supplier";
+  await seedOrderSupplier({
+    api,
+    name: supplierName,
+    projectId: project.id,
+    lineIds: lines.map(line => line.id),
+  });
   const page = await openPageAs(TEST_USERS[USER_ROLES.PURCHASING_EXECUTION_MANAGER]);
   await page.goto(`/project-boqs/${project.id}`);
   const first = lines[0].material;
@@ -234,12 +242,13 @@ test("manager selects across category tabs, records partial order and sees persi
   await page.getByRole("checkbox", { name: new RegExp(`בחר.*${second.code}`) }).check();
   await expect(page.getByRole("status")).toContainText("נבחרו 2 חומרים");
   await expect(page.getByRole("heading", { name: "רכש קבוצתי · 2 שורות" })).toBeVisible();
-  await page.getByRole("textbox", { name: "ספק" }).fill("QA shared supplier");
+  await page.getByRole("combobox", { name: "ספק להזמנה" }).click();
+  await page.getByRole("option", { name: supplierName }).click();
   await page.getByLabel("תאריך הזמנה").fill("2026-11-17");
   await page.getByRole("spinbutton", { name: new RegExp(`כמות.*${first.code}`) }).fill("3");
   await page.getByRole("spinbutton", { name: new RegExp(`כמות.*${second.code}`) }).fill("10");
   await page.getByRole("button", { name: "רשום כהוזמן" }).click();
-  await expect(page.getByText("QA shared supplier")).toBeVisible();
+  await expect(page.getByText(`הוזמנה · ${supplierName}`)).toBeVisible();
   await page.reload();
   await page.getByRole("tab", { name: new RegExp(first.category) }).click();
   await expect(page.getByText("הוזמן חלקית")).toBeVisible();
@@ -311,6 +320,13 @@ test("ordered check is direct, failed save retains inputs, and uncheck records a
   openPageAs,
 }) => {
   const { project, lines } = await seedPurchasingProject(api);
+  const supplierName = "QA checkbox supplier";
+  await seedOrderSupplier({
+    api,
+    name: supplierName,
+    lineIds: [lines[0].id],
+    projectId: project.id,
+  });
   const page = await openPageAs(TEST_USERS[USER_ROLES.PURCHASING_EXECUTION_MANAGER]);
   const material = lines[0].material;
   await page.goto(`/project-boqs/${project.id}`);
@@ -318,7 +334,8 @@ test("ordered check is direct, failed save retains inputs, and uncheck records a
   await expect(ordered).not.toBeChecked();
   await ordered.click();
   await expect(page.getByRole("heading", { name: "רישום הזמנה לחומר" })).toBeVisible();
-  await page.getByRole("textbox", { name: "ספק" }).fill("QA checkbox supplier");
+  await page.getByRole("combobox", { name: "ספק להזמנה" }).click();
+  await page.getByRole("option", { name: supplierName }).click();
   await page.getByLabel("תאריך הזמנה").fill("2026-11-17");
   await page.getByRole("spinbutton", { name: new RegExp(`כמות.*${material.code}`) }).fill("2");
   await page.route("**/purchase-record/*/orders", route =>
@@ -329,8 +346,14 @@ test("ordered check is direct, failed save retains inputs, and uncheck records a
     }),
   );
   await page.getByRole("button", { name: "רשום כהוזמן" }).click();
-  await expect(page.getByText(/הפעולה נכשלה/)).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "ספק" })).toHaveValue("QA checkbox supplier");
+  await expect(
+    page
+      .getByRole("heading", { name: "רישום הזמנה לחומר" })
+      .locator("..")
+      .getByRole("alert")
+      .filter({ hasText: /הפעולה נכשלה/ }),
+  ).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "ספק להזמנה" })).toHaveValue(supplierName);
   await expect(ordered).not.toBeChecked();
   await page.unroute("**/purchase-record/*/orders");
   await page.getByRole("button", { name: "רשום כהוזמן" }).click();
@@ -343,7 +366,7 @@ test("ordered check is direct, failed save retains inputs, and uncheck records a
   });
   await expect(persisted).toBeChecked();
   await page.getByRole("searchbox", { name: "חיפוש בהיסטוריה" }).fill("QA checkbox supplier");
-  await expect(page.getByText("QA checkbox supplier")).toBeVisible();
+  await expect(page.getByText(`הוזמנה · ${supplierName}`)).toBeVisible();
   await persisted.click();
   await page.getByRole("textbox", { name: "סיבת התיקון" }).fill("QA reversal");
   await page.getByRole("button", { name: "שמור תיקון" }).click();
