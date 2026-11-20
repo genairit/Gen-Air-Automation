@@ -67,6 +67,8 @@ export const selectDueDate = async (page: Page, date: Date): Promise<void> => {
 
   await calendar
     .getByRole("grid", { name: targetMonth })
-    .getByRole("gridcell", { name: String(date.getUTCDate()), exact: true })
+    .locator('button[role="gridcell"]:not(.MuiPickerDay-dayOutsideMonth)', {
+      hasText: new RegExp(`^${date.getUTCDate()}$`),
+    })
     .click();
 };
