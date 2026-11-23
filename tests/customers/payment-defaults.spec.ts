@@ -1,43 +1,57 @@
 import {
-  PAYMENT_DEFAULT_OPTIONS,
-  PAYMENT_DEFAULT_PATTERNS,
   PAYMENT_DEFAULT_NONE_OPTION,
   PAYMENT_DEFAULT_COPY as COPY,
 } from "../../src/constants/payment-default.constant.ts";
+
+import {
+  CUSTOMER_PAYMENT_COPY,
+  CUSTOMER_PAYMENT_SCHEDULE,
+  CUSTOMER_PAYMENT_FIXED_OPTIONS,
+} from "../../src/constants/customer-payment-schedule.constant.ts";
 
 import { buildCustomerInput } from "../../src/api/seed-data.ts";
 import { API_PATHS } from "../../src/constants/api.constant.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { VIEWPORTS } from "../../src/constants/viewport.constant.ts";
+import { PAYMENT_TERMS } from "../../src/constants/domain.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
-import { buildCustomerRoute } from "../../src/utilities/route.utility.ts";
+import { KEYBOARD_KEYS } from "../../src/constants/keyboard.constant.ts";
 import { createCustomerFormPage } from "../../src/pages/customers.page.ts";
-import { readLastPathSegment } from "../../src/utilities/route.utility.ts";
 import { buildCustomerPath } from "../../src/utilities/api-path.utility.ts";
 import { readHorizontalOverflow } from "../../src/pages/layout.component.ts";
 import { ROUTE_PATTERNS } from "../../src/constants/route-patterns.constant.ts";
 import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
+import { buildCustomerRoute, readLastPathSegment } from "../../src/utilities/route.utility.ts";
 import { createCustomerPaymentDefaultPage } from "../../src/pages/customer-payment-default.page.ts";
+import { readCustomerPaymentConfiguration } from "../../src/api/customer-payment-configuration.api.ts";
+import { setLegacyCustomerOtherPayment } from "../../src/environment/customer-payment-schedule-fixtures.ts";
 
-for (const option of [PAYMENT_DEFAULT_NONE_OPTION, PAYMENT_DEFAULT_OPTIONS[0]]) {
-  test(`customer creation persists ${option.label} without any payment note`, async ({
+for (const option of [
+  { ...PAYMENT_DEFAULT_NONE_OPTION, paymentSchedule: [] },
+  { ...CUSTOMER_PAYMENT_FIXED_OPTIONS[0], paymentSchedule: [] },
+  {
+    value: null,
+    label: CUSTOMER_PAYMENT_COPY.CUSTOM,
+    paymentSchedule: CUSTOMER_PAYMENT_SCHEDULE.FIRST,
+  },
+]) {
+  test(`customer creation persists ${option.label} using shared payment choices without a customer note`, async ({
     page,
     api,
-  }, testInfo) => {
+  }) => {
     const customer = buildCustomerInput();
     const form = createCustomerFormPage(page);
     const payment = createCustomerPaymentDefaultPage(page);
-
     await form.goto();
-    await expect(payment.field(COPY.CREATE)).toHaveValue(COPY.NONE);
-    await payment.field(COPY.CREATE).click();
-    await expect(page.getByRole("option")).toHaveText([
-      COPY.NONE,
-      ...PAYMENT_DEFAULT_OPTIONS.map(entry => entry.label),
-    ]);
-    await page.getByRole("option", { name: option.label, exact: true }).click();
-    await expect(page.getByRole("textbox", { name: PAYMENT_DEFAULT_PATTERNS.NOTE })).toHaveCount(0);
+    await expect(payment.choice(COPY.NONE)).toBeChecked();
+    await expect(payment.choice(CUSTOMER_PAYMENT_COPY.OTHER)).toHaveCount(0);
+    await payment.choose(option.label);
+    if (option.paymentSchedule.length > 0) {
+      await payment.fillSchedule(option.paymentSchedule);
+    }
+
+    await expect(page.getByRole("textbox", { name: /הערה.*תשלום/ })).toHaveCount(0);
     await form.fill({
       NAME: customer.name,
       TAX_ID: customer.taxId,
@@ -52,102 +66,128 @@ for (const option of [PAYMENT_DEFAULT_NONE_OPTION, PAYMENT_DEFAULT_OPTIONS[0]]) 
         new URL(response.url()).pathname.endsWith(API_PATHS.CUSTOMER),
     );
     await form.saveButton.click();
-    const response = await creation;
-    expect(response.status()).toBe(HTTP_STATUS.CREATED);
-    const created: unknown = await response.json();
-    expect(created).toMatchObject({ paymentTerms: option.value });
-    expect(created).not.toHaveProperty("paymentTermsNote");
+    expect((await creation).status()).toBe(HTTP_STATUS.CREATED);
     await form.skipProjects();
     await expect(page).toHaveURL(ROUTE_PATTERNS.CUSTOMER);
     const id = readLastPathSegment(page.url());
     await page.reload();
-    await expect(payment.field(COPY.EDIT)).toHaveValue(option.label);
-    const stored = await api.send(HTTP_METHODS.GET, buildCustomerPath(id));
-    expect(await stored.json()).toMatchObject({ paymentTerms: option.value });
-    await page.screenshot({
-      path: testInfo.outputPath("customer-payment-default.png"),
-      fullPage: true,
+    await expect(payment.choice(option.label)).toBeChecked();
+    expect(await readCustomerPaymentConfiguration(api, id)).toMatchObject({
+      paymentTerms: option.value,
+      paymentSchedule: option.paymentSchedule,
     });
   });
 }
 
-test("customer edit reuses all options and explicitly clears its default durably", async ({
+test("custom customer stages validate, survive failed save/retry and reload, and confirm destructive changes on mobile", async ({
   page,
   api,
 }, testInfo) => {
   const customer = await api.createCustomer(buildCustomerInput());
   const payment = createCustomerPaymentDefaultPage(page);
-  await page.goto(buildCustomerRoute(customer.id));
-  for (const option of [...PAYMENT_DEFAULT_OPTIONS, PAYMENT_DEFAULT_NONE_OPTION]) {
-    await payment.choose(COPY.EDIT, option.label);
-    const saved = page.waitForResponse(
-      response =>
-        response.request().method() === HTTP_METHODS.PATCH &&
-        new URL(response.url()).pathname.endsWith(buildCustomerPath(customer.id)),
-    );
-    await payment.saveButton.click();
-    expect((await saved).status()).toBe(HTTP_STATUS.OK);
-    await expect(page.getByRole("status")).toHaveText(COPY.SAVED);
-    await page.reload();
-    await expect(payment.field(COPY.EDIT)).toHaveValue(option.label);
-    const stored: unknown = await (
-      await api.send(HTTP_METHODS.GET, buildCustomerPath(customer.id))
-    ).json();
-    expect(stored).toMatchObject({ paymentTerms: option.value });
-    expect(stored).not.toHaveProperty("paymentTermsNote");
-  }
   await page.setViewportSize(VIEWPORTS.MOBILE);
-  await expect(payment.field(COPY.EDIT)).toBeVisible();
-  await expect(payment.saveButton).toBeVisible();
+  await page.goto(buildCustomerRoute(customer.id));
+  await payment.choice(COPY.NONE).focus();
+  await page.keyboard.press(KEYBOARD_KEYS.ARROW_RIGHT);
+  await expect(payment.choice(CUSTOMER_PAYMENT_COPY.CUSTOM)).toBeChecked();
+  await payment.fillSchedule(CUSTOMER_PAYMENT_SCHEDULE.FIRST);
+  await payment.percent().fill("30");
+  await expect(page.getByText(CUSTOMER_PAYMENT_COPY.INVALID, { exact: true })).toBeVisible();
+  await expect(payment.saveButton).toBeDisabled();
+  await payment.percent().fill(CUSTOMER_PAYMENT_SCHEDULE.FIRST[0].percent);
+  const route = `**${buildCustomerPath(customer.id)}`;
+  const failure = { remaining: 1 };
+  await page.route(route, async request => {
+    const shouldFail = request.request().method() === HTTP_METHODS.PATCH && failure.remaining > 0;
+    if (!shouldFail) {
+      await request.continue();
+      return;
+    }
+
+    failure.remaining -= 1;
+    await request.fulfill({
+      status: HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      json: { message: "Temporary payment save failure" },
+    });
+  });
+  await payment.saveButton.click();
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(payment.percent()).toHaveValue(CUSTOMER_PAYMENT_SCHEDULE.FIRST[0].percent);
+  await expect(payment.milestone(1)).toHaveValue(CUSTOMER_PAYMENT_SCHEDULE.FIRST[1].text);
+  const saved = page.waitForResponse(
+    response =>
+      response.request().method() === HTTP_METHODS.PATCH &&
+      new URL(response.url()).pathname.endsWith(buildCustomerPath(customer.id)),
+  );
+  await payment.saveButton.click();
+  expect((await saved).status()).toBe(HTTP_STATUS.OK);
+  await expect(page.getByRole("status").filter({ hasText: COPY.SAVED })).toHaveText(COPY.SAVED);
+  await page.reload();
+  await expect(payment.choice(CUSTOMER_PAYMENT_COPY.CUSTOM)).toBeChecked();
+  await expect(payment.percent()).toHaveValue(CUSTOMER_PAYMENT_SCHEDULE.FIRST[0].percent);
+  await expect(payment.milestone(1)).toHaveValue(CUSTOMER_PAYMENT_SCHEDULE.FIRST[1].text);
+  await expect(page.getByText(/₪/)).toHaveCount(0);
   expect(await readHorizontalOverflow(page)).toBe(0);
+  await payment.addButton.click();
+  await expect(payment.percent(2)).toBeVisible();
+  await payment.removeButton(2).click();
+  await expect(payment.percent(2)).toHaveCount(0);
+  await payment.choose(CUSTOMER_PAYMENT_FIXED_OPTIONS[0].label);
+  await page.getByRole("button", { name: CUSTOMER_PAYMENT_COPY.CANCEL, exact: true }).click();
+  await expect(payment.percent()).toHaveValue(CUSTOMER_PAYMENT_SCHEDULE.FIRST[0].percent);
+  await payment.choose(CUSTOMER_PAYMENT_FIXED_OPTIONS[0].label);
+  await expect(payment.percent()).toBeVisible();
+  await page
+    .getByRole("button", { name: CUSTOMER_PAYMENT_COPY.CONFIRM_PRESET, exact: true })
+    .click();
+  await expect(payment.percent()).toHaveCount(0);
+  await payment.choose(COPY.NONE);
+  await payment.saveButton.click();
+  await expect(page.getByRole("status").filter({ hasText: COPY.SAVED })).toHaveText(COPY.SAVED);
+  await page.reload();
+  await expect(payment.choice(COPY.NONE)).toBeChecked();
+  expect(await readCustomerPaymentConfiguration(api, customer.id)).toMatchObject({
+    paymentTerms: null,
+    paymentSchedule: [],
+  });
   await page.screenshot({
-    path: testInfo.outputPath("customer-payment-mobile.png"),
+    path: testInfo.outputPath("shared-customer-payment-mobile.png"),
     fullPage: true,
   });
 });
 
-test("read-only customer viewers cannot edit a default through UI or API", async ({
+test("legacy Other is visibly unconfigured while read-only viewers cannot alter defaults", async ({
   api,
   apiAs,
   openPageAs,
+  page,
 }) => {
   const customer = await api.createCustomer(buildCustomerInput());
-  const credentials = TEST_USERS[USER_ROLES.FINANCE];
-  const page = await openPageAs(credentials);
+  await setLegacyCustomerOtherPayment(customer.id);
   await page.goto(buildCustomerRoute(customer.id));
-  const payment = createCustomerPaymentDefaultPage(page);
-  await expect(payment.field(COPY.EDIT)).toBeDisabled();
-  const disabledField = payment.field(COPY.EDIT).locator("xpath=../..");
-  await expect(disabledField).toHaveCSS("cursor", "default");
-  await disabledField.click({ position: { x: 6, y: 27 } });
-  await expect(payment.field(COPY.EDIT)).toHaveAttribute("aria-expanded", "false");
-  await expect(page.getByRole("option")).toHaveCount(0);
+  await expect(page.getByText(CUSTOMER_PAYMENT_COPY.LEGACY, { exact: true })).toBeVisible();
+  const credentials = TEST_USERS[USER_ROLES.FINANCE];
+  const viewerPage = await openPageAs(credentials);
+  await viewerPage.goto(buildCustomerRoute(customer.id));
+  const payment = createCustomerPaymentDefaultPage(viewerPage);
   await expect(payment.saveButton).toHaveCount(0);
+  await expect(viewerPage.getByRole("radio")).toHaveCount(
+    CUSTOMER_PAYMENT_FIXED_OPTIONS.length + 2,
+  );
+  for (const radio of await viewerPage.getByRole("radio").all()) {
+    await expect(radio).toBeDisabled();
+  }
   const viewer = await apiAs(credentials);
   expect(
     (
       await viewer.send(HTTP_METHODS.PATCH, buildCustomerPath(customer.id), {
-        paymentTerms: PAYMENT_DEFAULT_OPTIONS[0].value,
+        paymentTerms: null,
+        paymentSchedule: [],
       })
     ).status(),
   ).toBe(HTTP_STATUS.FORBIDDEN);
-  expect(
-    await (await api.send(HTTP_METHODS.GET, buildCustomerPath(customer.id))).json(),
-  ).toMatchObject({ paymentTerms: null });
-});
-
-test("payment dropdown opens from its field edge with a pointer cursor on the first click", async ({
-  page,
-}) => {
-  const payment = createCustomerPaymentDefaultPage(page);
-
-  await createCustomerFormPage(page).goto();
-
-  const field = payment.field(COPY.CREATE);
-  const trigger = field.locator("xpath=../..");
-  await expect(field).toHaveCSS("cursor", "pointer");
-  await expect(trigger).toHaveCSS("cursor", "pointer");
-  await trigger.click({ position: { x: 6, y: 27 } });
-  await expect(field).toHaveAttribute("aria-expanded", "true");
-  await expect(page.getByRole("option")).toHaveCount(PAYMENT_DEFAULT_OPTIONS.length + 1);
+  expect(await readCustomerPaymentConfiguration(api, customer.id)).toMatchObject({
+    paymentTerms: PAYMENT_TERMS.OTHER,
+    paymentSchedule: [],
+  });
 });

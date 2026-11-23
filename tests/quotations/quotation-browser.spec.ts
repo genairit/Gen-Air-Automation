@@ -23,6 +23,7 @@ import { selectMuiOption } from "../../src/pages/mui-select.component.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 import { createCatalogueFixture } from "../../src/environment/quotation-fixtures.ts";
 import { QUOTATION, QUOTATION_PERMISSIONS } from "../../src/constants/quotation.constant.ts";
+import { CUSTOMER_PAYMENT_COPY } from "../../src/constants/customer-payment-schedule.constant.ts";
 
 const NOTES = "הערות פנימיות (לא יופיעו ללקוח)";
 const NOTE = "הערה לתנאי התשלום (להצעה זו בלבד)";
@@ -410,7 +411,7 @@ test("legacy conflicting payment data is flagged in editor and review and cannot
     ],
   });
   await page.reload();
-  await expect(page.getByRole("alert")).toContainText("נבחרו גם תנאי תשלום קבועים וגם שלבים");
+  await expect(page.getByRole("alert")).toContainText(CUSTOMER_PAYMENT_COPY.CONFLICT);
   await expect(page.getByRole("radio", { name: "תשלום מראש", exact: true })).not.toBeChecked();
   await expect(page.getByRole("radio", { name: "לפי שלבי תשלום", exact: true })).not.toBeChecked();
   await quote.transition("סיימתי, לבדיקה");
@@ -441,9 +442,7 @@ test("incomplete payment stages show guidance and remain unapprovable after ackn
   await quote.saved(() => quote.button("הוסף שלב תשלום").click());
   await quote.fill("אחוז מהסכום", "30");
   await quote.fill("מועד / אבן דרך", "Deposit");
-  await expect(
-    page.getByText("כדי לאשר את ההצעה, תארו כל שלב והשלימו את האחוזים ל־100%."),
-  ).toBeVisible();
+  await expect(page.getByText(CUSTOMER_PAYMENT_COPY.INVALID, { exact: true })).toBeVisible();
   await quote.transition("סיימתי, לבדיקה");
   await quote.acknowledge();
   const approval = page.waitForResponse(

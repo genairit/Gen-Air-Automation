@@ -13,8 +13,9 @@ import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts"
 import { createTestDatabaseClient } from "../../src/environment/test-database-client.ts";
 import { PAYMENT_DEFAULT_OPTIONS } from "../../src/constants/payment-default.constant.ts";
 import { buildCustomerPath, buildQuotationPath } from "../../src/utilities/api-path.utility.ts";
+import { CUSTOMER_PAYMENT_FIXED_OPTIONS } from "../../src/constants/customer-payment-schedule.constant.ts";
 
-for (const paymentTerms of [null, ...PAYMENT_DEFAULT_OPTIONS.map(option => option.value)]) {
+for (const paymentTerms of [null, ...CUSTOMER_PAYMENT_FIXED_OPTIONS.map(option => option.value)]) {
   test(`server creation immediately snapshots ${paymentTerms ?? "unset"} with an empty quote-local note`, async ({
     api,
   }) => {
