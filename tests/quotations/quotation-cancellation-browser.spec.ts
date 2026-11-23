@@ -1,3 +1,4 @@
+import type { Response } from "@playwright/test";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
@@ -8,6 +9,8 @@ import { seedQuotationForDeletion } from "../../src/api/quotation-delete-fixture
 import { QUOTATION, QUOTATION_PERMISSIONS } from "../../src/constants/quotation.constant.ts";
 import { quotationDocument, quotationWrite, saveQuotation } from "../../src/api/quotation.api.ts";
 
+const ACTIONS = { CANCEL: "cancel", RESTORE: "restore" } as const;
+
 const COPY = {
   ORDER: "הזמנה",
   CANCELLED: "מבוטלת",
@@ -16,17 +19,17 @@ const COPY = {
   RESTORE_ORDER: "שחזור הזמנה",
   CONFIRM_RESTORE_ORDER: "שחזר הזמנה",
   REASON: "סיבת ביטול",
-  HISTORY: "היסטוריית ביטול ושחזור",
+  HISTORY: "היסטוריית המסמך",
   RELOAD: "טען גרסה עדכנית",
 } as const;
 
 const actionResponse = (
   page: Parameters<typeof createQuotationPage>[0],
   id: string,
-  action: "cancel" | "restore",
-) =>
+  action: (typeof ACTIONS)[keyof typeof ACTIONS],
+): Promise<Response> =>
   page.waitForResponse(
-    response =>
+    (response): boolean =>
       response.request().method() === HTTP_METHODS.POST &&
       response.url().endsWith(`/quotation/${id}/${action}`),
   );
@@ -35,7 +38,7 @@ test("approved quotation is an order, cancellation remains searchable and locked
   page,
   api,
   openPageAs,
-}) => {
+}): Promise<void> => {
   const { quotation } = await seedQuotationForDeletion(api, QUOTATION.STATUS.APPROVED);
   const quote = createQuotationPage(page);
   const reason = "Customer withdrew the order";
@@ -49,13 +52,13 @@ test("approved quotation is an order, cancellation remains searchable and locked
     cancelDialog.getByRole("button", { name: COPY.CONFIRM_CANCEL_ORDER }),
   ).toBeDisabled();
   await cancelDialog.getByRole("textbox", { name: COPY.REASON }).fill(reason);
-  const cancellation = actionResponse(page, quotation.id, "cancel");
+  const cancellation = actionResponse(page, quotation.id, ACTIONS.CANCEL);
   await cancelDialog.getByRole("button", { name: COPY.CONFIRM_CANCEL_ORDER }).click();
   expect((await cancellation).status()).toBe(201);
   await expect(cancelDialog).toHaveCount(0);
   await expect(quote.button(COPY.RESTORE_ORDER)).toBeEnabled();
   await expect(quote.button(COPY.CANCEL_ORDER)).toHaveCount(0);
-  await expect(quote.button("פתיחה לעריכה (אותו מזהה)")).toHaveCount(0);
+  await expect(quote.button("החזרה לעריכה")).toHaveCount(0);
   await page.getByText("פרטים נוספים", { exact: true }).click();
   await expect(quote.field("הערות פנימיות (לא יופיעו ללקוח)")).toBeDisabled();
   await expect(page.getByText(COPY.HISTORY, { exact: true })).toBeVisible();
@@ -82,7 +85,7 @@ test("approved quotation is an order, cancellation remains searchable and locked
   await withRolePermissions(
     USER_ROLES.ENGINEER,
     [QUOTATION_PERMISSIONS.READ, QUOTATION_PERMISSIONS.UPDATE],
-    async () => {
+    async (): Promise<void> => {
       const engineerPage = await openPageAs(TEST_USERS[USER_ROLES.ENGINEER]);
       await engineerPage.goto(`/quotations/${quotation.id}`);
       await expect(engineerPage.getByRole("button", { name: COPY.RESTORE_ORDER })).toHaveCount(0);
@@ -92,7 +95,7 @@ test("approved quotation is an order, cancellation remains searchable and locked
   await quote.button(COPY.RESTORE_ORDER).click();
   const restoreDialog = page.getByRole("dialog", { name: COPY.RESTORE_ORDER });
   await expect(restoreDialog).toBeVisible();
-  const restoration = actionResponse(page, quotation.id, "restore");
+  const restoration = actionResponse(page, quotation.id, ACTIONS.RESTORE);
   await restoreDialog.getByRole("button", { name: COPY.CONFIRM_RESTORE_ORDER }).click();
   expect((await restoration).status()).toBe(201);
   await expect(restoreDialog).toHaveCount(0);
@@ -106,13 +109,13 @@ test("approved quotation is an order, cancellation remains searchable and locked
   expect(restored.cancellationHistory[0]?.reason).toBe(reason);
   expect(restored.cancellationHistory[0]?.restoredAt).toBeTruthy();
   await page.getByText("פרטים נוספים", { exact: true }).click();
-  await expect(page.getByText("שחזור הזמנה", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("שחזור", { exact: true }).first()).toBeVisible();
 });
 
 test("cancellation conflict reloads the current version and preserves the reason before retry", async ({
   page,
   api,
-}) => {
+}): Promise<void> => {
   const { quotation } = await seedQuotationForDeletion(api, QUOTATION.STATUS.DRAFT);
   const quote = createQuotationPage(page);
   const reason = "Changed concurrently";
@@ -124,7 +127,7 @@ test("cancellation conflict reloads the current version and preserves the reason
     ...quotationWrite(quotation),
     internalNotes: "Other editor saved first",
   });
-  const conflict = actionResponse(page, quotation.id, "cancel");
+  const conflict = actionResponse(page, quotation.id, ACTIONS.CANCEL);
   await dialog.getByRole("button", { name: "בטל הצעה" }).click();
   expect((await conflict).status()).toBe(409);
   await expect(dialog).toBeVisible();
@@ -132,7 +135,7 @@ test("cancellation conflict reloads the current version and preserves the reason
   await dialog.getByRole("button", { name: COPY.RELOAD }).click();
   await expect(dialog.getByRole("status")).toContainText("הגרסה העדכנית נטענה");
   await expect(dialog.getByRole("textbox", { name: COPY.REASON })).toHaveValue(reason);
-  const retry = actionResponse(page, quotation.id, "cancel");
+  const retry = actionResponse(page, quotation.id, ACTIONS.CANCEL);
   await dialog.getByRole("button", { name: "בטל הצעה" }).click();
   expect((await retry).status()).toBe(201);
   const cancelled = await quotationDocument(

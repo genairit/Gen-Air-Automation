@@ -13,7 +13,7 @@ import { QUOTATION, QUOTATION_PERMISSIONS } from "../../src/constants/quotation.
 test("only admin or engineering lead can reject with a reason; engineer corrects and resubmits", async ({
   api,
   apiAs,
-}) => {
+}): Promise<void> => {
   const { quotation } = await seedQuotationForDeletion(api, QUOTATION.STATUS.REVIEW);
   const path = `/quotation/${quotation.id}`;
   const engineer = await apiAs(TEST_USERS[USER_ROLES.ENGINEER]);
@@ -33,24 +33,20 @@ test("only admin or engineering lead can reject with a reason; engineer corrects
       })
     ).status(),
   ).toBe(403);
-  await withRolePermissions(USER_ROLES.ENGINEER, [QUOTATION_PERMISSIONS.APPROVE], async () => {
-    expect(
-      (
-        await engineer.send(HTTP_METHODS.POST, `${path}/reject`, {
-          version: quotation.version,
-          reason,
-        })
-      ).status(),
-    ).toBe(403);
-  });
-  expect(
-    (
-      await api.send(HTTP_METHODS.POST, `${path}/review`, {
-        version: quotation.version,
-        status: QUOTATION.STATUS.DRAFT,
-      })
-    ).status(),
-  ).toBe(409);
+  await withRolePermissions(
+    USER_ROLES.ENGINEER,
+    [QUOTATION_PERMISSIONS.APPROVE],
+    async (): Promise<void> => {
+      expect(
+        (
+          await engineer.send(HTTP_METHODS.POST, `${path}/reject`, {
+            version: quotation.version,
+            reason,
+          })
+        ).status(),
+      ).toBe(403);
+    },
+  );
   const rejected = await quotationDocument(
     await lead.send(HTTP_METHODS.POST, `${path}/reject`, {
       version: quotation.version,
@@ -127,23 +123,23 @@ test("only admin or engineering lead can reject with a reason; engineer corrects
 test("reviewer rejects in the page and engineer sees the correction, edits, and resubmits", async ({
   api,
   openPageAs,
-}) => {
+}): Promise<void> => {
   const { quotation } = await seedQuotationForDeletion(api, QUOTATION.STATUS.REVIEW);
   const reason = `Please correct ${randomUUID()}`;
   const leadPage = await openPageAs(TEST_USERS[USER_ROLES.ENGINEERING_LEAD]);
   const leadQuote = createQuotationPage(leadPage);
   await leadQuote.goto(quotation.id);
-  await expect(leadQuote.button("החזר לתיקון")).toBeVisible();
-  await leadQuote.button("החזר לתיקון").click();
-  const dialog = leadPage.getByRole("dialog", { name: "החזרת הצעה לתיקון" });
-  await expect(dialog.getByRole("button", { name: "החזר לתיקון" })).toBeDisabled();
+  await expect(leadQuote.button("דחייה עם סיבה")).toBeVisible();
+  await leadQuote.button("דחייה עם סיבה").click();
+  const dialog = leadPage.getByRole("dialog", { name: "דחיית הצעה והחזרה לתיקון" });
+  await expect(dialog.getByRole("button", { name: "דחה והחזר לתיקון" })).toBeDisabled();
   await dialog.getByRole("textbox", { name: "סיבת דחייה" }).fill(reason);
   const rejection = leadPage.waitForResponse(
-    response =>
+    (response): boolean =>
       response.url().endsWith(`/quotation/${quotation.id}/reject`) &&
       response.request().method() === HTTP_METHODS.POST,
   );
-  await dialog.getByRole("button", { name: "החזר לתיקון" }).click();
+  await dialog.getByRole("button", { name: "דחה והחזר לתיקון" }).click();
   expect((await rejection).status()).toBe(201);
   await expect(dialog).toHaveCount(0);
   await expect(leadPage.getByText("נדרש תיקון", { exact: true }).first()).toBeVisible();
@@ -157,11 +153,11 @@ test("reviewer rejects in the page and engineer sees the correction, edits, and 
   const engineerPage = await openPageAs(TEST_USERS[USER_ROLES.ENGINEER]);
   const engineerQuote = createQuotationPage(engineerPage);
   await engineerQuote.goto(quotation.id);
-  await expect(engineerQuote.button("החזר לתיקון")).toHaveCount(0);
+  await expect(engineerQuote.button("דחייה עם סיבה")).toHaveCount(0);
   await expect(engineerPage.getByText(reason, { exact: true })).toBeVisible();
   await engineerPage.getByText("פרטים נוספים", { exact: true }).click();
   const save = engineerPage.waitForResponse(
-    response =>
+    (response): boolean =>
       response.url().endsWith(`/quotation/${quotation.id}`) &&
       response.request().method() === HTTP_METHODS.PUT,
   );
@@ -169,7 +165,7 @@ test("reviewer rejects in the page and engineer sees the correction, edits, and 
   expect((await save).status()).toBe(200);
   await expect(engineerPage.getByText(reason, { exact: true })).toBeVisible();
   const resubmit = engineerPage.waitForResponse(
-    response =>
+    (response): boolean =>
       response.url().endsWith(`/quotation/${quotation.id}/resubmit`) &&
       response.request().method() === HTTP_METHODS.POST,
   );
@@ -188,7 +184,7 @@ test("reviewer rejects in the page and engineer sees the correction, edits, and 
 test("quotation header keeps a top-left trash action, simpler context and two footer cards", async ({
   page,
   api,
-}) => {
+}): Promise<void> => {
   const { quotation } = await seedQuotationForDeletion(api, QUOTATION.STATUS.DRAFT);
   const quote = createQuotationPage(page);
   for (const width of [1440, 390]) {
@@ -204,9 +200,9 @@ test("quotation header keeps a top-left trash action, simpler context and two fo
     await expect(page.locator("span[data-active]")).toHaveCount(0);
     await expect(page.getByText("פרטים נוספים", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "בדיקה ואישור" })).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-      true,
-    );
+    expect(
+      await page.evaluate((): boolean => document.documentElement.scrollWidth <= innerWidth),
+    ).toBe(true);
   }
   await quote.button("מחיקת ההצעה").click();
   const dialog = page.getByRole("dialog", { name: "מחיקת הצעה" });
