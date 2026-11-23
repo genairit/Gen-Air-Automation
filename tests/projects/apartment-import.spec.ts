@@ -278,7 +278,7 @@ test("engineering user sees customer contacts read-only and cannot open apartmen
   const building = await seedBuilding(api, customer);
   const page = await openPageAs(TEST_USERS[USER_ROLES.ENGINEER]);
   await page.goto(`/customers/${customer.id}`);
-  await expect(page.getByText("איש קשר של הלקוח", { exact: true })).toBeVisible();
+  await expect(page.getByText("פרטי קשר של הלקוח", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "צור איש קשר", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "בחר מהמדריך", exact: true })).toHaveCount(0);
   await createProjectPage(page).goto(building.id);

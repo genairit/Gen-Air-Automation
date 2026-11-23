@@ -59,7 +59,7 @@ test("partial import links two directory contacts, exact credit and add-only rei
   expect(contacts).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
-        name: APARTMENT_IMPORT.CONTACT_NAME,
+        name: customer.name,
         phone: customer.phone,
         email: customer.email,
       }),

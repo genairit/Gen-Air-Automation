@@ -63,47 +63,10 @@ test("customer creation opens directly and saves an optional contact-free custom
     contactName: null,
     phone: null,
     email: null,
-    primaryContactId: null,
+    primaryContact: { name: input.name, phone: null, email: null },
   });
   await page.reload();
-  await expect(page.getByText("לא הוגדר איש קשר ללקוח")).toBeVisible();
-});
-
-test("new customer selects an existing directory contact without duplicating it", async ({
-  page,
-  api,
-}) => {
-  const created = await api.send(HTTP_METHODS.POST, "/contact-directory", {
-    name: createUniqueName("איש קשר קיים"),
-    phone: "+12025550123",
-  });
-  expect(created.status()).toBe(201);
-  const contactId = await contactIdFrom(created);
-  const contact: unknown = await created.json();
-  if (!isRecord(contact) || typeof contact.name !== "string") {
-    throw new Error("Contact response has no name");
-  }
-
-  const form = createCustomerFormPage(page);
-  const input = buildCustomerInput();
-  await form.goto();
-  await form.field("NAME").fill(input.name);
-  await form.field("TAX_ID").fill(input.taxId);
-  await form.field("ADDRESS").fill(input.address);
-  await page.getByPlaceholder("שם, טלפון או דוא״ל").fill(contact.name);
-  const picker = findCardByTitle(page, "בחר איש קשר קיים");
-  await picker.getByRole("button", { name: `בחר ${contact.name}` }).click();
-  await expect(form.field("CONTACT_NAME")).toHaveCount(0);
-  await form.saveButton.click();
-  await form.skipProjects();
-
-  const customerId = readLastPathSegment(page.url());
-  const saved = await api.send(HTTP_METHODS.GET, `/customer/${customerId}`);
-  expect(await saved.json()).toMatchObject({
-    primaryContactId: contactId,
-    contactName: null,
-    primaryContact: { name: contact.name },
-  });
+  await expect(page.getByText("פרטי קשר של הלקוח", { exact: true })).toBeVisible();
 });
 
 test("customer created from a project form returns to the caller as its selected customer", async ({
@@ -136,7 +99,6 @@ test("international numbers save, reload, dial, and reject malformed values acro
   await form.field("NAME").fill(input.name);
   await form.field("TAX_ID").fill(input.taxId);
   await form.field("ADDRESS").fill(input.address);
-  await form.field("CONTACT_NAME").fill(input.contactName);
   await form.field("PHONE").fill("+44 20 7183 8750");
   await form.field("EMAIL").fill(input.email);
   await form.saveButton.click();
@@ -281,45 +243,6 @@ test("project contact controls create, edit, unlink, and reselect a reusable dir
   await expect(card.getByText(editedName, { exact: false })).toBeVisible();
   await page.reload();
   await expect(card.getByText(editedName, { exact: false })).toBeVisible();
-});
-
-test("a customer can select and remove a reusable primary contact without deleting it", async ({
-  page,
-  api,
-}) => {
-  const customerInput = buildCustomerInput();
-  const response = await api.send(HTTP_METHODS.POST, "/customer", {
-    ...customerInput,
-    contactName: null,
-    phone: null,
-    email: null,
-  });
-  expect(response.status()).toBe(201);
-  const customerId = await contactIdFrom(response);
-  const contactName = createUniqueName("ראשי מהמדריך");
-  const directory = await api.send(HTTP_METHODS.POST, "/contact-directory", {
-    name: contactName,
-    phone: "+12025550123",
-  });
-  const contactId = await contactIdFrom(directory);
-  await page.goto(`/customers/${customerId}`);
-  const card = findCardByTitle(page, "איש קשר של הלקוח");
-  await card.getByRole("button", { name: "בחר מהמדריך" }).click();
-  await card.getByPlaceholder("שם, טלפון או דוא״ל").fill(contactName);
-  await expect(card.getByRole("button", { name: "בחר", exact: true })).toHaveCount(1);
-  await card.getByRole("button", { name: "בחר", exact: true }).click();
-  await expect(card.getByText(contactName, { exact: false })).toBeVisible();
-  await page.reload();
-  expect(await (await api.send(HTTP_METHODS.GET, `/customer/${customerId}`)).json()).toMatchObject({
-    primaryContactId: contactId,
-  });
-  await card.getByRole("button", { name: "הסר שיוך ללקוח" }).click();
-  await expect(card.getByText("לא הוגדר איש קשר ללקוח")).toBeVisible();
-  expect(
-    JSON.stringify(
-      await (await api.send(HTTP_METHODS.GET, "/contact-directory?search=%2B12025550123")).json(),
-    ),
-  ).toContain(contactId);
 });
 
 test("post-create picker links only selected building and apartment, confirms reassignment, and retries a failed save", async ({
