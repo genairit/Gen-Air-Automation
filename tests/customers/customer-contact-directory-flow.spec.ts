@@ -236,7 +236,9 @@ test("project contact controls create, edit, unlink, and reselect a reusable dir
   await card.getByRole("button", { name: "שמירה", exact: true }).click();
   await expect(card.getByText(editedName, { exact: false })).toBeVisible();
   await card.getByRole("button", { name: "הסר שיוך כאן" }).click();
-  await expect(card.getByText("לא שויכו אנשי קשר")).toBeVisible();
+  await expect(card.getByText(editedName, { exact: false })).toHaveCount(0);
+  const unlinked = await api.send(HTTP_METHODS.GET, `/project/${project.id}/contacts`);
+  expect(await unlinked.json()).toEqual([]);
   await card.getByPlaceholder("שם, טלפון או דוא״ל").fill(editedName);
   await expect(card.getByRole("button", { name: "שייך", exact: true })).toHaveCount(1);
   await card.getByRole("button", { name: "שייך" }).click();

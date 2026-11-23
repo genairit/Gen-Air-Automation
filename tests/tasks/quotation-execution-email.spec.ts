@@ -22,6 +22,7 @@ import { readdir, readFile, writeFile, unlink } from "node:fs/promises";
 import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 import { createQuotationEmailPage } from "../../src/pages/quotation-email.page.ts";
+import { monitorDirectorySearch } from "../../src/utilities/contact-search.utility.ts";
 import { createTestDatabaseClient } from "../../src/environment/test-database-client.ts";
 import { createApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { BASELINE_PERMISSIONS } from "../../src/constants/permission-baseline.constant.ts";
@@ -223,6 +224,7 @@ test("recipient selection, nested file picker and exact preview require explicit
 }) => {
   const { building, apartment, apartmentCustomer, apartmentNumber, task, quotation } =
     await seedQuotation(api);
+  const directorySearch = monitorDirectorySearch(page);
   const architectName = createUniqueName("אדריכלית");
   const architectEmail = createUniqueEmail("architect");
   const unrelatedEmail = createUniqueEmail("unrelated");
@@ -258,11 +260,13 @@ test("recipient selection, nested file picker and exact preview require explicit
   await emailPage.open(task.id);
   const dialog = emailPage.dialog;
   await expect(dialog.getByText(architectName, { exact: false })).toBeVisible();
+  expect(directorySearch.queries).toEqual([]);
   await expect(dialog.getByText(unrelatedEmail)).toHaveCount(0);
   await expect(dialog.getByText("ללא דואל", { exact: false })).toHaveCount(0);
   const next = emailPage.nextButton;
   await expect(next).toBeDisabled();
   await emailPage.chooseArchitect(architectName);
+  expect(directorySearch.queries).toEqual([]);
   await emailPage.chooseQuotation(quotation.number);
   await expect(next).toBeDisabled();
   await emailPage.setVersion("03");
@@ -286,6 +290,8 @@ test("recipient selection, nested file picker and exact preview require explicit
   await expect(dialog.getByText("אדמין מנהל", { exact: true })).toBeVisible();
   await emailPage.cancel();
   expect((await api.getTask(task.id)).status).toBe(TASK_STATUSES.PROPOSAL_SENT);
+  expect(directorySearch.queries).toEqual([]);
+  directorySearch.dispose();
 });
 
 test("selected contacts receive one exact email with two files and replay returns the saved receipt", async ({
