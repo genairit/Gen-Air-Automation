@@ -239,7 +239,7 @@ export const TASK_COPY = {
 } as const;
 
 export const TASK_FORM_COPY = {
-  POOL_OPTION: "מאגר פתוח — כל מהנדס יכול למשוך",
+  POOL_OPTION: "מאגר פתוח — כל עובד הנדסי יכול למשוך",
   SAVE: "שמור משימה",
   DUE_DATE: "תאריך יעד",
   TITLE_PLACEHOLDER: "לדוגמה: תיאום ביקור באתר",
