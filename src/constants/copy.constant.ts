@@ -156,6 +156,7 @@ export const PROJECT_FORM_COPY = {
   DELETE: "מחק פרויקט",
   ROLES_TITLE: "הקצאת תפקידים וצוות",
   DRAFT_RESTORED: "טיוטת הפרויקט שוחזרה",
+  DRAFT_NOTICE: "פרטי הפרויקט נשמרים כטיוטה במכשיר זה",
   CREATE_DENIED: "אין הרשאה ליצירת פרויקטים",
   EDIT_DENIED: "אין הרשאה לעריכת פרויקטים",
   ADDRESS: "כתובת הפרויקט",

@@ -16,6 +16,7 @@ import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { createCustomerFormPage } from "../../src/pages/customers.page.ts";
 import { readLastPathSegment } from "../../src/utilities/route.utility.ts";
+import { contactSearchInput } from "../../src/pages/contact-search.page.ts";
 import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { readCustomerProjects } from "../../src/api/customer-projects.api.ts";
@@ -239,7 +240,7 @@ test("project contact controls create, edit, unlink, and reselect a reusable dir
   await expect(card.getByText(editedName, { exact: false })).toHaveCount(0);
   const unlinked = await api.send(HTTP_METHODS.GET, `/project/${project.id}/contacts`);
   expect(await unlinked.json()).toEqual([]);
-  await card.getByPlaceholder("שם, טלפון או דוא״ל").fill(editedName);
+  await contactSearchInput(card).fill(editedName);
   await expect(card.getByRole("button", { name: "שייך", exact: true })).toHaveCount(1);
   await card.getByRole("button", { name: "שייך" }).click();
   await expect(card.getByText(editedName, { exact: false })).toBeVisible();
