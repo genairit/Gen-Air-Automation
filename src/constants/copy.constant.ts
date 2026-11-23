@@ -60,12 +60,12 @@ export const CUSTOMER_FORM_COPY = {
   SUMMARY: "מה יישמר",
   REQUIRED: "שדה חובה",
   IDENTITY: "זהות הלקוח",
-  CONTACT: "איש קשר של הלקוח (לא חובה)",
+  CONTACT: "פרטי קשר של הלקוח (לא חובה)",
   CONFLICT_STATUS: "הפעולה מתנגשת בנתונים קיימים",
   DUPLICATE_TAX_ID: "לקוח עם מספר מזהה זה כבר קיים",
   FIELDS: {
-    PHONE: "טלפון",
-    EMAIL: "דוא״ל",
+    PHONE: "טלפון ראשי של הלקוח",
+    EMAIL: "דוא״ל של הלקוח",
     ADDRESS: "כתובת",
     NAME: "שם הלקוח",
     TAX_ID: "ח.פ / ת.פ / ת.ז",
@@ -79,14 +79,13 @@ export const CUSTOMER_FIELD_NAMES: CustomerFieldType[] = [
   "NAME",
   "TAX_ID",
   "ADDRESS",
-  "CONTACT_NAME",
   "PHONE",
   "EMAIL",
 ];
 
 export const CUSTOMER_IDENTITY_FIELD_NAMES: CustomerFieldType[] = ["NAME", "TAX_ID", "ADDRESS"];
 
-export const CUSTOMER_CONTACT_FIELD_NAMES: CustomerFieldType[] = ["CONTACT_NAME", "PHONE", "EMAIL"];
+export const CUSTOMER_CONTACT_FIELD_NAMES: CustomerFieldType[] = ["PHONE", "EMAIL"];
 
 export const CUSTOMER_FIELD_PLACEHOLDERS: Record<CustomerFieldType, string> = {
   TAX_ID: "9 ספרות",

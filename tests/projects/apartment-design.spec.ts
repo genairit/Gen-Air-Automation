@@ -144,7 +144,7 @@ test("customer picker searches name, tax ID, contact and phone and rejects faile
   for (const query of [
     customer.name,
     customer.taxId,
-    SEED_VALUES.CUSTOMER_CONTACT_NAME,
+    customer.primaryContact?.email ?? customer.name,
     SEED_VALUES.CUSTOMER_PHONE,
   ]) {
     const searchResponse = page.waitForResponse(response => {
@@ -164,7 +164,7 @@ test("customer picker searches name, tax ID, contact and phone and rejects faile
   await expect(page.getByText(COPY.BLOCKED, { exact: true })).toBeVisible();
   await form.pickCustomer(customer.name);
   await expect(
-    page.getByText(SEED_VALUES.CUSTOMER_CONTACT_NAME, { exact: false }).last(),
+    page.getByText(customer.primaryContact?.email ?? customer.name, { exact: false }).last(),
   ).toBeVisible();
   await expect(page.getByText(SEED_VALUES.CUSTOMER_PHONE, { exact: false }).last()).toBeVisible();
   await page.getByRole("button", { name: COPY.REPLACE_CUSTOMER }).click();
