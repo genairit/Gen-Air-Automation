@@ -473,6 +473,7 @@ test("transport failure keeps unsaved edit, retry persists; actual version confl
   await openDetails(page);
   await quote.field(NOTES).fill("Retained after network error");
   await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.getByRole("alert").locator('[dir="rtl"]')).toHaveCSS("direction", "rtl");
   await expect(quote.field(NOTES)).toHaveValue("Retained after network error");
   await expect(quote.button("סיימתי, לבדיקה")).toBeDisabled();
   expect((await getQuote(api, initial.id)).internalNotes).toBe("");
