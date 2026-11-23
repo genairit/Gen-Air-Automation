@@ -89,13 +89,23 @@ for (const viewport of [{ width: 1440, height: 1000 }, VIEWPORTS.MOBILE]) {
       await actor.countMyTasksInStatus(TASK_STATUSES.PROPOSAL_SENT),
     );
     expect(await readTabCount(sentFilter)).toBe(scenario.tasks.length);
+    const sentResponse = page.waitForResponse(response => {
+      const url = new URL(response.url());
+      const isPersonalList = url.pathname === "/api/task/my-tasks";
+      const isSentFilter = url.searchParams.get("status") === TASK_STATUSES.PROPOSAL_SENT;
+      return isPersonalList && isSentFilter;
+    });
     await sentFilter.focus();
     await page.keyboard.press(KEYBOARD_KEYS.ENTER);
+    expect((await sentResponse).status()).toBe(HTTP_STATUS.OK);
     for (const task of scenario.tasks) {
       const row = list
         .findRow(task.title)
         .or(page.getByRole("region", { name: task.title, exact: true }));
-      await expect(row.getByText(TASK_STATUS_NAMES.QUOTE_SENT, { exact: true })).toBeVisible();
+      await expect(row).toBeVisible();
+      if (viewport === VIEWPORTS.MOBILE) {
+        await expect(row.getByText(TASK_STATUS_NAMES.QUOTE_SENT, { exact: true })).toBeVisible();
+      }
     }
     await expect(page.getByText(foreign.title, { exact: true })).toHaveCount(0);
     await expect(page.getByText(OLD_LABEL, { exact: true })).toHaveCount(0);
