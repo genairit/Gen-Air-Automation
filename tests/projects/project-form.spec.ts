@@ -20,8 +20,10 @@ import { escapeRegex } from "../../src/utilities/regex.utility.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { findCardByTitle } from "../../src/pages/card.component.ts";
 import { formatFullName } from "../../src/utilities/user.utility.ts";
+import { PROJECT_FORM_COPY } from "../../src/constants/copy.constant.ts";
 import { FAKE_PLACES } from "../../src/constants/fake-places.constant.ts";
 import { buildProjectPath } from "../../src/utilities/api-path.utility.ts";
+import { contactSearchInput } from "../../src/pages/contact-search.page.ts";
 import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { PROJECT_TYPE_NAMES } from "../../src/constants/domain.constant.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
@@ -97,7 +99,7 @@ test("new project searches and links an existing directory contact", async ({ pa
     projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL,
   });
   const picker = findCardByTitle(page, "אנשי קשר נוספים");
-  await picker.getByPlaceholder("שם, טלפון או דוא״ל", { exact: true }).fill(name);
+  await contactSearchInput(picker).fill(name);
   await picker.getByRole("button", { name: `בחר ${name}` }).click();
   await form.createButton.click();
   await expect(page).toHaveURL(ROUTE_PATTERNS.PROJECT);
@@ -110,7 +112,9 @@ test("the project draft banner no longer advertises retired payment storage", as
   const formPage = createProjectFormPage(page);
   await formPage.goto();
   await formPage.nameInput.fill(createUniqueName(PROJECT_NAME_PREFIXES.DRAFT));
-  await expect(page.getByRole("status")).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: PROJECT_FORM_COPY.DRAFT_NOTICE }),
+  ).toBeVisible();
   await expect(page.getByText(PAYMENT_DEFAULT_PATTERNS.SECTION)).toHaveCount(0);
 });
 

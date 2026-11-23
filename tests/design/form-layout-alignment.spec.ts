@@ -1,3 +1,8 @@
+import {
+  contactSearchInput,
+  additionalContactSection,
+} from "../../src/pages/contact-search.page.ts";
+
 import type { Locator, Page } from "@playwright/test";
 import { seedTaskScenario } from "../../src/api/seed-data.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
@@ -101,7 +106,7 @@ test("new project directory contacts and property details share a row only when 
   const form = createProjectFormPage(page);
   await form.goto();
   await page.getByText(PROJECT_TYPE_NAMES.PRIVATE_CLIENT, { exact: true }).click();
-  const contacts = findCardByTitle(page, "אנשי קשר לפרויקט");
+  const contacts = additionalContactSection(page);
   const property = findCardByTitle(page, "פרטי הנכס");
   await expect(property.getByPlaceholder("לדוגמה: 7")).toBeVisible();
   for (const width of WIDTHS) {
@@ -112,7 +117,7 @@ test("new project directory contacts and property details share a row only when 
     else stacked(contactsRect, propertyRect);
     await screenshot(page, "new-project-with-property", width);
   }
-  await expect(page.getByPlaceholder("שם, טלפון או דוא״ל")).toBeVisible();
+  await expect(contactSearchInput(contacts)).toBeVisible();
 });
 
 test("task urgency remains a compact full-width strip above details", async ({ page, api }) => {

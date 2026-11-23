@@ -24,6 +24,7 @@ import { failApiRequests } from "../../src/mocks/api-request.mock.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { TASK_LINK_KINDS } from "../../src/constants/domain.constant.ts";
+import { contactSearchInput } from "../../src/pages/contact-search.page.ts";
 import { getAuthStatePath } from "../../src/utilities/auth-state.utility.ts";
 import { isTaskCreationRequest } from "../../src/utilities/response.utility.ts";
 import { HTTP_STATUS, HTTP_METHODS } from "../../src/constants/http.constant.ts";
@@ -311,7 +312,7 @@ test("maximum project title renders an empty task card without mobile overflow",
   await page.setViewportSize(VIEWPORTS.MOBILE);
   await createProjectPage(page).goto(project.id);
   await expect(page.getByText("אין משימות עדיין", { exact: true })).toBeVisible();
-  await page.getByPlaceholder("שם, טלפון או דוא״ל").fill(contactName);
+  await contactSearchInput(page).fill(contactName);
   await expect(page.getByText(contactEmail, { exact: false })).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
   await expect
