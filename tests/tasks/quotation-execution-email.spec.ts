@@ -11,6 +11,7 @@ import {
 
 import { join } from "node:path";
 import { simpleParser } from "mailparser";
+import type { Page, Request } from "@playwright/test";
 import { createTaskPage } from "../../src/pages/tasks.page.ts";
 import { isRecord } from "../../src/utilities/guard.utility.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
@@ -151,22 +152,84 @@ const completeQuotation = async (api: Parameters<typeof seedCustomer>[0], taskId
   expect(response.status()).toBe(200);
 };
 
-test("quotation completion offers an optional email and cancelling keeps the task complete", async ({
+const EMAIL_FLOW = {
+  SENT: "sent",
+  ATTACHMENT: "attachment",
+  COMPOSE: "שליחת תוכנית לביצוע במייל",
+  SEND_SUFFIX: "/send",
+  API_PREFIX: "/api/quotation-execution-email/",
+  STATUS_FAILURE: "QA status update unavailable",
+} as const;
+
+const mailFiles = async (): Promise<string[]> =>
+  (await readdir(AUTOMATION_DIRECTORIES.MAIL)).filter(name => name.endsWith(".eml"));
+
+const monitorEmailDispatch = (page: Page): Request[] => {
+  const requests: Request[] = [];
+  const observe = (request: Request): void => {
+    const path = new URL(request.url()).pathname;
+    const isEmailSend =
+      path.startsWith(EMAIL_FLOW.API_PREFIX) && path.endsWith(EMAIL_FLOW.SEND_SUFFIX);
+    if (request.method() === HTTP_METHODS.POST && isEmailSend) {
+      requests.push(request);
+    }
+  };
+  page.on("request", observe);
+  return requests;
+};
+
+test("status changes remain passive and only the explicit button opens composition", async ({
   page,
   api,
 }) => {
   const { task } = await seedQuotation(api);
+  const before = await mailFiles();
+  const requests = monitorEmailDispatch(page);
   const taskPage = createTaskPage(page);
-  await taskPage.goto(task.id);
-  await expect(page.getByRole("button", { name: "שליחת תוכנית לביצוע במייל" })).toHaveCount(0);
-  await taskPage.statusTab(TASK_STATUS_NAMES.QUOTE_SENT).click();
   const emailPage = createQuotationEmailPage(page);
-  const dialog = emailPage.dialog;
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByText("שלב 1 מתוך 2", { exact: false })).toBeVisible();
+  const compose = page.getByRole("button", { name: EMAIL_FLOW.COMPOSE });
+  const statusRoute = `**/api/task/${task.id}/status`;
+  await taskPage.goto(task.id);
+  await expect(compose).toHaveCount(0);
+  await expect(emailPage.dialog).toHaveCount(0);
+  await page.route(statusRoute, route =>
+    route.fulfill({
+      status: 503,
+      json: { message: EMAIL_FLOW.STATUS_FAILURE },
+    }),
+  );
+  const failed = page.waitForResponse(response =>
+    response.url().endsWith(`/task/${task.id}/status`),
+  );
+  await taskPage.statusTab(TASK_STATUS_NAMES.QUOTE_SENT).click();
+  expect((await failed).status()).toBe(503);
+  expect((await api.getTask(task.id)).status).toBe(TASK_STATUSES.NOT_STARTED);
+  await expect(emailPage.dialog).toHaveCount(0);
+  await expect(compose).toHaveCount(0);
+  await page.unroute(statusRoute);
+  const saved = page.waitForResponse(response =>
+    response.url().endsWith(`/task/${task.id}/status`),
+  );
+  await taskPage.statusTab(TASK_STATUS_NAMES.QUOTE_SENT).click();
+  expect((await saved).status()).toBe(200);
+  await expect(compose).toBeVisible();
+  await expect(emailPage.dialog).toHaveCount(0);
+  expect((await api.getTask(task.id)).status).toBe(TASK_STATUSES.PROPOSAL_SENT);
+  await page.reload();
+  await expect(compose).toBeVisible();
+  await expect(emailPage.dialog).toHaveCount(0);
+  await taskPage.statusTab(TASK_STATUS_NAMES.QUOTE_SENT).click();
+  await expect(emailPage.dialog).toHaveCount(0);
+  await compose.click();
+  await expect(emailPage.dialog).toBeVisible();
+  await expect(emailPage.dialog.getByText("שלב 1 מתוך 2", { exact: false })).toBeVisible();
+  expect(requests).toHaveLength(0);
+  expect(await mailFiles()).toEqual(before);
   await emailPage.cancel();
-  await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "שליחת תוכנית לביצוע במייל" })).toBeVisible();
+  await expect(emailPage.dialog).toHaveCount(0);
+  await expect(compose).toBeFocused();
+  expect(requests).toHaveLength(0);
+  expect(await mailFiles()).toEqual(before);
   expect((await api.getTask(task.id)).status).toBe(TASK_STATUSES.PROPOSAL_SENT);
   const status = await api.send(HTTP_METHODS.GET, `/quotation-execution-email/${task.id}/status`);
   expect(status.status()).toBe(200);
@@ -224,6 +287,8 @@ test("recipient selection, nested file picker and exact preview require explicit
 }) => {
   const { building, apartment, apartmentCustomer, apartmentNumber, task, quotation } =
     await seedQuotation(api);
+  const before = await mailFiles();
+  const requests = monitorEmailDispatch(page);
   const directorySearch = monitorDirectorySearch(page);
   const architectName = createUniqueName("אדריכלית");
   const architectEmail = createUniqueEmail("architect");
@@ -292,6 +357,8 @@ test("recipient selection, nested file picker and exact preview require explicit
   expect((await api.getTask(task.id)).status).toBe(TASK_STATUSES.PROPOSAL_SENT);
   expect(directorySearch.queries).toEqual([]);
   directorySearch.dispose();
+  expect(requests).toHaveLength(0);
+  expect(await mailFiles()).toEqual(before);
 });
 
 test("selected contacts receive one exact email with two files and replay returns the saved receipt", async ({
@@ -744,6 +811,8 @@ test("browser sends selected project files and shows the saved success state", a
   api,
   apiAs,
 }) => {
+  const before = new Set(await mailFiles());
+  const requests = monitorEmailDispatch(page);
   const fixture = await seedQuotation(api);
   const { apartmentCustomer, task, quotation } = fixture;
   const architectName = createUniqueName("אדריכלית");
@@ -759,10 +828,43 @@ test("browser sends selected project files and shows the saved success state", a
   await emailPage.openNestedFolder();
   await emailPage.choosePlan();
   await emailPage.chooseZip();
+  expect(requests).toHaveLength(0);
+  expect(new Set(await mailFiles())).toEqual(before);
   await emailPage.sendButton.click();
   const dialog = emailPage.dialog;
   await expect(dialog.getByText("המייל כבר נשלח בהצלחה.")).toBeVisible();
   await expect(dialog.getByRole("button", { name: "שלח מייל" })).toHaveCount(0);
+  expect(requests).toHaveLength(1);
+  const delivered = (await mailFiles()).filter(name => !before.has(name));
+  expect(delivered).toHaveLength(1);
+  const filename = delivered[0];
+  if (!filename) {
+    throw new Error("The confirmed browser send has no SMTP message");
+  }
+  const message = await simpleParser(await readFile(join(AUTOMATION_DIRECTORIES.MAIL, filename)));
+  expect(
+    message.attachments
+      .filter(file => file.contentDisposition === EMAIL_FLOW.ATTACHMENT)
+      .map(file => file.filename)
+      .sort(),
+  ).toEqual([ZIP_FILE.name, PLAN_FILE.name]);
+  const receiptPath = `/quotation-execution-email/${task.id}/status`;
+  const receiptResponse = await api.send(HTTP_METHODS.GET, receiptPath);
+  const receipt: unknown = await receiptResponse.json();
+  if (
+    !isRecord(receipt) ||
+    receipt.status !== EMAIL_FLOW.SENT ||
+    typeof receipt.providerMessageId !== "string"
+  ) {
+    throw new Error("The confirmed browser send has no durable sent receipt");
+  }
+  expect(message.messageId).toBe(receipt.providerMessageId);
+  await emailPage.cancel();
+  await emailPage.open(task.id);
+  await expect(dialog.getByText("המייל כבר נשלח בהצלחה.")).toBeVisible();
+  await expect(emailPage.sendButton).toHaveCount(0);
+  expect(requests).toHaveLength(1);
+  expect((await mailFiles()).filter(name => !before.has(name))).toEqual(delivered);
   await emailPage.cancel();
   expect((await api.getTask(task.id)).status).toBe(TASK_STATUSES.PROPOSAL_SENT);
 });
