@@ -30,3 +30,16 @@ export const readContactOwner = async (contactId: string): Promise<string | null
     await database.end();
   }
 };
+
+export const setLegacyContactOwner = async (contactId: string, customerId: string) => {
+  const database = createTestDatabaseClient();
+  await database.connect();
+  try {
+    await database.query("UPDATE customer_contacts SET customer_id = $1 WHERE id = $2", [
+      customerId,
+      contactId,
+    ]);
+  } finally {
+    await database.end();
+  }
+};

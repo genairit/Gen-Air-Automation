@@ -11,6 +11,7 @@ import {
 
 import {
   readContactOwner,
+  setLegacyContactOwner,
   linkLegacyCustomerPrimary,
 } from "../../src/environment/customer-own-details-fixtures.ts";
 
@@ -128,6 +129,73 @@ test("editing a legacy shared primary copies customer details without mutating a
     }),
   );
   expect(await readContactOwner(updated.primaryContactId ?? "")).toBe(owner.id);
+
+  const legacyOwner = await seedCustomer(api);
+  const legacyProject = await seedStandaloneProject(api, legacyOwner);
+  const legacyOwned = await seedRoleContact(api);
+  expect(
+    (
+      await api.send(HTTP_METHODS.POST, `/project/${legacyProject.id}/contacts`, {
+        contactId: legacyOwned.id,
+        role: null,
+        isPrimary: true,
+      })
+    ).ok(),
+  ).toBe(true);
+  await setLegacyContactOwner(legacyOwned.id, legacyOwner.id);
+  await linkLegacyCustomerPrimary([legacyOwner.id], legacyOwned.id);
+  expect(
+    (
+      await api.send(HTTP_METHODS.PATCH, `/contact-directory/${legacyOwned.id}`, {
+        phone: COPY.PHONE_VALUE,
+      })
+    ).status(),
+  ).toBe(400);
+  const detached = await customerOwnDetails(
+    await api.send(HTTP_METHODS.PATCH, `/customer/${legacyOwner.id}`, {
+      email: `detached-${randomUUID()}@example.test`,
+    }),
+  );
+  expect(detached.primaryContactId).not.toBe(legacyOwned.id);
+  const directory = await api.send(
+    HTTP_METHODS.GET,
+    `/contact-directory?search=${encodeURIComponent(legacyOwned.name)}`,
+  );
+  expect(directory.ok()).toBe(true);
+  expect(await directory.json()).toContainEqual(expect.objectContaining({ id: legacyOwned.id }));
+  expect(
+    (
+      await api.send(HTTP_METHODS.PATCH, `/contact-directory/${legacyOwned.id}`, {
+        phone: COPY.PHONE_VALUE,
+      })
+    ).ok(),
+  ).toBe(true);
+  expect(await readCustomerOwnDetails(api, legacyOwner.id)).toEqual(detached);
+  const legacyLinks = await api.send(HTTP_METHODS.GET, `/project/${legacyProject.id}/contacts`);
+  expect(await legacyLinks.json()).toContainEqual(
+    expect.objectContaining({
+      contactId: legacyOwned.id,
+      contact: expect.objectContaining({ phone: COPY.PHONE_VALUE }),
+    }),
+  );
+  const additional = await seedRoleContact(api);
+  await setLegacyContactOwner(additional.id, legacyOwner.id);
+  const additionalDirectory = await api.send(
+    HTTP_METHODS.GET,
+    `/contact-directory?search=${encodeURIComponent(additional.name)}`,
+  );
+  expect(additionalDirectory.ok()).toBe(true);
+  expect(await additionalDirectory.json()).toContainEqual(
+    expect.objectContaining({ id: additional.id }),
+  );
+  expect(
+    (
+      await api.send(HTTP_METHODS.PATCH, `/contact-directory/${additional.id}`, {
+        phone: COPY.PHONE_VALUE,
+      })
+    ).ok(),
+  ).toBe(true);
+  expect(await readCustomerOwnDetails(api, legacyOwner.id)).toEqual(detached);
 });
 
 test("legacy explicit directory selection copies a snapshot and customer-only grants can manage own details without directory write rights", async ({
