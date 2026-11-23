@@ -7,7 +7,9 @@ import type { Page, Locator } from "@playwright/test";
 import { findFieldByTitle } from "./field.component.ts";
 
 export const contactRolePicker = (page: Page, role: ProjectContactRoleType): Locator =>
-  page.getByRole("combobox", { name: PROJECT_CONTACT_ROLE_LABELS[role], exact: true });
+  page
+    .getByRole("combobox", { name: PROJECT_CONTACT_ROLE_LABELS[role], exact: true })
+    .and(page.locator("input[readonly]"));
 
 export const contactRoleEditor = (page: Page, role: ProjectContactRoleType): Locator =>
   page
@@ -19,7 +21,11 @@ export const selectRoleContact = async (
   role: ProjectContactRoleType,
   name: string,
 ): Promise<void> => {
-  await contactRolePicker(page, role).fill(name);
+  await contactRolePicker(page, role).click();
+  await page
+    .getByRole("combobox", { name: PROJECT_CONTACT_ROLE_LABELS[role], exact: true })
+    .and(page.locator("input:not([readonly])"))
+    .fill(name);
   await page.getByRole("option").filter({ hasText: name }).click();
 };
 
