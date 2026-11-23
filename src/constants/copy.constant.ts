@@ -46,7 +46,8 @@ export const CUSTOMERS_COPY = {
   PENDING_SYNC: "ממתין ל-Priority",
   CREATE_DENIED: "אין הרשאה ליצירת לקוחות",
   MANAGERS_ONLY: "רק מנהלים עם הרשאת ניהול לקוחות יכולים ליצור לקוחות",
-  SEARCH_PLACEHOLDER: "חיפוש לפי שם, ח.פ, איש קשר, טלפון או מזהה Priority...",
+  SEARCH_PLACEHOLDER: "חיפוש לפי שם, ח.פ, טלפון, דוא״ל או מזהה Priority...",
+  PICKER_SEARCH_PLACEHOLDER: "חיפוש לקוח לפי שם, ח.פ, טלפון או דוא״ל...",
 } as const;
 
 export const CUSTOMER_FORM_COPY = {
@@ -166,7 +167,7 @@ export const PROJECT_FORM_COPY = {
   ADDRESS_VERIFIED: "כתובת מאומתת ע״י Google Maps",
   CONTACT_NAME_PLACEHOLDER: SHARED_COPY.PERSON_NAME_PLACEHOLDER,
   CONTACT_PHONE_PLACEHOLDER: SHARED_COPY.MOBILE_PHONE_PLACEHOLDER,
-  CUSTOMER_SEARCH_PLACEHOLDER: "חיפוש לקוח לפי שם, ח.פ, איש קשר או טלפון...",
+  CUSTOMER_SEARCH_PLACEHOLDER: CUSTOMERS_COPY.PICKER_SEARCH_PLACEHOLDER,
 } as const;
 
 export const BUILDING_NOTES_COPY = {

@@ -33,7 +33,11 @@ export const monitorDirectorySearch = (page: Page): IDirectorySearchMonitor => {
 
 export const freezeSearchClock = async (page: Page): Promise<void> => {
   await page.clock.install();
-  await page.clock.pauseAt(await page.evaluate(() => Date.now()));
+  const pauseAt = await page.evaluate(
+    lead => Date.now() + lead,
+    CONTACT_SEARCH.CLOCK_PAUSE_LEAD_MS,
+  );
+  await page.clock.pauseAt(pauseAt);
 };
 
 export const nextPaint = async (page: Page): Promise<void> => {

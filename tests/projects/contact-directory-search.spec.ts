@@ -58,7 +58,7 @@ test("project create contact pickers stay empty on focus and debounce one normal
   try {
     for (const role of Object.values(PROJECT_CONTACT_ROLES)) {
       await contactRolePicker(page, role).click();
-      await expect(page.getByRole("option")).toHaveCount(0);
+      await expect(page.getByRole("option", { disabled: false })).toHaveCount(0);
       await expect(page.getByText(CONTACT_SEARCH.EMPTY, { exact: true }).last()).toBeVisible();
       await activeRoleSearch(page, role).press(KEYBOARD_KEYS.ESCAPE);
       await page.clock.runFor(CONTACT_SEARCH.SETTLE_MS);
@@ -79,10 +79,10 @@ test("project create contact pickers stay empty on focus and debounce one normal
     expect(requests.queries).toEqual([]);
     await page.clock.runFor(CONTACT_SEARCH.FINAL_DEBOUNCE_MS);
     await expect.poll(() => requests.queries).toEqual([contact.name]);
+    await page.clock.resume();
     await expect(
       additional.getByRole("button", { name: `בחר ${contact.name}`, exact: true }),
     ).toBeVisible();
-    await page.clock.resume();
     await additional.getByRole("button", { name: `בחר ${contact.name}`, exact: true }).click();
     await expect(search).toHaveValue("");
     await expect(additional.getByText(contact.name, { exact: false })).toBeVisible();
@@ -162,7 +162,7 @@ test("role search aborts stale lookups and prevents keyboard selection of old re
     await search.fill(first.name);
     await stale.started;
     await search.fill(second.name);
-    await expect(page.getByRole("option")).toHaveCount(0);
+    await expect(page.getByRole("option", { disabled: false })).toHaveCount(0);
     await search.press(KEYBOARD_KEYS.ENTER);
     expect(await readRoleLinks(api, project.id)).toEqual([]);
     await current.started;
@@ -310,12 +310,14 @@ test("empty-query inline contact saves retain errors and refresh links without l
   });
   await page.goto(buildProjectRoute(project.id));
   const section = projectContactsSection(page);
+  await contactSearchInput(section).fill("   ");
   await section.getByRole("button", { name: CONTACT_SEARCH.CREATE, exact: true }).click();
   await findFieldByTitle(section, CONTACT_SEARCH.NAME).fill(name);
   await findFieldByTitle(section, CONTACT_SEARCH.PHONE).fill("+33142278186");
   await section.getByRole("button", { name: CONTACT_SEARCH.SAVE, exact: true }).click();
   await expect(section.getByRole("alert").first()).toBeVisible();
-  await contactSearchInput(section).fill("   ");
+  await expect(contactSearchInput(section)).toBeDisabled();
+  await expect(contactSearchInput(section)).toHaveValue("   ");
   await expect(section.getByRole("alert").first()).toBeVisible();
   await expect(findFieldByTitle(section, CONTACT_SEARCH.NAME)).toHaveValue(name);
   try {
@@ -344,8 +346,10 @@ test("apartment mobile search and read-only views preserve contacts without an i
   api,
   openPageAs,
 }) => {
-  const building = await seedBuilding(api, await seedCustomer(api));
+  const customer = await seedCustomer(api);
+  const building = await seedBuilding(api, customer);
   const apartment = await api.createApartment(building.id, {
+    customerId: customer.id,
     customerApartment: createApartmentNumber(),
     customerFloor: 2,
   });
