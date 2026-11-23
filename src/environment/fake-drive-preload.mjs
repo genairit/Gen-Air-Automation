@@ -1,7 +1,7 @@
 import Module from "node:module";
 import { join } from "node:path";
-import { existsSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 
 const originalLoad = Module._load;
@@ -31,6 +31,43 @@ const createdMetadata = new Map();
 const foldersByParentAndName = new Map();
 const legacyRelocated = new Set();
 const folderKey = (parentId, name) => JSON.stringify([parentId, name]);
+const loadedLegacyItems = new Set();
+const registerLegacyFolder = source => {
+  if (source.mimeType !== folderMimeType || source.parents.length !== 1) {
+    return;
+  }
+  const key = folderKey(source.parents[0], source.name);
+  if (foldersByParentAndName.has(key)) {
+    return;
+  }
+  foldersByParentAndName.set(key, source.id);
+};
+const loadLegacyFixtures = () => {
+  const directory = process.env.GEN_AIR_FAKE_DRIVE_STATE_DIR;
+  const path = directory ? join(directory, "existing-folder-fixtures.jsonl") : null;
+  if (!path || !existsSync(path)) {
+    return;
+  }
+  const rows = readFileSync(path, "utf8").trim().split("\n").filter(Boolean);
+  for (const row of rows) {
+    for (const source of JSON.parse(row).items) {
+      if (loadedLegacyItems.has(source.id)) {
+        continue;
+      }
+      createdMetadata.set(source.id, source);
+      loadedLegacyItems.add(source.id);
+      registerLegacyFolder(source);
+    }
+  }
+};
+const recordFolderCreation = async source => {
+  const directory = process.env.GEN_AIR_FAKE_DRIVE_STATE_DIR;
+  if (!directory) {
+    return;
+  }
+  await mkdir(directory, { recursive: true });
+  await appendFile(join(directory, "folder-creations.jsonl"), `${JSON.stringify(source)}\n`);
+};
 
 const applyLegacyMarker = id => {
   const directory = process.env.GEN_AIR_FAKE_DRIVE_STATE_DIR;
@@ -68,6 +105,7 @@ const dynamicMetadata = [
 ];
 
 const metadata = id => {
+  loadLegacyFixtures();
   applyLegacyMarker(id);
   if (createdMetadata.has(id)) {
     return createdMetadata.get(id);
@@ -109,6 +147,7 @@ const fakeMethods = {
   },
   findParentIds: async id => metadata(id)?.parents ?? null,
   ensureFolder: async (name, parentId, projectId) => {
+    loadLegacyFixtures();
     const key = folderKey(parentId, name);
     const existing = foldersByParentAndName.get(key);
     if (existing) {
@@ -117,6 +156,7 @@ const fakeMethods = {
     const id = projectId ? projectRoot(projectId) : `qa-folder-${createdMetadata.size + 1}`;
     createdMetadata.set(id, item(id, name, folderMimeType, [parentId]));
     foldersByParentAndName.set(key, id);
+    await recordFolderCreation(createdMetadata.get(id));
     return id;
   },
   uploadFile: async ({ name, localPath, parentId, mimeType }) => {
@@ -146,6 +186,7 @@ const fakeMethods = {
   },
   countDescendantFiles: async ids => new Map(ids.map(id => [id, 2])),
   listChildren: async id => {
+    loadLegacyFixtures();
     const created = [...createdMetadata.values()]
       .filter(candidate => candidate.parents.includes(id))
       .map(displayItem);
