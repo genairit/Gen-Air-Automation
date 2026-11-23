@@ -49,6 +49,7 @@ for (const option of [
     await payment.choose(option.label);
     if (option.paymentSchedule.length > 0) {
       await payment.fillSchedule(option.paymentSchedule);
+      await payment.expectValidFields();
     }
 
     await expect(page.getByRole("textbox", { name: /הערה.*תשלום/ })).toHaveCount(0);
@@ -91,6 +92,10 @@ test("custom customer stages validate, survive failed save/retry and reload, and
   await page.keyboard.press(KEYBOARD_KEYS.ARROW_RIGHT);
   await expect(payment.choice(CUSTOMER_PAYMENT_COPY.CUSTOM)).toBeChecked();
   await payment.fillSchedule(CUSTOMER_PAYMENT_SCHEDULE.FIRST);
+  await expect(payment.percent()).toHaveValue(CUSTOMER_PAYMENT_SCHEDULE.FIRST[0].percent);
+  await expect(payment.percent(1)).toHaveValue(CUSTOMER_PAYMENT_SCHEDULE.FIRST[1].percent);
+  await expect(payment.milestone()).toHaveValue(CUSTOMER_PAYMENT_SCHEDULE.FIRST[0].text);
+  await payment.expectValidFields();
   await payment.percent().fill("30");
   await expect(page.getByText(CUSTOMER_PAYMENT_COPY.INVALID, { exact: true })).toBeVisible();
   await expect(payment.saveButton).toBeDisabled();
@@ -114,6 +119,7 @@ test("custom customer stages validate, survive failed save/retry and reload, and
   await expect(page.getByRole("alert")).toBeVisible();
   await expect(payment.percent()).toHaveValue(CUSTOMER_PAYMENT_SCHEDULE.FIRST[0].percent);
   await expect(payment.milestone(1)).toHaveValue(CUSTOMER_PAYMENT_SCHEDULE.FIRST[1].text);
+  await payment.expectValidFields();
   const saved = page.waitForResponse(
     response =>
       response.request().method() === HTTP_METHODS.PATCH &&

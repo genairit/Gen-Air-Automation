@@ -1,7 +1,11 @@
-import type { Page } from "@playwright/test";
+import {
+  CUSTOMER_PAYMENT_COPY,
+  UNRELATED_PAYMENT_FIELD_ERRORS,
+} from "../constants/customer-payment-schedule.constant.ts";
+
+import { expect, type Page } from "@playwright/test";
 import { PAYMENT_DEFAULT_COPY } from "../constants/payment-default.constant.ts";
 import type { IPaymentStage } from "../interfaces/payment-configuration.interface.ts";
-import { CUSTOMER_PAYMENT_COPY } from "../constants/customer-payment-schedule.constant.ts";
 
 export const createCustomerPaymentDefaultPage = (page: Page) => {
   const choice = (label: string) => page.getByRole("radio", { name: label, exact: true });
@@ -31,6 +35,21 @@ export const createCustomerPaymentDefaultPage = (page: Page) => {
     }
   };
   const saveButton = page.getByRole("button", { name: PAYMENT_DEFAULT_COPY.SAVE, exact: true });
+  const expectValidFields = async (): Promise<void> => {
+    for (const message of Object.values(UNRELATED_PAYMENT_FIELD_ERRORS)) {
+      await expect(page.getByText(message, { exact: true })).toHaveCount(0);
+    }
+  };
 
-  return { choice, choose, percent, milestone, addButton, removeButton, fillSchedule, saveButton };
+  return {
+    choice,
+    choose,
+    percent,
+    milestone,
+    addButton,
+    removeButton,
+    fillSchedule,
+    saveButton,
+    expectValidFields,
+  };
 };

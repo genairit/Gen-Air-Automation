@@ -47,6 +47,8 @@ test("quotation copies customer custom stages, protects local overrides on custo
   const id = readLastPathSegment(page.url());
   await expect(payment.percent()).toHaveValue(CUSTOMER_PAYMENT_SCHEDULE.FIRST[0].percent);
   await expect(payment.milestone(1)).toHaveValue(CUSTOMER_PAYMENT_SCHEDULE.FIRST[1].text);
+  await expect(payment.milestone()).toHaveValue(CUSTOMER_PAYMENT_SCHEDULE.FIRST[0].text);
+  await payment.expectValidFields();
   await quote.fill(COPY.QUOTE_NOTE, CUSTOMER_PAYMENT_SCHEDULE.NOTE);
   await quote.saved(() => payment.percent().fill("30"));
   await quote.saved(() => payment.percent(1).fill("70"));

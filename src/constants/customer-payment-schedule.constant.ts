@@ -7,7 +7,10 @@ export const CUSTOMER_PAYMENT_FIXED_OPTIONS = PAYMENT_DEFAULT_OPTIONS.filter(
 
 export const CUSTOMER_PAYMENT_SCHEDULE = {
   FIRST: [
-    { percent: "33.3333", text: "אישור והזמנת ציוד" },
+    {
+      percent: "33.3333",
+      text: "אישור והזמנת ציוד — Engineering coordination, equipment delivery and approved installation milestones for the entire residential project",
+    },
     { percent: "66.6667", text: "השלמת ההתקנה" },
   ],
   REPLACEMENT: [
@@ -16,6 +19,12 @@ export const CUSTOMER_PAYMENT_SCHEDULE = {
   ],
   QUOTE_OVERRIDE: [{ percent: "100", text: "הסכם ייחודי להצעה" }],
   NOTE: "הערה עצמאית להצעה שאסור להחליף",
+} as const;
+
+export const UNRELATED_PAYMENT_FIELD_ERRORS = {
+  NUMBER: "מספרים בלבד",
+  HEBREW: "יש להכניס תווים בעברית בלבד",
+  LENGTH: "טקסט ארוך מידי",
 } as const;
 
 export const CUSTOMER_PAYMENT_COPY = {
