@@ -97,7 +97,7 @@ test("new project searches and links an existing directory contact", async ({ pa
     projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL,
   });
   const picker = findCardByTitle(page, "אנשי קשר נוספים");
-  await picker.getByPlaceholder("שם, טלפון או דוא״ל").fill(name);
+  await picker.getByPlaceholder("שם, טלפון או דוא״ל", { exact: true }).fill(name);
   await picker.getByRole("button", { name: `בחר ${name}` }).click();
   await form.createButton.click();
   await expect(page).toHaveURL(ROUTE_PATTERNS.PROJECT);
