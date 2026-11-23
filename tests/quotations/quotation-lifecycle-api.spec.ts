@@ -1,3 +1,8 @@
+import {
+  QUOTATION_LIFECYCLE,
+  LIFECYCLE_REASON_FIXTURES,
+} from "../../src/constants/quotation-lifecycle.constant.ts";
+
 import { test, expect } from "../../src/fixtures/api.fixture.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
@@ -5,7 +10,6 @@ import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 import { readLifecycleHistory } from "../../src/api/quotation-lifecycle.api.ts";
 import { seedQuotationForDeletion } from "../../src/api/quotation-delete-fixture.ts";
-import { QUOTATION_LIFECYCLE } from "../../src/constants/quotation-lifecycle.constant.ts";
 import { QUOTATION, QUOTATION_PERMISSIONS } from "../../src/constants/quotation.constant.ts";
 import { quotationDocument, quotationWrite, saveQuotation } from "../../src/api/quotation.api.ts";
 
@@ -113,9 +117,12 @@ test("reasoned rejection resubmission and editing return retain distinct immutab
 }): Promise<void> => {
   const { quotation } = await seedQuotationForDeletion(api, QUOTATION.STATUS.REVIEW);
   const path = `/quotation/${quotation.id}`;
-  const reason = "נדרש תיקון הנדסי לפני אישור";
+  const reason = LIFECYCLE_REASON_FIXTURES.LONG_MIXED_TEXT.trim();
   const rejected = await quotationDocument(
-    await api.send(HTTP_METHODS.POST, `${path}/reject`, { version: quotation.version, reason }),
+    await api.send(HTTP_METHODS.POST, `${path}/reject`, {
+      version: quotation.version,
+      reason: LIFECYCLE_REASON_FIXTURES.LONG_MIXED_TEXT,
+    }),
   );
   const resubmitted = await quotationDocument(
     await api.send(HTTP_METHODS.POST, `${path}/resubmit`, { version: rejected.version }),

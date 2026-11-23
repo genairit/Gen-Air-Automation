@@ -43,3 +43,8 @@ export const LIFECYCLE_DIALOG_SCENARIOS = {
     confirm: LIFECYCLE_COPY.CONFIRM_REJECT,
   },
 } as const;
+
+export const LIFECYCLE_REASON_FIXTURES = {
+  SINGLE_CHARACTER: "א",
+  LONG_MIXED_TEXT: "נדרש תיקון הנדסי ושמירה על היסטוריית המסמך. QA-185 2026 (בדיקה)! ".repeat(12),
+} as const;

@@ -1,6 +1,7 @@
 import {
   LIFECYCLE_COPY,
   QUOTATION_LIFECYCLE,
+  LIFECYCLE_REASON_FIXTURES,
   LIFECYCLE_DIALOG_SCENARIOS,
 } from "../../src/constants/quotation-lifecycle.constant.ts";
 
@@ -274,7 +275,7 @@ test("pending return locks dialog and other lifecycle groups and double click co
   ).toHaveLength(1);
 });
 
-test("390px RTL reasoned rejection has focused long reason reachable actions and no overflow", async ({
+test("390px RTL rejection focuses and accepts single-character and long mixed reasons without overflow", async ({
   page,
   api,
 }, testInfo): Promise<void> => {
@@ -299,8 +300,14 @@ test("390px RTL reasoned rejection has focused long reason reachable actions and
     contentType: "text/plain",
   });
   await expect(reason).toBeFocused();
-  await reason.fill("נדרש תיקון הנדסי ושמירה על היסטוריית המסמך. ".repeat(20));
   const confirm = dialog.getByRole("button", { name: LIFECYCLE_COPY.CONFIRM_REJECT, exact: true });
+  await reason.fill(LIFECYCLE_REASON_FIXTURES.SINGLE_CHARACTER);
+  await expect(reason).toHaveAttribute("aria-invalid", "false");
+  await expect(dialog.locator(".MuiFormHelperText-root")).toHaveCount(0);
+  await expect(confirm).toBeEnabled();
+  await reason.fill(LIFECYCLE_REASON_FIXTURES.LONG_MIXED_TEXT);
+  await expect(reason).toHaveAttribute("aria-invalid", "false");
+  await expect(dialog.locator(".MuiFormHelperText-root")).toHaveCount(0);
   await expect(confirm).toBeEnabled();
   await expectQuotationWithinViewport(page, [
     reason,
