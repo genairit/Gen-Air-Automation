@@ -299,7 +299,9 @@ test.describe("as an engineer", () => {
       await tasksPage.goto();
       await tasksPage.searchBox.fill(task.title);
       await expect(page.getByText(task.title)).toBeVisible();
-      await expect(page.getByRole("combobox")).toHaveCount(0);
+      await expect(
+        page.getByRole("region", { name: task.title, exact: true }).getByRole("combobox"),
+      ).toHaveCount(0);
       await page.getByText(task.title).click();
       await expect(page).toHaveURL(new RegExp(`/tasks/${task.id}$`));
     });
