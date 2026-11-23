@@ -7,11 +7,17 @@ import {
 } from "../../src/api/seed-data.ts";
 
 import {
+  TASK_QUOTATION_ERROR,
+  TASK_QUOTATION_UNAVAILABLE,
+} from "../../src/constants/task-quotation.constant.ts";
+
+import {
   taskQuotationQuery,
   withTaskQuotationLinkFailure,
 } from "../../src/environment/task-quotation-fixtures.ts";
 
 import { randomUUID } from "node:crypto";
+import { seedUser } from "../../src/api/seed-data.ts";
 import type { TGenAirApi } from "../../src/api/gen-air-api.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { TASK_TYPES } from "../../src/constants/domain.constant.ts";
@@ -23,7 +29,6 @@ import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
 import { seedTaskQuotationScenario } from "../../src/api/task-quotation.api.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 import { createCatalogueFixture } from "../../src/environment/quotation-fixtures.ts";
-import { TASK_QUOTATION_UNAVAILABLE } from "../../src/constants/task-quotation.constant.ts";
 import { taskQuotationPath, createTaskQuotation } from "../../src/api/task-quotation.api.ts";
 import { setLegacyTaskQuotationFixture } from "../../src/environment/task-quotation-fixtures.ts";
 import { quotationDocument, quotationWrite, createQuotation } from "../../src/api/quotation.api.ts";
@@ -530,4 +535,77 @@ test("a building task retains its exact primary project and direct customer", as
       [quote.id],
     ),
   ).toEqual([{ project_id: building.id, is_primary: true }]);
+});
+
+test("parallel ordinary quotation initialization completes with distinct drafts and stable customer snapshots", async ({
+  api,
+}) => {
+  const { customer, project } = await scenario(api);
+  const salesAgent = await seedUser(api, USER_ROLES.ENGINEER);
+  const poolLimit = Number(process.env.MAX_CONNECTIONS ?? "10");
+  expect(Number.isInteger(poolLimit)).toBe(true);
+  expect(poolLimit).toBeGreaterThan(0);
+  const requestCount = poolLimit + 2;
+  const quotes = await Promise.all(
+    Array.from({ length: requestCount }, async () =>
+      quotationDocument(
+        await api.send(HTTP_METHODS.POST, "/quotation", {
+          customerId: customer.id,
+          projectId: project.id,
+          salesAgentId: salesAgent.id,
+        }),
+      ),
+    ),
+  );
+  expect(new Set(quotes.map(quote => quote.id)).size).toBe(requestCount);
+  expect(new Set(quotes.map(quote => quote.number)).size).toBe(requestCount);
+  const baseline = quotes[0]!;
+  for (const quote of quotes) {
+    expect(quote).toMatchObject({
+      customerId: customer.id,
+      projectId: project.id,
+      salesAgentId: salesAgent.id,
+      status: QUOTATION.STATUS.DRAFT,
+      sections: [],
+      paymentTerms: baseline.paymentTerms,
+      paymentTermsNote: baseline.paymentTermsNote,
+      paymentSchedule: baseline.paymentSchedule,
+      ruleConfigFingerprint: baseline.ruleConfigFingerprint,
+    });
+    expect(
+      await taskQuotationQuery("SELECT task_id FROM task_quotation_links WHERE quotation_id=$1", [
+        quote.id,
+      ]),
+    ).toEqual([]);
+  }
+});
+
+test("public project customer changes and quotation primary relinks return conflict and preserve the task document context", async ({
+  api,
+}) => {
+  const { task, project, customer } = await scenario(api);
+  const quote = await document(api, (await createTaskQuotation(api, task.id)).quotationId);
+  const other = await scenario(api);
+  const sameCustomerProject = await seedStandaloneProject(api, customer);
+  const projectChange = await api.send(HTTP_METHODS.PATCH, `/project/${project.id}`, {
+    customerId: other.customer.id,
+  });
+  expect(projectChange.status()).toBe(409);
+  expect(await projectChange.json()).toMatchObject({ code: TASK_QUOTATION_ERROR.CONTEXT_LOCKED });
+  const relink = await api.send(HTTP_METHODS.PUT, `/quotation/${quote.id}`, {
+    ...quotationWrite(quote),
+    projectId: sameCustomerProject.id,
+  });
+  expect(relink.status()).toBe(409);
+  expect(await relink.json()).toMatchObject({ code: TASK_QUOTATION_ERROR.CONTEXT_LOCKED });
+  expect(
+    await taskQuotationQuery("SELECT customer_id FROM projects WHERE id=$1", [project.id]),
+  ).toEqual([{ customer_id: customer.id }]);
+  expect(await document(api, quote.id)).toEqual(quote);
+  expect(
+    await taskQuotationQuery(
+      "SELECT project_id, is_primary FROM quotation_projects WHERE quotation_id=$1",
+      [quote.id],
+    ),
+  ).toEqual([{ project_id: project.id, is_primary: true }]);
 });
