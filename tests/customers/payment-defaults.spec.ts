@@ -4,6 +4,11 @@ import {
 } from "../../src/constants/payment-default.constant.ts";
 
 import {
+  readCustomerPaymentConfiguration,
+  updateCustomerPaymentConfiguration,
+} from "../../src/api/customer-payment-configuration.api.ts";
+
+import {
   CUSTOMER_PAYMENT_COPY,
   CUSTOMER_PAYMENT_SCHEDULE,
   CUSTOMER_PAYMENT_FIXED_OPTIONS,
@@ -13,7 +18,6 @@ import { buildCustomerInput } from "../../src/api/seed-data.ts";
 import { API_PATHS } from "../../src/constants/api.constant.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { VIEWPORTS } from "../../src/constants/viewport.constant.ts";
-import { PAYMENT_TERMS } from "../../src/constants/domain.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { KEYBOARD_KEYS } from "../../src/constants/keyboard.constant.ts";
@@ -24,7 +28,6 @@ import { ROUTE_PATTERNS } from "../../src/constants/route-patterns.constant.ts";
 import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
 import { buildCustomerRoute, readLastPathSegment } from "../../src/utilities/route.utility.ts";
 import { createCustomerPaymentDefaultPage } from "../../src/pages/customer-payment-default.page.ts";
-import { readCustomerPaymentConfiguration } from "../../src/api/customer-payment-configuration.api.ts";
 import { setLegacyCustomerOtherPayment } from "../../src/environment/customer-payment-schedule-fixtures.ts";
 
 for (const option of [
@@ -176,13 +179,23 @@ test("legacy Other is visibly unconfigured while read-only viewers cannot alter 
   const viewerPage = await openPageAs(credentials);
   await viewerPage.goto(buildCustomerRoute(customer.id));
   const payment = createCustomerPaymentDefaultPage(viewerPage);
+  await expect(viewerPage.getByText(CUSTOMER_PAYMENT_COPY.LEGACY, { exact: true })).toBeVisible();
   await expect(payment.saveButton).toHaveCount(0);
-  await expect(viewerPage.getByRole("radio")).toHaveCount(
-    CUSTOMER_PAYMENT_FIXED_OPTIONS.length + 2,
-  );
-  for (const radio of await viewerPage.getByRole("radio").all()) {
-    await expect(radio).toBeDisabled();
-  }
+  await expect(viewerPage.getByRole("radio")).toHaveCount(0);
+  await expect(payment.percent()).toHaveCount(0);
+  await expect(payment.milestone()).toHaveCount(0);
+  await expect(payment.addButton).toHaveCount(0);
+  await updateCustomerPaymentConfiguration(api, customer.id, {
+    paymentTerms: null,
+    paymentSchedule: CUSTOMER_PAYMENT_SCHEDULE.FIRST.map(stage => ({ ...stage })),
+  });
+  await viewerPage.reload();
+  const summary = CUSTOMER_PAYMENT_SCHEDULE.FIRST.map(
+    stage => `${stage.percent}% — ${stage.text}`,
+  ).join(" · ");
+  await expect(viewerPage.getByText(summary, { exact: true })).toBeVisible();
+  await expect(payment.saveButton).toHaveCount(0);
+  await expect(viewerPage.getByRole("radio")).toHaveCount(0);
   const viewer = await apiAs(credentials);
   expect(
     (
@@ -193,7 +206,7 @@ test("legacy Other is visibly unconfigured while read-only viewers cannot alter 
     ).status(),
   ).toBe(HTTP_STATUS.FORBIDDEN);
   expect(await readCustomerPaymentConfiguration(api, customer.id)).toMatchObject({
-    paymentTerms: PAYMENT_TERMS.OTHER,
-    paymentSchedule: [],
+    paymentTerms: null,
+    paymentSchedule: CUSTOMER_PAYMENT_SCHEDULE.FIRST,
   });
 });
