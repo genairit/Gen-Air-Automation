@@ -15,6 +15,9 @@ test("quotation status filters show only matching quotations", async ({ page, ap
   await page.goto(ROUTES.QUOTATIONS);
 
   const filters = page.getByRole("group", { name: "סינון הצעות מחיר" });
+  for (const label of ["טיוטה", "בבדיקה", "הזמנה", "מבוטלת"]) {
+    await expect(filters.getByRole("button", { name: new RegExp(label) })).toBeVisible();
+  }
   const draft = filters.getByRole("button", { name: /טיוטה/ });
   const review = filters.getByRole("button", { name: /בבדיקה/ });
   const quotation = page.getByRole("button", { name: new RegExp(customer.name) });
