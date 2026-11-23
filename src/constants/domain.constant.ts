@@ -42,7 +42,7 @@ export const PROJECT_STATUS_NAMES = {
 export const TASK_STATUS_NAMES = {
   IN_REVIEW: "בבדיקה",
   IN_PROGRESS: "בעבודה",
-  QUOTE_SENT: "נשלחה הצעה",
+  QUOTE_SENT: "נשלח",
   NOT_STARTED: "טרם בעבודה",
   WAITING_FOR_REPLY: "מחכה לתשובה",
 } as const;
