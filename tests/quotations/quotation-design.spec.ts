@@ -13,6 +13,7 @@ import { createQuotationPage } from "../../src/pages/quotation.page.ts";
 import { seedQuotationDesign } from "../../src/api/quotation-design-fixture.ts";
 import { createQuotation, quotationDocument } from "../../src/api/quotation.api.ts";
 import { setQuotationCountFixture } from "../../src/environment/quotation-fixtures.ts";
+import { expectWarningGeometry } from "../../src/utilities/quotation-warning.utility.ts";
 
 const SEARCH = "חיפוש לפי מספר, לקוח, פרויקט או חברה";
 const rowButtons = (page: Parameters<typeof createQuotationPage>[0]) =>
@@ -286,8 +287,7 @@ test("populated quotation matches metadata, grouped compact equipment, linked co
   expect((await quotationBox(warningText)).y).toBeLessThan(
     (await quotationBox(page.getByRole("table"))).y,
   );
-  const checkboxBox = await quotationBox(warningCheckbox);
-  expect(Math.abs(checkboxBox.y - (await quotationBox(warningText)).y)).toBeLessThanOrEqual(20);
+  await expectWarningGeometry(warningCheckbox);
   await expect(page.getByRole("progressbar", { name: "התקדמות בדיקת הצעה" })).toHaveCount(0);
   await expect(page.getByText(/התראות פתוחות/).first()).toBeVisible();
   const summaryCard = page
