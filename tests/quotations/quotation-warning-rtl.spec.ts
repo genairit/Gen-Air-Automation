@@ -15,6 +15,7 @@ import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 import { seedQuotationWarnings } from "../../src/api/quotation-design-fixture.ts";
 import { QUOTATION_PERMISSIONS } from "../../src/constants/quotation.constant.ts";
+import { LIFECYCLE_COPY } from "../../src/constants/quotation-lifecycle.constant.ts";
 
 const LONG_IDENTIFIER =
   "E-SMD-63/AC123-LG-VRF-PRO-24000BTU-1200CFM-30PCT-1TO1-ALPHA-BETA-GAMMA-DELTA-182";
@@ -175,8 +176,9 @@ test("real multiple rules retain keys after acknowledgement failure, pending key
   await expect(controls.first()).not.toBeChecked();
   expect((await readQuotation(api, quotation.id)).warnings).toEqual(before.warnings);
   await page.unroute(`**/quotation/${quotation.id}/warnings`);
-  await quote.button("נסה לשמור שוב").click();
+  await quote.button(LIFECYCLE_COPY.RELOAD).click();
   await expect(controls.first()).toBeEnabled();
+  expect((await readQuotation(api, quotation.id)).warnings).toEqual(before.warnings);
   const release = { resolve: () => {} };
   const gate = new Promise<void>(resolve => {
     release.resolve = resolve;

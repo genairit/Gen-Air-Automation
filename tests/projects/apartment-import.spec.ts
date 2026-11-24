@@ -158,6 +158,11 @@ test("official template, requiredness help, visible processing and100 real rows 
     await processing;
     await route.fulfill({ response });
   });
+  const importResponse = page.waitForResponse(
+    (response): boolean =>
+      response.request().method() === HTTP_METHODS.POST &&
+      response.url().endsWith(`/project/${building.id}/apartments/import`),
+  );
   try {
     await dialog.locator('input[type="file"]').setInputFiles({
       name: APARTMENT_IMPORT.FILE_NAME,
@@ -171,6 +176,7 @@ test("official template, requiredness help, visible processing and100 real rows 
   } finally {
     release.response();
   }
+  expect((await importResponse).ok()).toBe(true);
   await expect(
     dialog.getByText("הייבוא הושלם בהצלחה — 100 מתוך 100 שורות נקלטו", { exact: true }),
   ).toBeVisible();

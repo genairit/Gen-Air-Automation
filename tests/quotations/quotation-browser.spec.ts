@@ -11,6 +11,11 @@ import {
   quotationDocument,
 } from "../../src/api/quotation.api.ts";
 
+import {
+  CUSTOMER_PAYMENT_COPY,
+  CUSTOMER_PAYMENT_SCHEDULE,
+} from "../../src/constants/customer-payment-schedule.constant.ts";
+
 import { randomUUID } from "node:crypto";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
@@ -23,7 +28,6 @@ import { selectMuiOption } from "../../src/pages/mui-select.component.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 import { createCatalogueFixture } from "../../src/environment/quotation-fixtures.ts";
 import { QUOTATION, QUOTATION_PERMISSIONS } from "../../src/constants/quotation.constant.ts";
-import { CUSTOMER_PAYMENT_COPY } from "../../src/constants/customer-payment-schedule.constant.ts";
 
 const NOTES = "הערות פנימיות (לא יופיעו ללקוח)";
 const NOTE = "הערה לתנאי התשלום (להצעה זו בלבד)";
@@ -63,10 +67,16 @@ test("customer-first creation, optional project, local payments and RTL desktop/
   expect(
     (
       await api.send(HTTP_METHODS.PATCH, `/customer/${customer.id}`, {
-        paymentTerms: PAYMENT_TERMS.OTHER,
+        paymentTerms: null,
+        paymentSchedule: CUSTOMER_PAYMENT_SCHEDULE.REPLACEMENT,
       })
     ).status(),
   ).toBe(200);
+  const changedCustomer = await (
+    await api.send(HTTP_METHODS.GET, `/customer/${customer.id}`)
+  ).json();
+  expect(changedCustomer.paymentTerms).toBeNull();
+  expect(changedCustomer.paymentSchedule).toEqual(CUSTOMER_PAYMENT_SCHEDULE.REPLACEMENT);
   await page.reload();
   await expect(page.getByRole("radio", { name: "תשלום מראש", exact: true })).toBeChecked();
   await expect(quote.field("פרויקט (אופציונלי)")).toHaveValue(project.name);
@@ -325,7 +335,7 @@ test("required warnings block approval, explicit self approval and repeated reop
   await page.reload();
   expect((await getQuote(api, initial.id)).approvedById).not.toBeNull();
   for (const cycle of [1, 2]) {
-    await quote.transition("פתיחה לעריכה (אותו מזהה)");
+    await quote.returnToEditing();
     await openDetails(page);
     await expect(quote.field(NOTES)).toBeEnabled();
     await quote.fill(NOTES, `Cycle ${cycle}`);

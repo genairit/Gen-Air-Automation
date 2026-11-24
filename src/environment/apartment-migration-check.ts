@@ -32,9 +32,10 @@ export const verifyApartmentMigration = async (scenario: IMigrationScenario): Pr
     const identity = await client.query<{ name: string }>("SELECT current_database() AS name");
     expect(identity.rows[0].name).toBe(TEST_DATABASE.NAME);
     await client.query("BEGIN");
-    await client.query(
-      "UPDATE projects SET customer_id = NULL WHERE parent_project_id IS NOT NULL",
-    );
+    await client.query("SET CONSTRAINTS ALL IMMEDIATE");
+    await client.query("UPDATE projects SET customer_id = NULL WHERE id = ANY($1::uuid[])", [
+      [scenario.ownId, scenario.inheritedId],
+    ]);
     await client.query(
       "UPDATE projects SET customer_name = $2, customer_phone = $3, contact_name = $4, contact_phone = $5 WHERE id = ANY($1::uuid[])",
       [
@@ -47,8 +48,16 @@ export const verifyApartmentMigration = async (scenario: IMigrationScenario): Pr
     );
     await client.query("ALTER TABLE projects DROP COLUMN has_own_team");
     await client.query(
-      "ALTER TABLE projects ADD CONSTRAINT chk_projects_apartment_has_no_customer CHECK (parent_project_id IS NULL OR customer_id IS NULL)",
+      "ALTER TABLE projects ADD CONSTRAINT chk_projects_apartment_has_no_customer CHECK (parent_project_id IS NULL OR customer_id IS NULL) NOT VALID",
     );
+    await client.query("SAVEPOINT legacy_customer_constraint");
+    await expect(
+      client.query("UPDATE projects SET customer_id = $2 WHERE id = $1", [
+        scenario.inheritedId,
+        scenario.customerId,
+      ]),
+    ).rejects.toMatchObject({ code: "23514" });
+    await client.query("ROLLBACK TO SAVEPOINT legacy_customer_constraint");
     const source = await readFile(
       join(APP_DIRECTORIES.BACKEND, "migrations/2026-10-24-add-apartment-team-inheritance.sql"),
       "utf8",

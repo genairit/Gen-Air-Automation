@@ -105,7 +105,7 @@ for (const viewport of VIEWPORTS) {
         path: buildCustomerRoute(customer.id),
         pairs: [
           { first: "פרטי הלקוח", second: "פרטי קשר של הלקוח" },
-          { first: "סנכרון עם Priority", second: "תנאי תשלום" },
+          { first: "סנכרון עם Priority", second: "תנאי תשלום כברירת מחדל" },
         ],
       },
       {
@@ -156,45 +156,50 @@ for (const viewport of VIEWPORTS) {
       },
     ];
 
-    await page.setViewportSize({ width: viewport.width, height: viewport.height });
     for (const scenario of scenarios) {
-      await test.step(scenario.name, async () => {
-        await page.goto(scenario.path);
-        if (scenario.name === "task") {
-          const urgency = findCardByTitle(page, "משימה רגילה");
-          const details = findCardByTitle(page, "פרטי המשימה");
-          await expect(urgency).toBeVisible();
-          await expect(details).toBeVisible();
-          await expectCardsFit(page, urgency, details);
-          const urgencyBox = await urgency.boundingBox();
-          const detailsBox = await details.boundingBox();
-          if (!urgencyBox || !detailsBox) {
-            throw new Error("Expected task strip and details bounds");
+      await test.step(scenario.name, async (): Promise<void> => {
+        const scenarioPage = await page.context().newPage();
+        try {
+          await scenarioPage.setViewportSize({ width: viewport.width, height: viewport.height });
+          await scenarioPage.goto(scenario.path);
+          if (scenario.name === "task") {
+            const urgency = findCardByTitle(scenarioPage, "משימה רגילה");
+            const details = findCardByTitle(scenarioPage, "פרטי המשימה");
+            await expect(urgency).toBeVisible();
+            await expect(details).toBeVisible();
+            await expectCardsFit(scenarioPage, urgency, details);
+            const urgencyBox = await urgency.boundingBox();
+            const detailsBox = await details.boundingBox();
+            if (!urgencyBox || !detailsBox) {
+              throw new Error("Expected task strip and details bounds");
+            }
+            expect(detailsBox.y).toBeGreaterThanOrEqual(urgencyBox.y + urgencyBox.height - 2);
+            expect(Math.abs(urgencyBox.width - detailsBox.width)).toBeLessThanOrEqual(2);
           }
-          expect(detailsBox.y).toBeGreaterThanOrEqual(urgencyBox.y + urgencyBox.height - 2);
-          expect(Math.abs(urgencyBox.width - detailsBox.width)).toBeLessThanOrEqual(2);
-        }
-        for (const pair of scenario.pairs) {
-          const first = findCardByTitle(page, pair.first).first();
-          const second = findCardByTitle(page, pair.second).first();
-          await expect(first).toBeVisible();
-          await expect(second).toBeVisible();
-          await expectCardsFit(page, first, second);
-          await expectPairPlacement(
-            first,
-            second,
-            viewport.width === 1600
-              ? (pair.widePlacement ?? viewport.placement)
-              : viewport.placement,
-          );
-        }
-        if (viewport.width === 1600 || viewport.width === 390) {
-          await page.screenshot({
-            path: test
-              .info()
-              .outputPath(`${scenario.name.replaceAll(" ", "-")}-${viewport.width}.png`),
-            fullPage: true,
-          });
+          for (const pair of scenario.pairs) {
+            const first = findCardByTitle(scenarioPage, pair.first).first();
+            const second = findCardByTitle(scenarioPage, pair.second).first();
+            await expect(first).toBeVisible();
+            await expect(second).toBeVisible();
+            await expectCardsFit(scenarioPage, first, second);
+            await expectPairPlacement(
+              first,
+              second,
+              viewport.width === 1600
+                ? (pair.widePlacement ?? viewport.placement)
+                : viewport.placement,
+            );
+          }
+          if (viewport.width === 1600 || viewport.width === 390) {
+            await scenarioPage.screenshot({
+              path: test
+                .info()
+                .outputPath(`${scenario.name.replaceAll(" ", "-")}-${viewport.width}.png`),
+              fullPage: true,
+            });
+          }
+        } finally {
+          await scenarioPage.close();
         }
       });
     }
