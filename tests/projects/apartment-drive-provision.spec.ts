@@ -25,6 +25,7 @@ const expectedTemplateFolders = [
   "ZIP",
   "הצעות מספקים",
   "הצעות מחיר",
+  "ארכיון הצעות מחיר",
 ].sort();
 
 const automaticFolderId = async (api: TGenAirApi, projectId: string): Promise<string> => {
