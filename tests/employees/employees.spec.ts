@@ -8,19 +8,29 @@ import {
 import {
   USER_ROLES,
   USER_ROLE_LABELS,
+  type UserRoleType,
   ASSIGNABLE_USER_ROLE_VALUES,
 } from "../../src/constants/user-role.constant.ts";
 
 import { seedUser } from "../../src/api/seed-data.ts";
+import { isRecord } from "../../src/utilities/guard.utility.ts";
 import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { createLoginPage } from "../../src/pages/login.page.ts";
 import { readTabCount } from "../../src/pages/tab.component.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
+import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { VIEWPORTS } from "../../src/constants/viewport.constant.ts";
 import { EMPLOYEES_COPY } from "../../src/constants/copy.constant.ts";
 import { createEmployeesPage } from "../../src/pages/employees.page.ts";
-import { expectSingleResultRow } from "../../src/pages/table.component.ts";
+import { isUserRecord } from "../../src/utilities/entity-guard.utility.ts";
 import { EMPTY_AUTH_STATE } from "../../src/constants/auth-state.constant.ts";
+import { expectSingleResultRow, expectResultRowCount } from "../../src/pages/table.component.ts";
+
+interface IEmployeeRoleSearchExpectation {
+  email: string;
+  role: UserRoleType;
+  expectedEmails: string[];
+}
 
 const NEW_EMPLOYEE_PREFIXES = { NAME: "עובדת חדשה", EMAIL: "new-employee" } as const;
 
@@ -103,17 +113,56 @@ test("the role filters narrow the table to assignable roles", async ({ page, api
 
   await employeesPage.goto();
 
-  for (const [index, employee] of employees.entries()) {
-    const otherRoleEmployee = employees[(index + 1) % employees.length];
+  const expectRoleSearch = async ({
+    role,
+    email,
+    expectedEmails,
+  }: IEmployeeRoleSearchExpectation): Promise<void> => {
+    const filtered = page.waitForResponse((response): boolean => {
+      const url = new URL(response.url());
+      const isRead = response.request().method() === HTTP_METHODS.GET;
+      const isUsersPath = url.pathname.endsWith("/user");
+      const matchesRole = url.searchParams.get("role") === role;
+      const matchesSearch = url.searchParams.get("search") === email;
+      return isRead && isUsersPath && matchesRole && matchesSearch;
+    });
+    await employeesPage.roleTab(role).click();
+    await employeesPage.searchBox.fill(email);
+    const response = await filtered;
+    expect(response.status()).toBe(200);
+    const body: unknown = await response.json();
+    if (!isRecord(body) || !Array.isArray(body.items) || !body.items.every(isUserRecord)) {
+      throw new Error("Expected a filtered employee page with assigned roles");
+    }
+    expect(body.items.map((user): string => user.email)).toEqual(expectedEmails);
+    await expectResultRowCount(page, expectedEmails.length);
+  };
 
-    await employeesPage.roleTab(employee.role).click();
-    await employeesPage.searchBox.fill(employee.email);
-
-    await expect(employeesPage.findRow(employee.email)).toBeVisible();
-
-    await employeesPage.searchBox.fill(otherRoleEmployee.email);
-
-    await expect(employeesPage.findRow(otherRoleEmployee.email)).toHaveCount(0);
+  for (const employee of employees) {
+    const included =
+      employee.role === USER_ROLES.ENGINEER
+        ? employees.filter((candidate): boolean =>
+            [USER_ROLES.ENGINEER, USER_ROLES.ENGINEERING_LEAD].some(
+              (role): boolean => role === candidate.role,
+            ),
+          )
+        : [employee];
+    for (const matching of included) {
+      await expectRoleSearch({
+        role: employee.role,
+        email: matching.email,
+        expectedEmails: [matching.email],
+      });
+      await expect(employeesPage.findRow(matching.email)).toBeVisible();
+    }
+    const excludedRole =
+      employee.role === USER_ROLES.ENGINEER ? USER_ROLES.SECRETARY : USER_ROLES.ENGINEER;
+    const excluded = employees.find((candidate): boolean => candidate.role === excludedRole);
+    if (!excluded) {
+      throw new Error("Missing employee outside the selected role's eligibility group");
+    }
+    await expectRoleSearch({ role: employee.role, email: excluded.email, expectedEmails: [] });
+    await expect(employeesPage.findRow(excluded.email)).toHaveCount(0);
   }
 });
 
