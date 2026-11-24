@@ -1,9 +1,10 @@
 import {
+  USER_ROLES,
   RETIRED_ROLES,
   NON_MEMBER_ROLES,
   USER_ROLE_LABELS,
-  USER_ROLE_VALUES,
   PROJECT_MEMBER_ROLES,
+  ASSIGNABLE_USER_ROLE_VALUES,
 } from "../../src/constants/user-role.constant.ts";
 
 import {
@@ -19,8 +20,10 @@ import { escapeRegex } from "../../src/utilities/regex.utility.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { findCardByTitle } from "../../src/pages/card.component.ts";
 import { formatFullName } from "../../src/utilities/user.utility.ts";
+import { PROJECT_FORM_COPY } from "../../src/constants/copy.constant.ts";
 import { FAKE_PLACES } from "../../src/constants/fake-places.constant.ts";
 import { buildProjectPath } from "../../src/utilities/api-path.utility.ts";
+import { contactSearchInput } from "../../src/pages/contact-search.page.ts";
 import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { PROJECT_TYPE_NAMES } from "../../src/constants/domain.constant.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
@@ -29,6 +32,7 @@ import { PROJECT_DRAFT_VERSIONS } from "../../src/constants/storage.constant.ts"
 import { buildProjectDraftKey } from "../../src/utilities/auth-state.utility.ts";
 import { expectFieldsAbsent } from "../../src/utilities/response-assertion.utility.ts";
 import { seedUser, seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts";
+import { newDriveRadio, existingDriveRadio } from "../../src/pages/existing-drive-folder.page.ts";
 import { buildEditProjectRoute, readLastPathSegment } from "../../src/utilities/route.utility.ts";
 
 const PROJECT_NAME_PREFIXES = {
@@ -55,7 +59,8 @@ test("create a project with a verified address and see it on the board", async (
   });
 
   await expect(formPage.addressVerified).toBeVisible();
-  await expect(page.getByRole("radio")).toHaveCount(0);
+  await expect(newDriveRadio(page)).toBeChecked();
+  await expect(existingDriveRadio(page)).not.toBeChecked();
   const creation = page.waitForRequest(
     request => request.method() === HTTP_METHODS.POST && request.url().endsWith(API_PATHS.PROJECT),
   );
@@ -95,8 +100,8 @@ test("new project searches and links an existing directory contact", async ({ pa
     customerName: customer.name,
     projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL,
   });
-  const picker = findCardByTitle(page, "אנשי קשר לפרויקט");
-  await picker.getByPlaceholder("שם, טלפון או דוא״ל").fill(name);
+  const picker = findCardByTitle(page, "אנשי קשר נוספים");
+  await contactSearchInput(picker).fill(name);
   await picker.getByRole("button", { name: `בחר ${name}` }).click();
   await form.createButton.click();
   await expect(page).toHaveURL(ROUTE_PATTERNS.PROJECT);
@@ -109,7 +114,9 @@ test("the project draft banner no longer advertises retired payment storage", as
   const formPage = createProjectFormPage(page);
   await formPage.goto();
   await formPage.nameInput.fill(createUniqueName(PROJECT_NAME_PREFIXES.DRAFT));
-  await expect(page.getByRole("status")).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: PROJECT_FORM_COPY.DRAFT_NOTICE }),
+  ).toBeVisible();
   await expect(page.getByText(PAYMENT_DEFAULT_PATTERNS.SECTION)).toHaveCount(0);
 });
 
@@ -164,7 +171,7 @@ test("the form offers four optional member slots that each list only their role"
   page,
   api,
 }) => {
-  const employees = await Promise.all(USER_ROLE_VALUES.map(role => seedUser(api, role)));
+  const employees = await Promise.all(ASSIGNABLE_USER_ROLE_VALUES.map(role => seedUser(api, role)));
   const formPage = createProjectFormPage(page);
 
   await formPage.goto();
@@ -182,7 +189,10 @@ test("the form offers four optional member slots that each list only their role"
     const options = await formPage.openMemberSlot(role);
 
     for (const employee of employees) {
-      const expectedCount = employee.role === role ? 1 : 0;
+      const matchesRole = employee.role === role;
+      const leadInEngineerSlot =
+        role === USER_ROLES.ENGINEER && employee.role === USER_ROLES.ENGINEERING_LEAD;
+      const expectedCount = matchesRole || leadInEngineerSlot ? 1 : 0;
 
       await expect(options.filter({ hasText: formatFullName(employee) })).toHaveCount(
         expectedCount,

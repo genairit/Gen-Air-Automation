@@ -378,7 +378,7 @@ test("select all is a snapshot and reopening a shared quotation keeps links whil
   }
 
   await quote.goto(draft.id);
-  await quote.transition("פתיחה לעריכה (אותו מזהה)");
+  await quote.returnToEditing();
   await expect(sharing.getByRole("switch", { name: LINK_COPY.SHARING_SWITCH })).toBeDisabled();
   await expect(quote.field("פרויקט (אופציונלי)")).toBeDisabled();
   await expect(quote.field("לקוח *")).toBeDisabled();

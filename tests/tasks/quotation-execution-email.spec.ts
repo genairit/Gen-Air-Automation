@@ -11,21 +11,24 @@ import {
 
 import { join } from "node:path";
 import { simpleParser } from "mailparser";
+import type { Page, Request } from "@playwright/test";
 import { createTaskPage } from "../../src/pages/tasks.page.ts";
 import { isRecord } from "../../src/utilities/guard.utility.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
-import { readdir, readFile, writeFile, unlink } from "node:fs/promises";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { seedBuilding, seedCustomer } from "../../src/api/seed-data.ts";
+import { readdir, readFile, writeFile, unlink } from "node:fs/promises";
 import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 import { createQuotationEmailPage } from "../../src/pages/quotation-email.page.ts";
+import { monitorDirectorySearch } from "../../src/utilities/contact-search.utility.ts";
 import { createTestDatabaseClient } from "../../src/environment/test-database-client.ts";
 import { createApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { BASELINE_PERMISSIONS } from "../../src/constants/permission-baseline.constant.ts";
 import { createUniqueEmail, createUniqueName } from "../../src/utilities/test-data.utility.ts";
+import { createQuotation, quotationWrite, saveQuotation } from "../../src/api/quotation.api.ts";
 
 const ROOT_FOLDER = "test-project-root";
 const NESTED_FOLDER = "test-nested-folder";
@@ -67,8 +70,55 @@ const seedQuotation = async (api: Parameters<typeof seedCustomer>[0]) => {
     title: `הצעת מחיר — ${apartment.name}`,
     description: "הכנת הצעה",
   });
+  const created = await createQuotation(api, apartmentCustomer.id);
+  const quotation = await saveQuotation(api, created.id, {
+    ...quotationWrite(created),
+    projectId: apartment.id,
+  });
   customerProjectIds.set(apartmentCustomer.id, apartment.id);
-  return { building, apartment, apartmentCustomer, apartmentNumber, task };
+  return { building, apartment, apartmentCustomer, apartmentNumber, task, quotation };
+};
+
+const approvePlan = async (
+  api: Parameters<typeof seedCustomer>[0],
+  apiAs: (credentials: (typeof TEST_USERS)[keyof typeof TEST_USERS]) => Promise<typeof api>,
+  fixture: Awaited<ReturnType<typeof seedQuotation>>,
+  version: string,
+) => {
+  const draftResponse = await api.send(HTTP_METHODS.POST, "/execution-plan", {
+    quotationId: fixture.quotation.id,
+    projectId: fixture.apartment.id,
+    driveFileId: `qa-plan-${fixture.apartment.id}`,
+    planVersion: version,
+  });
+  expect(draftResponse.status()).toBe(201);
+  const draft = (await draftResponse.json()) as {
+    id: string;
+    revision: number;
+    checklist: { key: string }[];
+  };
+  const checklistResponse = await api.send(
+    HTTP_METHODS.PATCH,
+    `/execution-plan/${draft.id}/checklist`,
+    { revision: draft.revision, confirmedKeys: draft.checklist.map(item => item.key) },
+  );
+  expect(checklistResponse.status()).toBe(200);
+  const checked = (await checklistResponse.json()) as { revision: number };
+  const submitResponse = await api.send(HTTP_METHODS.POST, `/execution-plan/${draft.id}/submit`, {
+    revision: checked.revision,
+  });
+  expect(submitResponse.status()).toBe(201);
+  const pending = (await submitResponse.json()) as { revision: number };
+  const lead = await apiAs(TEST_USERS[USER_ROLES.ENGINEERING_LEAD]);
+  const approvedResponse = await lead.send(
+    HTTP_METHODS.POST,
+    `/execution-plan/${draft.id}/decision`,
+    {
+      revision: pending.revision,
+      decision: "approve",
+    },
+  );
+  expect(approvedResponse.status()).toBe(201);
 };
 
 const customerProjectIds = new Map<string, string>();
@@ -102,22 +152,84 @@ const completeQuotation = async (api: Parameters<typeof seedCustomer>[0], taskId
   expect(response.status()).toBe(200);
 };
 
-test("quotation completion offers an optional email and cancelling keeps the task complete", async ({
+const EMAIL_FLOW = {
+  SENT: "sent",
+  ATTACHMENT: "attachment",
+  COMPOSE: "שליחת תוכנית לביצוע במייל",
+  SEND_SUFFIX: "/send",
+  API_PREFIX: "/api/quotation-execution-email/",
+  STATUS_FAILURE: "QA status update unavailable",
+} as const;
+
+const mailFiles = async (): Promise<string[]> =>
+  (await readdir(AUTOMATION_DIRECTORIES.MAIL)).filter(name => name.endsWith(".eml"));
+
+const monitorEmailDispatch = (page: Page): Request[] => {
+  const requests: Request[] = [];
+  const observe = (request: Request): void => {
+    const path = new URL(request.url()).pathname;
+    const isEmailSend =
+      path.startsWith(EMAIL_FLOW.API_PREFIX) && path.endsWith(EMAIL_FLOW.SEND_SUFFIX);
+    if (request.method() === HTTP_METHODS.POST && isEmailSend) {
+      requests.push(request);
+    }
+  };
+  page.on("request", observe);
+  return requests;
+};
+
+test("status changes remain passive and only the explicit button opens composition", async ({
   page,
   api,
 }) => {
   const { task } = await seedQuotation(api);
+  const before = await mailFiles();
+  const requests = monitorEmailDispatch(page);
   const taskPage = createTaskPage(page);
-  await taskPage.goto(task.id);
-  await expect(page.getByRole("button", { name: "שליחת תוכנית לביצוע במייל" })).toHaveCount(0);
-  await taskPage.statusTab(TASK_STATUS_NAMES.QUOTE_SENT).click();
   const emailPage = createQuotationEmailPage(page);
-  const dialog = emailPage.dialog;
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByText("שלב 1 מתוך 2", { exact: false })).toBeVisible();
+  const compose = page.getByRole("button", { name: EMAIL_FLOW.COMPOSE });
+  const statusRoute = `**/api/task/${task.id}/status`;
+  await taskPage.goto(task.id);
+  await expect(compose).toHaveCount(0);
+  await expect(emailPage.dialog).toHaveCount(0);
+  await page.route(statusRoute, route =>
+    route.fulfill({
+      status: 503,
+      json: { message: EMAIL_FLOW.STATUS_FAILURE },
+    }),
+  );
+  const failed = page.waitForResponse(response =>
+    response.url().endsWith(`/task/${task.id}/status`),
+  );
+  await taskPage.statusTab(TASK_STATUS_NAMES.QUOTE_SENT).click();
+  expect((await failed).status()).toBe(503);
+  expect((await api.getTask(task.id)).status).toBe(TASK_STATUSES.NOT_STARTED);
+  await expect(emailPage.dialog).toHaveCount(0);
+  await expect(compose).toHaveCount(0);
+  await page.unroute(statusRoute);
+  const saved = page.waitForResponse(response =>
+    response.url().endsWith(`/task/${task.id}/status`),
+  );
+  await taskPage.statusTab(TASK_STATUS_NAMES.QUOTE_SENT).click();
+  expect((await saved).status()).toBe(200);
+  await expect(compose).toBeVisible();
+  await expect(emailPage.dialog).toHaveCount(0);
+  expect((await api.getTask(task.id)).status).toBe(TASK_STATUSES.PROPOSAL_SENT);
+  await page.reload();
+  await expect(compose).toBeVisible();
+  await expect(emailPage.dialog).toHaveCount(0);
+  await taskPage.statusTab(TASK_STATUS_NAMES.QUOTE_SENT).click();
+  await expect(emailPage.dialog).toHaveCount(0);
+  await compose.click();
+  await expect(emailPage.dialog).toBeVisible();
+  await expect(emailPage.dialog.getByText("שלב 1 מתוך 2", { exact: false })).toBeVisible();
+  expect(requests).toHaveLength(0);
+  expect(await mailFiles()).toEqual(before);
   await emailPage.cancel();
-  await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "שליחת תוכנית לביצוע במייל" })).toBeVisible();
+  await expect(emailPage.dialog).toHaveCount(0);
+  await expect(compose).toBeFocused();
+  expect(requests).toHaveLength(0);
+  expect(await mailFiles()).toEqual(before);
   expect((await api.getTask(task.id)).status).toBe(TASK_STATUSES.PROPOSAL_SENT);
   const status = await api.send(HTTP_METHODS.GET, `/quotation-execution-email/${task.id}/status`);
   expect(status.status()).toBe(200);
@@ -128,7 +240,7 @@ test("email choices use shared blue controls and fit a reduced-motion mobile dia
   page,
   api,
 }) => {
-  const { apartmentCustomer, task } = await seedQuotation(api);
+  const { apartmentCustomer, task, quotation } = await seedQuotation(api);
   const architectName = createUniqueName("אדריכלית");
   await addContact(api, apartmentCustomer.id, architectName, createUniqueEmail("architect"));
   await completeQuotation(api, task.id);
@@ -141,6 +253,7 @@ test("email choices use shared blue controls and fit a reduced-motion mobile dia
   await expect(dialog).toHaveCSS("direction", "rtl");
   await expect(dialog).toHaveCSS("border-radius", "22px");
   await emailPage.chooseArchitect(architectName);
+  await emailPage.chooseQuotation(quotation.number);
   await expect(dialog.getByRole("checkbox", { name: new RegExp(architectName) })).toBeChecked();
   await expect(dialog.getByRole("button", { name: "אדריכל ✓" })).toBeVisible();
   await emailPage.setVersion("03");
@@ -172,8 +285,11 @@ test("recipient selection, nested file picker and exact preview require explicit
   page,
   api,
 }) => {
-  const { building, apartment, apartmentCustomer, apartmentNumber, task } =
+  const { building, apartment, apartmentCustomer, apartmentNumber, task, quotation } =
     await seedQuotation(api);
+  const before = await mailFiles();
+  const requests = monitorEmailDispatch(page);
+  const directorySearch = monitorDirectorySearch(page);
   const architectName = createUniqueName("אדריכלית");
   const architectEmail = createUniqueEmail("architect");
   const unrelatedEmail = createUniqueEmail("unrelated");
@@ -209,11 +325,14 @@ test("recipient selection, nested file picker and exact preview require explicit
   await emailPage.open(task.id);
   const dialog = emailPage.dialog;
   await expect(dialog.getByText(architectName, { exact: false })).toBeVisible();
+  expect(directorySearch.queries).toEqual([]);
   await expect(dialog.getByText(unrelatedEmail)).toHaveCount(0);
   await expect(dialog.getByText("ללא דואל", { exact: false })).toHaveCount(0);
   const next = emailPage.nextButton;
   await expect(next).toBeDisabled();
   await emailPage.chooseArchitect(architectName);
+  expect(directorySearch.queries).toEqual([]);
+  await emailPage.chooseQuotation(quotation.number);
   await expect(next).toBeDisabled();
   await emailPage.setVersion("03");
   await emailPage.continueToFiles();
@@ -236,13 +355,18 @@ test("recipient selection, nested file picker and exact preview require explicit
   await expect(dialog.getByText("אדמין מנהל", { exact: true })).toBeVisible();
   await emailPage.cancel();
   expect((await api.getTask(task.id)).status).toBe(TASK_STATUSES.PROPOSAL_SENT);
+  expect(directorySearch.queries).toEqual([]);
+  directorySearch.dispose();
+  expect(requests).toHaveLength(0);
+  expect(await mailFiles()).toEqual(before);
 });
 
 test("selected contacts receive one exact email with two files and replay returns the saved receipt", async ({
   api,
+  apiAs,
 }) => {
-  const { building, apartment, apartmentCustomer, apartmentNumber, task } =
-    await seedQuotation(api);
+  const fixture = await seedQuotation(api);
+  const { building, apartment, apartmentCustomer, apartmentNumber, task, quotation } = fixture;
   const architectName = createUniqueName("אדריכלית");
   const architect = await addContact(
     api,
@@ -269,10 +393,12 @@ test("selected contacts receive one exact email with two files and replay return
     "qa-unselected@example.test",
   );
   await completeQuotation(api, task.id);
+  await approvePlan(api, apiAs, fixture, "03");
   const requestId = crypto.randomUUID();
   const path = `/quotation-execution-email/${task.id}`;
   const payload = {
     requestId,
+    quotationId: quotation.id,
     recipientContactIds: [architect.id, other.id, duplicateAddress.id],
     architectContactId: architect.id,
     planVersion: "03",
@@ -280,6 +406,32 @@ test("selected contacts receive one exact email with two files and replay return
     zipFileId: `qa-zip-${apartment.id}`,
   };
   const existingMailFiles = new Set(await readdir(AUTOMATION_DIRECTORIES.MAIL));
+  expect(
+    (
+      await api.send(HTTP_METHODS.POST, `${path}/send`, {
+        ...payload,
+        requestId: crypto.randomUUID(),
+        planVersion: "04",
+      })
+    ).status(),
+  ).toBe(409);
+  const otherCreated = await createQuotation(api, apartmentCustomer.id);
+  const otherQuotation = await saveQuotation(api, otherCreated.id, {
+    ...quotationWrite(otherCreated),
+    projectId: apartment.id,
+  });
+  expect(
+    (
+      await api.send(HTTP_METHODS.POST, `${path}/send`, {
+        ...payload,
+        requestId: crypto.randomUUID(),
+        quotationId: otherQuotation.id,
+      })
+    ).status(),
+  ).toBe(409);
+  expect(
+    (await readdir(AUTOMATION_DIRECTORIES.MAIL)).filter(name => name.endsWith(".eml")),
+  ).toHaveLength([...existingMailFiles].filter(name => name.endsWith(".eml")).length);
   const simultaneous = await Promise.all([
     api.send(HTTP_METHODS.POST, `${path}/send`, payload),
     api.send(HTTP_METHODS.POST, `${path}/send`, payload),
@@ -368,7 +520,7 @@ test("server rejects early, foreign, duplicate and unauthorized sends without ch
   api,
   apiAs,
 }) => {
-  const { apartmentCustomer, task } = await seedQuotation(api);
+  const { apartmentCustomer, task, quotation } = await seedQuotation(api);
   const selected = await addContact(
     api,
     apartmentCustomer.id,
@@ -385,6 +537,7 @@ test("server rejects early, foreign, duplicate and unauthorized sends without ch
   const path = `/quotation-execution-email/${task.id}`;
   const draft = {
     requestId: crypto.randomUUID(),
+    quotationId: quotation.id,
     recipientContactIds: [selected.id],
     architectContactId: selected.id,
     planVersion: "03",
@@ -445,15 +598,17 @@ test("server rejects early, foreign, duplicate and unauthorized sends without ch
       expect((await api.send(HTTP_METHODS.POST, `${path}/send`, draft)).status()).toBe(403);
     });
   }
-  expect((await api.send(HTTP_METHODS.POST, `${path}/send`, draft)).status()).toBe(400);
+  expect((await api.send(HTTP_METHODS.POST, `${path}/send`, draft)).status()).toBe(409);
   expect((await api.send(HTTP_METHODS.GET, `${path}/status`)).status()).toBe(200);
   expect((await api.getTask(task.id)).status).toBe(TASK_STATUSES.PROPOSAL_SENT);
 });
 
-test("unavailable and outside-project files record failure, then a new request can succeed", async ({
+test("unapproved and outside-project plans cannot send, then the approved file succeeds", async ({
   api,
+  apiAs,
 }) => {
-  const { apartment, apartmentCustomer, task } = await seedQuotation(api);
+  const fixture = await seedQuotation(api);
+  const { apartment, apartmentCustomer, task, quotation } = fixture;
   const architect = await addContact(
     api,
     apartmentCustomer.id,
@@ -461,9 +616,11 @@ test("unavailable and outside-project files record failure, then a new request c
     "qa-architect@example.test",
   );
   await completeQuotation(api, task.id);
+  await approvePlan(api, apiAs, fixture, "04");
   const path = `/quotation-execution-email/${task.id}`;
   const payload = {
     requestId: crypto.randomUUID(),
+    quotationId: quotation.id,
     recipientContactIds: [architect.id],
     architectContactId: architect.id,
     planVersion: "04",
@@ -471,9 +628,9 @@ test("unavailable and outside-project files record failure, then a new request c
     zipFileId: `qa-zip-${apartment.id}`,
   };
   const before = (await readdir(AUTOMATION_DIRECTORIES.MAIL)).length;
-  expect((await api.send(HTTP_METHODS.POST, `${path}/send`, payload)).status()).toBe(404);
+  expect((await api.send(HTTP_METHODS.POST, `${path}/send`, payload)).status()).toBe(409);
   const failed = await api.send(HTTP_METHODS.GET, `${path}/status`);
-  expect(await failed.json()).toMatchObject({ status: "failed", retryable: true });
+  expect(await failed.text()).toBe("");
   expect((await api.send(HTTP_METHODS.POST, `${path}/send`, payload)).status()).toBe(409);
   expect(
     (
@@ -483,7 +640,7 @@ test("unavailable and outside-project files record failure, then a new request c
         planFileId: "qa-foreign-plan",
       })
     ).status(),
-  ).toBe(400);
+  ).toBe(409);
   const delivered = await api.send(HTTP_METHODS.POST, `${path}/send`, {
     ...payload,
     requestId: crypto.randomUUID(),
@@ -495,8 +652,89 @@ test("unavailable and outside-project files record failure, then a new request c
   expect((await api.getTask(task.id)).status).toBe(TASK_STATUSES.PROPOSAL_SENT);
 });
 
-test("partial SMTP delivery stays uncertain and cannot resend automatically", async ({ api }) => {
-  const { apartment, apartmentCustomer, task } = await seedQuotation(api);
+test("a revised plan draft and pending review block sending an older approval", async ({
+  api,
+  apiAs,
+}) => {
+  const fixture = await seedQuotation(api);
+  const { apartment, apartmentCustomer, quotation, task } = fixture;
+  const architect = await addContact(
+    api,
+    apartmentCustomer.id,
+    createUniqueName("אדריכלית"),
+    "qa-architect@example.test",
+  );
+  await completeQuotation(api, task.id);
+  await approvePlan(api, apiAs, fixture, "01");
+  const payload = {
+    quotationId: quotation.id,
+    requestId: crypto.randomUUID(),
+    recipientContactIds: [architect.id],
+    architectContactId: architect.id,
+    planVersion: "01",
+    planFileId: `qa-plan-${apartment.id}`,
+    zipFileId: `qa-zip-${apartment.id}`,
+  };
+  const mailBefore = (await readdir(AUTOMATION_DIRECTORIES.MAIL)).filter(name =>
+    name.endsWith(".eml"),
+  ).length;
+  const draftResponse = await api.send(HTTP_METHODS.POST, "/execution-plan", {
+    quotationId: quotation.id,
+    projectId: apartment.id,
+    driveFileId: `qa-revised-plan-${apartment.id}`,
+    planVersion: "02",
+  });
+  expect(draftResponse.status()).toBe(201);
+  const draft = (await draftResponse.json()) as {
+    id: string;
+    revision: number;
+    checklist: { key: string }[];
+  };
+  const sendPath = `/quotation-execution-email/${task.id}/send`;
+  expect((await api.send(HTTP_METHODS.POST, sendPath, payload)).status()).toBe(409);
+  const checkedResponse = await api.send(
+    HTTP_METHODS.PATCH,
+    `/execution-plan/${draft.id}/checklist`,
+    {
+      revision: draft.revision,
+      confirmedKeys: draft.checklist.map(item => item.key),
+    },
+  );
+  expect(checkedResponse.status()).toBe(200);
+  const checked = (await checkedResponse.json()) as { revision: number };
+  const pendingResponse = await api.send(HTTP_METHODS.POST, `/execution-plan/${draft.id}/submit`, {
+    revision: checked.revision,
+  });
+  expect(pendingResponse.status()).toBe(201);
+  expect((await api.send(HTTP_METHODS.POST, sendPath, payload)).status()).toBe(409);
+  expect(
+    (await readdir(AUTOMATION_DIRECTORIES.MAIL)).filter(name => name.endsWith(".eml")),
+  ).toHaveLength(mailBefore);
+  const pending = (await pendingResponse.json()) as { revision: number };
+  const lead = await apiAs(TEST_USERS[USER_ROLES.ENGINEERING_LEAD]);
+  const approved = await lead.send(HTTP_METHODS.POST, `/execution-plan/${draft.id}/decision`, {
+    revision: pending.revision,
+    decision: "approve",
+  });
+  expect(approved.status()).toBe(201);
+  const sent = await api.send(HTTP_METHODS.POST, sendPath, {
+    ...payload,
+    requestId: crypto.randomUUID(),
+    planVersion: "02",
+    planFileId: `qa-revised-plan-${apartment.id}`,
+  });
+  expect(sent.status()).toBe(201);
+  expect(
+    (await readdir(AUTOMATION_DIRECTORIES.MAIL)).filter(name => name.endsWith(".eml")),
+  ).toHaveLength(mailBefore + 1);
+});
+
+test("partial SMTP delivery stays uncertain and cannot resend automatically", async ({
+  api,
+  apiAs,
+}) => {
+  const fixture = await seedQuotation(api);
+  const { apartment, apartmentCustomer, task, quotation } = fixture;
   const architect = await addContact(
     api,
     apartmentCustomer.id,
@@ -510,9 +748,11 @@ test("partial SMTP delivery stays uncertain and cannot resend automatically", as
     "qa-rejected@example.test",
   );
   await completeQuotation(api, task.id);
+  await approvePlan(api, apiAs, fixture, "05");
   const path = `/quotation-execution-email/${task.id}`;
   const payload = {
     requestId: crypto.randomUUID(),
+    quotationId: quotation.id,
     recipientContactIds: [architect.id, rejected.id],
     architectContactId: architect.id,
     planVersion: "05",
@@ -530,8 +770,10 @@ test("partial SMTP delivery stays uncertain and cannot resend automatically", as
 
 test("unavailable signature image records retryable failure without SMTP or task rollback", async ({
   api,
+  apiAs,
 }) => {
-  const { apartment, apartmentCustomer, task } = await seedQuotation(api);
+  const fixture = await seedQuotation(api);
+  const { apartment, apartmentCustomer, task, quotation } = fixture;
   const architect = await addContact(
     api,
     apartmentCustomer.id,
@@ -539,11 +781,13 @@ test("unavailable signature image records retryable failure without SMTP or task
     "qa-architect@example.test",
   );
   await completeQuotation(api, task.id);
+  await approvePlan(api, apiAs, fixture, "08");
   const marker = `${AUTOMATION_DIRECTORIES.MAIL}/fail-logo`;
   const before = (await readdir(AUTOMATION_DIRECTORIES.MAIL)).length;
   const path = `/quotation-execution-email/${task.id}`;
   const payload = {
     requestId: crypto.randomUUID(),
+    quotationId: quotation.id,
     recipientContactIds: [architect.id],
     architectContactId: architect.id,
     planVersion: "08",
@@ -565,23 +809,62 @@ test("unavailable signature image records retryable failure without SMTP or task
 test("browser sends selected project files and shows the saved success state", async ({
   page,
   api,
+  apiAs,
 }) => {
-  const { apartmentCustomer, task } = await seedQuotation(api);
+  const before = new Set(await mailFiles());
+  const requests = monitorEmailDispatch(page);
+  const fixture = await seedQuotation(api);
+  const { apartmentCustomer, task, quotation } = fixture;
   const architectName = createUniqueName("אדריכלית");
   await addContact(api, apartmentCustomer.id, architectName, "qa-architect@example.test");
   await completeQuotation(api, task.id);
+  await approvePlan(api, apiAs, fixture, "06");
   const emailPage = createQuotationEmailPage(page);
   await emailPage.open(task.id);
   await emailPage.chooseArchitect(architectName);
+  await emailPage.chooseQuotation(quotation.number);
   await emailPage.setVersion("06");
   await emailPage.continueToFiles();
   await emailPage.openNestedFolder();
   await emailPage.choosePlan();
   await emailPage.chooseZip();
+  expect(requests).toHaveLength(0);
+  expect(new Set(await mailFiles())).toEqual(before);
   await emailPage.sendButton.click();
   const dialog = emailPage.dialog;
   await expect(dialog.getByText("המייל כבר נשלח בהצלחה.")).toBeVisible();
   await expect(dialog.getByRole("button", { name: "שלח מייל" })).toHaveCount(0);
+  expect(requests).toHaveLength(1);
+  const delivered = (await mailFiles()).filter(name => !before.has(name));
+  expect(delivered).toHaveLength(1);
+  const filename = delivered[0];
+  if (!filename) {
+    throw new Error("The confirmed browser send has no SMTP message");
+  }
+  const message = await simpleParser(await readFile(join(AUTOMATION_DIRECTORIES.MAIL, filename)));
+  expect(
+    message.attachments
+      .filter(file => file.contentDisposition === EMAIL_FLOW.ATTACHMENT)
+      .map(file => file.filename)
+      .sort(),
+  ).toEqual([ZIP_FILE.name, PLAN_FILE.name]);
+  const receiptPath = `/quotation-execution-email/${task.id}/status`;
+  const receiptResponse = await api.send(HTTP_METHODS.GET, receiptPath);
+  const receipt: unknown = await receiptResponse.json();
+  if (
+    !isRecord(receipt) ||
+    receipt.status !== EMAIL_FLOW.SENT ||
+    typeof receipt.providerMessageId !== "string"
+  ) {
+    throw new Error("The confirmed browser send has no durable sent receipt");
+  }
+  expect(message.messageId).toBe(receipt.providerMessageId);
+  await emailPage.cancel();
+  await emailPage.open(task.id);
+  await expect(dialog.getByText("המייל כבר נשלח בהצלחה.")).toBeVisible();
+  await expect(emailPage.sendButton).toHaveCount(0);
+  expect(requests).toHaveLength(1);
+  expect((await mailFiles()).filter(name => !before.has(name))).toEqual(delivered);
   await emailPage.cancel();
   expect((await api.getTask(task.id)).status).toBe(TASK_STATUSES.PROPOSAL_SENT);
 });
@@ -590,7 +873,7 @@ test("browser reports unavailable project files and keeps completion after cance
   page,
   api,
 }) => {
-  const { apartment, apartmentCustomer, task } = await seedQuotation(api);
+  const { apartment, apartmentCustomer, task, quotation } = await seedQuotation(api);
   const architectName = createUniqueName("אדריכלית");
   await addContact(api, apartmentCustomer.id, architectName, "qa-architect@example.test");
   await completeQuotation(api, task.id);
@@ -600,6 +883,7 @@ test("browser reports unavailable project files and keeps completion after cance
   const emailPage = createQuotationEmailPage(page);
   await emailPage.open(task.id);
   await emailPage.chooseArchitect(architectName);
+  await emailPage.chooseQuotation(quotation.number);
   await emailPage.setVersion("07");
   await emailPage.continueToFiles();
   const dialog = emailPage.dialog;
@@ -615,6 +899,11 @@ test("missing apartment number blocks preview and send but leaves the quotation 
 }) => {
   const customer = await seedCustomer(api);
   const building = await seedBuilding(api, customer);
+  const created = await createQuotation(api, customer.id);
+  const quotation = await saveQuotation(api, created.id, {
+    ...quotationWrite(created),
+    projectId: building.id,
+  });
   const task = await api.createTask({
     projectId: building.id,
     taskType: TASK_TYPES.QUOTATION,
@@ -643,6 +932,7 @@ test("missing apartment number blocks preview and send but leaves the quotation 
   expect(preview.status()).toBe(400);
   const send = await api.send(HTTP_METHODS.POST, `${path}/send`, {
     requestId: crypto.randomUUID(),
+    quotationId: quotation.id,
     recipientContactIds: [architect.id],
     architectContactId: architect.id,
     planVersion: "09",

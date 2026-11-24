@@ -14,7 +14,7 @@ import {
 import {
   USER_ROLES,
   USER_ROLE_LABELS,
-  USER_ROLE_VALUES,
+  ASSIGNABLE_USER_ROLE_VALUES,
 } from "../../src/constants/user-role.constant.ts";
 
 import { seedMultiRoleUser } from "../../src/api/multi-role.ts";
@@ -77,7 +77,7 @@ test("admin edits assigned roles without choosing an active role and receives a 
   const row = employees.findRow(user.email);
   await row.getByRole("button", { name: MULTIPLE_ROLES_COPY.EDIT }).click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByRole("checkbox")).toHaveCount(USER_ROLE_VALUES.length);
+  await expect(dialog.getByRole("checkbox")).toHaveCount(ASSIGNABLE_USER_ROLE_VALUES.length);
   await expect(dialog.getByRole("radio")).toHaveCount(0);
   await dialog.getByRole("checkbox", { name: USER_ROLE_LABELS[FINANCE], exact: true }).check();
   await expect(dialog.getByRole("radio")).toHaveCount(0);

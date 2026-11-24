@@ -111,3 +111,22 @@ export const seedQuotationDesign = async (api: TGenAirApi) => {
   });
   return { quotation, customer, project };
 };
+
+export const seedQuotationWarnings = async (
+  api: TGenAirApi,
+): Promise<Awaited<ReturnType<typeof seedQuotationDesign>>> => {
+  const fixture = await seedQuotationDesign(api);
+  const input = quotationWrite({
+    ...fixture.quotation,
+    sections: fixture.quotation.sections.map(section => ({
+      ...section,
+      items: section.items.filter(item => {
+        const isLinkedControl = item.parentItemId !== null;
+        const isPiping = item.sku === "PL-VRF1";
+        return !isLinkedControl && !isPiping;
+      }),
+    })),
+  });
+  const quotation = await saveQuotation(api, fixture.quotation.id, input);
+  return { ...fixture, quotation };
+};

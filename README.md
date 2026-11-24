@@ -51,7 +51,8 @@ A changed combined sprint SQL revision fails closed until its fingerprint is rev
 | `npm run report -- <artifact-directory>/html` | Open the HTML report of that run                             |
 | `npm run stack`                               | Start only the stack, to explore the app on `localhost:5180` |
 
-No Docker, database or Google credentials are needed.
+The ordinary stack needs no Docker, database or Google credentials. PDF/publication QA additionally
+needs a disposable local RabbitMQ 4.1 broker; CI provisions one automatically.
 
 ## How the stack works
 
@@ -95,7 +96,7 @@ The promotion candidate merge commit is tested, including its destination branch
 promotion directions and fork callers fail before installing dependencies or running Playwright.
 Merge or promote backend dependencies into the matching destination first. A missing API/schema
 contract fails the integration suite; merge the backend dependency and rerun the frontend gate.
-The summary records immutable frontend, backend and Automation revisions. Existing coverage,
+The summary records immutable frontend, backend, Worker and Automation revisions. Existing coverage,
 isolated seeded Postgres, faked integrations and report/trace retention remain in use.
 
 Backend test pushes run a lightweight notifier, which marks eligible open frontend PRs pending
@@ -207,12 +208,17 @@ test messages remain under the private artifact directory and must not be upload
 `GEN_AIR_QA_PORT_OFFSET` shifts the app, database, Places, and SMTP ports when another local stack
 is active.
 
+[Filename coverage](docs/quotation-filenames.md) records the revised canonical template and immutable legacy-job checks.
+
 Quotation PDF QA uses the real renderer from an adjacent Gen-Air-Worker checkout. Set
 `GEN_AIR_PDF_QA=true` and provide a local Chromium executable through
 `CHROMIUM_EXECUTABLE_PATH`; `GEN_AIR_WORKER_DIR` overrides the adjacent checkout path.
-The suite starts an isolated authenticated HTTP harness around the renderer because the
-Worker's queue process requires RabbitMQ. The Nest Worker HTTP controller and RabbitMQ
-consumer are covered separately by Worker tests. The main backend, disposable Postgres,
+The suite starts the actual candidate Nest Worker from an empty temporary runtime directory,
+linking only its assets and dependencies. It requires a disposable localhost RabbitMQ 4.1 broker
+(`GEN_AIR_TEST_RABBITMQ_URL`, default port 5678 with local throwaway credentials), and rejects
+non-loopback broker hosts. Each artifact directory derives a unique queue prefix shared with
+the Backend. CI provisions its own RabbitMQ service per shard. Both synchronous manual download
+and durable Backend publisher → Worker/Chromium → result adoption execute through real candidate code. The main backend, disposable Postgres,
 and fake Google Drive run in the normal Automation stack. Generated PDF evidence stays
 under `GEN_AIR_ARTIFACTS_DIR`.
 
@@ -220,7 +226,7 @@ under `GEN_AIR_ARTIFACTS_DIR`.
 export GEN_AIR_PDF_QA=true
 export CHROMIUM_EXECUTABLE_PATH=/absolute/path/to/chromium
 export GEN_AIR_ARTIFACTS_DIR="$(mktemp -d /tmp/genair-pdf-qa.XXXXXX)"
-npx playwright test tests/quotations/quotation-pdf.spec.ts --project=chromium --retries=0
+npx playwright test tests/quotations/quotation-pdf.spec.ts tests/quotations/quotation-filenames.spec.ts --project=chromium --retries=0
 ```
 
 ```bash

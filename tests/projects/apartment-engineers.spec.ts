@@ -141,7 +141,7 @@ test("apartment engineer is recommended for task assignment and urgent recipient
   const form = createTaskFormPage(page);
   await page.goto(`${ROUTES.NEW_TASK}?projectId=${apartment.id}`);
   const recommended = (await form.openAssigneeOptions()).filter({
-    hasText: `${formatFullName(engineer)} · עובד ההנדסה של הדירה`,
+    hasText: `${formatFullName(engineer)} · העובד ההנדסי של הדירה`,
   });
   await expect(recommended).toBeVisible();
   await recommended.click();
@@ -158,7 +158,7 @@ test("apartment engineer is recommended for task assignment and urgent recipient
   await taskPage.goto(task.id);
   await expect(
     (await taskPage.openAssigneeOptions()).filter({
-      hasText: `${formatFullName(engineer)} · עובד ההנדסה של הדירה`,
+      hasText: `${formatFullName(engineer)} · העובד ההנדסי של הדירה`,
     }),
   ).toBeVisible();
 
@@ -167,7 +167,7 @@ test("apartment engineer is recommended for task assignment and urgent recipient
   await expect(
     (await form.openAssigneeOptions()).filter({ hasText: formatFullName(engineer) }),
   ).toBeVisible();
-  await expect(page.getByText("עובד ההנדסה של הדירה")).toHaveCount(0);
+  await expect(page.getByText("העובד ההנדסי של הדירה")).toHaveCount(0);
 });
 
 test("Excel-imported apartment starts with no engineer and permits a later local assignment", async ({

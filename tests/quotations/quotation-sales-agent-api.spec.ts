@@ -14,13 +14,15 @@ const quotation = (id: string) => `/quotation/${id}`;
 const salesAgent = (id: string) => `${quotation(id)}/sales-agent`;
 const directory = "/quotation/sales-agents";
 
-test("eligible sales employee can be assigned, changed, cleared and retained after role change or deletion", async ({
+test("eligible engineer or admin can be assigned, changed, cleared and retained after role change or deletion", async ({
   api,
+  apiAs,
 }) => {
   const customer = await seedCustomer(api);
-  const first = await seedUser(api, USER_ROLES.SALES_AGENT);
-  const second = await seedUser(api, USER_ROLES.SALES_AGENT);
+  const first = await seedUser(api, USER_ROLES.ENGINEER);
+  const second = await seedUser(api, USER_ROLES.SYSTEM_ADMIN);
   const nonSales = await seedUser(api, USER_ROLES.INSTALLER);
+  const retired = await apiAs(TEST_USERS[USER_ROLES.SALES_AGENT]);
   const unassigned = await createQuotation(api, customer.id);
   expect(unassigned.salesAgentId).toBeNull();
   expect(unassigned.salesAgentName).toBeNull();
@@ -36,6 +38,9 @@ test("eligible sales employee can be assigned, changed, cleared and retained aft
   );
   expect(agents).not.toEqual(
     expect.arrayContaining([expect.objectContaining({ id: nonSales.id })]),
+  );
+  expect(agents).not.toEqual(
+    expect.arrayContaining([expect.objectContaining({ id: retired.session.user.id })]),
   );
 
   const created = await quotationDocument(
@@ -108,7 +113,7 @@ test("approved quotation accepts agent reassignment without changing its approva
   api,
 }) => {
   const { quotation: approved } = await seedQuotationForDeletion(api, QUOTATION.STATUS.APPROVED);
-  const agent = await seedUser(api, USER_ROLES.SALES_AGENT);
+  const agent = await seedUser(api, USER_ROLES.ENGINEER);
   const updated = await quotationDocument(
     await api.send(HTTP_METHODS.PATCH, salesAgent(approved.id), {
       version: approved.version,
@@ -134,10 +139,11 @@ test("invalid, unrelated and inaccessible employee IDs are rejected without chan
   apiAs,
 }) => {
   const customer = await seedCustomer(api);
-  const eligible = await seedUser(api, USER_ROLES.SALES_AGENT);
+  const eligible = await seedUser(api, USER_ROLES.SYSTEM_ADMIN);
   const unrelated = await seedUser(api, USER_ROLES.INSTALLER);
+  const retired = await apiAs(TEST_USERS[USER_ROLES.SALES_AGENT]);
   const initial = await createQuotation(api, customer.id);
-  for (const id of [randomUUID(), unrelated.id]) {
+  for (const id of [randomUUID(), unrelated.id, retired.session.user.id]) {
     expect(
       (
         await api.send(HTTP_METHODS.PATCH, salesAgent(initial.id), {
@@ -188,7 +194,7 @@ test("invalid, unrelated and inaccessible employee IDs are rejected without chan
   ).toBeNull();
 });
 
-test("sales role has no implicit quotation grants and cancelled quotations reject assignment", async ({
+test("retired sales role has no implicit grants and cancelled quotations reject assignment", async ({
   api,
   apiAs,
 }) => {
@@ -197,7 +203,7 @@ test("sales role has no implicit quotation grants and cancelled quotations rejec
   expect((await actor.send(HTTP_METHODS.GET, directory)).status()).toBe(403);
   expect((await actor.send(HTTP_METHODS.GET, "/quotation")).status()).toBe(403);
   const customer = await seedCustomer(api);
-  const agent = await seedUser(api, USER_ROLES.SALES_AGENT);
+  const agent = await seedUser(api, USER_ROLES.ENGINEER);
   const initial = await createQuotation(api, customer.id);
   const cancelled = await quotationDocument(
     await api.send(HTTP_METHODS.POST, `${quotation(initial.id)}/cancel`, {

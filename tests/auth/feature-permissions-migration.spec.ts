@@ -53,7 +53,10 @@ test("feature migration preserves existing data and enforces grants, keys and pr
     );
     expect(roles.rows.map(row => row.role)).toEqual(
       USER_ROLE_VALUES.filter(
-        role => role !== USER_ROLES.PURCHASING_EXECUTION_MANAGER && role !== USER_ROLES.SALES_AGENT,
+        role =>
+          role !== USER_ROLES.PURCHASING_EXECUTION_MANAGER &&
+          role !== USER_ROLES.ENGINEERING_LEAD &&
+          role !== USER_ROLES.SALES_AGENT,
       ).sort(),
     );
     const security = await database.query(

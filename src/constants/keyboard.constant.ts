@@ -1,4 +1,7 @@
 export const KEYBOARD_KEYS = {
+  TAB: "Tab",
+  SPACE: "Space",
+  SHIFT: "Shift",
   ENTER: "Enter",
   ESCAPE: "Escape",
   ARROW_DOWN: "ArrowDown",

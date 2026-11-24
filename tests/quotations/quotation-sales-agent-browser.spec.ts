@@ -18,11 +18,13 @@ import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 const PICKER = "סוכן מכירות (אופציונלי)";
 
 const chooseSalesAgent = async (page: Page, firstName: string): Promise<void> => {
+  const quote = createQuotationPage(page);
   await page.getByRole("combobox", { name: PICKER }).first().click();
+  await quote.entitySearch(PICKER).fill(firstName);
   await page.getByRole("option", { name: new RegExp(firstName) }).click();
 };
 
-test("quotation creator selects a sales employee, changes and clears it, and reload preserves each result", async ({
+test("quotation creator selects an engineer, changes to admin and clears it", async ({
   page,
   api,
 }) => {
@@ -30,8 +32,8 @@ test("quotation creator selects a sales employee, changes and clears it, and rel
     ...buildCustomerInput(),
     paymentTerms: PAYMENT_TERMS.PREPAID,
   });
-  const first = await seedUser(api, USER_ROLES.SALES_AGENT);
-  const second = await seedUser(api, USER_ROLES.SALES_AGENT);
+  const first = await seedUser(api, USER_ROLES.ENGINEER);
+  const second = await seedUser(api, USER_ROLES.SYSTEM_ADMIN);
   const quote = createQuotationPage(page);
 
   await page.goto("/quotations");
@@ -59,16 +61,18 @@ test("quotation creator selects a sales employee, changes and clears it, and rel
     );
   }
   await agentPicker.click();
+  const agentSearch = quote.entitySearch(PICKER);
+  await agentSearch.fill(first.firstName);
   const agentOption = page.getByRole("option", { name: new RegExp(first.firstName) });
   await expect(agentOption).toBeVisible();
   const employeeNumber = (await agentOption.textContent())?.split("·").at(-1)?.trim() ?? "";
   expect(employeeNumber).not.toBe("");
-  await agentPicker.fill("missing-agent-name");
-  await expect(page.getByText("לא נמצאו תוצאות", { exact: true })).toBeVisible();
-  await agentPicker.fill(employeeNumber);
+  await agentSearch.fill("missing-agent-name");
+  await expect(page.getByRole("option", { name: "אין אפשרויות" })).toBeVisible();
+  await agentSearch.fill(employeeNumber);
   await expect(agentOption).toContainText(employeeNumber);
-  await agentPicker.press("ArrowDown");
-  await agentPicker.press("Enter");
+  await agentSearch.press("ArrowDown");
+  await agentSearch.press("Enter");
   await expect(page.getByRole("combobox", { name: PICKER }).first()).toHaveValue(
     new RegExp(first.firstName),
   );
@@ -104,11 +108,7 @@ test("quotation creator selects a sales employee, changes and clears it, and rel
       new URL(response.url()).pathname.endsWith(`/quotation/${id}`),
   );
   await agentPicker.hover();
-  await page
-    .locator(".MuiAutocomplete-root")
-    .filter({ has: agentPicker })
-    .getByRole("button", { name: "נקה בחירה" })
-    .click();
+  await agentPicker.locator("../..").getByRole("button", { name: "נקה בחירה" }).click();
   expect((await cleared).status()).toBe(200);
   await page.reload();
   await expect(page.getByRole("combobox", { name: PICKER }).first()).toHaveValue("");
@@ -117,7 +117,9 @@ test("quotation creator selects a sales employee, changes and clears it, and rel
   ).toBeNull();
   await page.setViewportSize({ width: 390, height: 844 });
   await expectQuotationWithinViewport(page, [agentPicker, clientPicker]);
-  await agentPicker.focus();
+  await agentPicker.click();
+  await quote.entitySearch(PICKER).fill(second.firstName);
+  await expect(page.getByRole("option", { name: new RegExp(second.firstName) })).toBeVisible();
   await expect(page.getByRole("listbox")).toBeVisible();
   await expectQuotationWithinViewport(page, [page.getByRole("listbox")]);
   await agentPicker.press("Escape");
@@ -132,7 +134,7 @@ test("quotation editor hides employee selection from a quotation-only user while
     ...buildCustomerInput(),
     paymentTerms: PAYMENT_TERMS.PREPAID,
   });
-  const agent = await seedUser(api, USER_ROLES.SALES_AGENT);
+  const agent = await seedUser(api, USER_ROLES.ENGINEER);
   const created = await quotationDocument(
     await api.send(HTTP_METHODS.POST, "/quotation", {
       customerId: customer.id,
@@ -159,7 +161,7 @@ test("quotation editor preserves a former agent name and retries a failed agent 
   api,
 }) => {
   const customer = await api.createCustomer(buildCustomerInput());
-  const agent = await seedUser(api, USER_ROLES.SALES_AGENT);
+  const agent = await seedUser(api, USER_ROLES.ENGINEER);
   const created = await quotationDocument(
     await api.send(HTTP_METHODS.POST, "/quotation", {
       customerId: customer.id,

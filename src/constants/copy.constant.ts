@@ -23,7 +23,7 @@ export const LOGIN_COPY = {
 export const NAVIGATION_COPY = {
   TASKS: "משימות",
   LOGOUT: "התנתק",
-  BOARD: "לוח בקרה",
+  BOARD: "תיקים",
   SETTINGS: "הגדרות",
   CUSTOMERS: "לקוחות",
   EMPLOYEES: "ניהול עובדים",
@@ -46,7 +46,8 @@ export const CUSTOMERS_COPY = {
   PENDING_SYNC: "ממתין ל-Priority",
   CREATE_DENIED: "אין הרשאה ליצירת לקוחות",
   MANAGERS_ONLY: "רק מנהלים עם הרשאת ניהול לקוחות יכולים ליצור לקוחות",
-  SEARCH_PLACEHOLDER: "חיפוש לפי שם, ח.פ, איש קשר, טלפון או מזהה Priority...",
+  SEARCH_PLACEHOLDER: "חיפוש לפי שם, ח.פ, טלפון, דוא״ל או מזהה Priority...",
+  PICKER_SEARCH_PLACEHOLDER: "חיפוש לקוח לפי שם, ח.פ, טלפון או דוא״ל...",
 } as const;
 
 export const CUSTOMER_FORM_COPY = {
@@ -60,12 +61,12 @@ export const CUSTOMER_FORM_COPY = {
   SUMMARY: "מה יישמר",
   REQUIRED: "שדה חובה",
   IDENTITY: "זהות הלקוח",
-  CONTACT: "איש קשר של הלקוח (לא חובה)",
+  CONTACT: "פרטי קשר של הלקוח (לא חובה)",
   CONFLICT_STATUS: "הפעולה מתנגשת בנתונים קיימים",
   DUPLICATE_TAX_ID: "לקוח עם מספר מזהה זה כבר קיים",
   FIELDS: {
-    PHONE: "טלפון",
-    EMAIL: "דוא״ל",
+    PHONE: "טלפון ראשי של הלקוח",
+    EMAIL: "דוא״ל של הלקוח",
     ADDRESS: "כתובת",
     NAME: "שם הלקוח",
     TAX_ID: "ח.פ / ת.פ / ת.ז",
@@ -79,14 +80,13 @@ export const CUSTOMER_FIELD_NAMES: CustomerFieldType[] = [
   "NAME",
   "TAX_ID",
   "ADDRESS",
-  "CONTACT_NAME",
   "PHONE",
   "EMAIL",
 ];
 
 export const CUSTOMER_IDENTITY_FIELD_NAMES: CustomerFieldType[] = ["NAME", "TAX_ID", "ADDRESS"];
 
-export const CUSTOMER_CONTACT_FIELD_NAMES: CustomerFieldType[] = ["CONTACT_NAME", "PHONE", "EMAIL"];
+export const CUSTOMER_CONTACT_FIELD_NAMES: CustomerFieldType[] = ["PHONE", "EMAIL"];
 
 export const CUSTOMER_FIELD_PLACEHOLDERS: Record<CustomerFieldType, string> = {
   TAX_ID: "9 ספרות",
@@ -157,6 +157,7 @@ export const PROJECT_FORM_COPY = {
   DELETE: "מחק פרויקט",
   ROLES_TITLE: "הקצאת תפקידים וצוות",
   DRAFT_RESTORED: "טיוטת הפרויקט שוחזרה",
+  DRAFT_NOTICE: "פרטי הפרויקט נשמרים כטיוטה במכשיר זה",
   CREATE_DENIED: "אין הרשאה ליצירת פרויקטים",
   EDIT_DENIED: "אין הרשאה לעריכת פרויקטים",
   ADDRESS: "כתובת הפרויקט",
@@ -166,7 +167,7 @@ export const PROJECT_FORM_COPY = {
   ADDRESS_VERIFIED: "כתובת מאומתת ע״י Google Maps",
   CONTACT_NAME_PLACEHOLDER: SHARED_COPY.PERSON_NAME_PLACEHOLDER,
   CONTACT_PHONE_PLACEHOLDER: SHARED_COPY.MOBILE_PHONE_PLACEHOLDER,
-  CUSTOMER_SEARCH_PLACEHOLDER: "חיפוש לקוח לפי שם, ח.פ, איש קשר או טלפון...",
+  CUSTOMER_SEARCH_PLACEHOLDER: CUSTOMERS_COPY.PICKER_SEARCH_PLACEHOLDER,
 } as const;
 
 export const BUILDING_NOTES_COPY = {
@@ -239,7 +240,7 @@ export const TASK_COPY = {
 } as const;
 
 export const TASK_FORM_COPY = {
-  POOL_OPTION: "מאגר פתוח — כל מהנדס יכול למשוך",
+  POOL_OPTION: "מאגר פתוח — כל עובד הנדסי יכול למשוך",
   SAVE: "שמור משימה",
   DUE_DATE: "תאריך יעד",
   TITLE_PLACEHOLDER: "לדוגמה: תיאום ביקור באתר",

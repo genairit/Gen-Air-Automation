@@ -324,7 +324,7 @@ test("customer page shows the details and the Priority sync status", async ({ pa
   await expect(page).toHaveURL(buildCustomerRoute(customer.id));
   await expect(page.getByRole("heading", { name: customer.name })).toBeVisible();
   await expect(page.getByText(CUSTOMERS_COPY.DETAILS_TITLE)).toBeVisible();
-  await expect(page.getByText(customer.primaryContact?.name ?? "", { exact: true })).toBeVisible();
+  await expect(page.getByText(customer.primaryContact?.email ?? "", { exact: true })).toBeVisible();
   await expect(page.getByText(CUSTOMERS_COPY.PENDING_SYNC)).not.toHaveCount(0);
 });
 
@@ -358,7 +358,6 @@ test("a server failure preserves the customer form and retry persists the custom
   await expect(page).toHaveURL(ROUTE_PATTERNS.CUSTOMER);
   await expect(page.getByRole("heading", { name: customer.name })).toBeVisible();
   await expect(page.getByText(customer.taxId)).toBeVisible();
-  await expect(page.getByText(customer.contactName)).toBeVisible();
   await expect(page.getByText(customer.email)).toBeVisible();
 });
 

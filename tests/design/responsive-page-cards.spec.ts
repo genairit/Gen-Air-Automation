@@ -16,16 +16,14 @@ import {
 import type { Page, Locator } from "@playwright/test";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { findCardByTitle } from "../../src/pages/card.component.ts";
-import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { FAKE_PLACES } from "../../src/constants/fake-places.constant.ts";
-import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { ROUTES, ROUTE_SEGMENTS } from "../../src/constants/routes.constant.ts";
 
 interface ICardPair {
   first: string;
   second: string;
-  widePlacement?: "adaptive";
+  widePlacement?: "adaptive" | "stacked";
 }
 
 interface IPageScenario {
@@ -106,8 +104,8 @@ for (const viewport of VIEWPORTS) {
         name: "customer",
         path: buildCustomerRoute(customer.id),
         pairs: [
-          { first: "פרטי הלקוח", second: "איש קשר של הלקוח" },
-          { first: "סנכרון עם Priority", second: "תנאי תשלום" },
+          { first: "פרטי הלקוח", second: "פרטי קשר של הלקוח" },
+          { first: "סנכרון עם Priority", second: "תנאי תשלום כברירת מחדל" },
         ],
       },
       {
@@ -134,7 +132,7 @@ for (const viewport of VIEWPORTS) {
         name: "new customer",
         path: ROUTES.NEW_CUSTOMER,
         pairs: [
-          { first: "זהות הלקוח", second: "בחר איש קשר קיים", widePlacement: "adaptive" },
+          { first: "זהות הלקוח", second: "פרטי קשר של הלקוח (לא חובה)", widePlacement: "stacked" },
           { first: "תנאי תשלום כברירת מחדל", second: "מה יישמר", widePlacement: "adaptive" },
         ],
       },
@@ -158,62 +156,66 @@ for (const viewport of VIEWPORTS) {
       },
     ];
 
-    await page.setViewportSize({ width: viewport.width, height: viewport.height });
     for (const scenario of scenarios) {
-      await test.step(scenario.name, async () => {
-        await page.goto(scenario.path);
-        if (scenario.name === "task") {
-          const urgency = findCardByTitle(page, "משימה רגילה");
-          const details = findCardByTitle(page, "פרטי המשימה");
-          await expect(urgency).toBeVisible();
-          await expect(details).toBeVisible();
-          await expectCardsFit(page, urgency, details);
-          const urgencyBox = await urgency.boundingBox();
-          const detailsBox = await details.boundingBox();
-          if (!urgencyBox || !detailsBox) {
-            throw new Error("Expected task strip and details bounds");
+      await test.step(scenario.name, async (): Promise<void> => {
+        const scenarioPage = await page.context().newPage();
+        try {
+          await scenarioPage.setViewportSize({ width: viewport.width, height: viewport.height });
+          await scenarioPage.goto(scenario.path);
+          if (scenario.name === "task") {
+            const urgency = findCardByTitle(scenarioPage, "משימה רגילה");
+            const details = findCardByTitle(scenarioPage, "פרטי המשימה");
+            await expect(urgency).toBeVisible();
+            await expect(details).toBeVisible();
+            await expectCardsFit(scenarioPage, urgency, details);
+            const urgencyBox = await urgency.boundingBox();
+            const detailsBox = await details.boundingBox();
+            if (!urgencyBox || !detailsBox) {
+              throw new Error("Expected task strip and details bounds");
+            }
+            expect(detailsBox.y).toBeGreaterThanOrEqual(urgencyBox.y + urgencyBox.height - 2);
+            expect(Math.abs(urgencyBox.width - detailsBox.width)).toBeLessThanOrEqual(2);
           }
-          expect(detailsBox.y).toBeGreaterThanOrEqual(urgencyBox.y + urgencyBox.height - 2);
-          expect(Math.abs(urgencyBox.width - detailsBox.width)).toBeLessThanOrEqual(2);
-        }
-        for (const pair of scenario.pairs) {
-          const first = findCardByTitle(page, pair.first).first();
-          const second = findCardByTitle(page, pair.second).first();
-          await expect(first).toBeVisible();
-          await expect(second).toBeVisible();
-          await expectCardsFit(page, first, second);
-          await expectPairPlacement(
-            first,
-            second,
-            viewport.width === 1600 ? (pair.widePlacement ?? viewport.placement) : viewport.placement,
-          );
-        }
-        if (viewport.width === 1600 || viewport.width === 390) {
-          await page.screenshot({
-            path: test
-              .info()
-              .outputPath(`${scenario.name.replaceAll(" ", "-")}-${viewport.width}.png`),
-            fullPage: true,
-          });
+          for (const pair of scenario.pairs) {
+            const first = findCardByTitle(scenarioPage, pair.first).first();
+            const second = findCardByTitle(scenarioPage, pair.second).first();
+            await expect(first).toBeVisible();
+            await expect(second).toBeVisible();
+            await expectCardsFit(scenarioPage, first, second);
+            await expectPairPlacement(
+              first,
+              second,
+              viewport.width === 1600
+                ? (pair.widePlacement ?? viewport.placement)
+                : viewport.placement,
+            );
+          }
+          if (viewport.width === 1600 || viewport.width === 390) {
+            await scenarioPage.screenshot({
+              path: test
+                .info()
+                .outputPath(`${scenario.name.replaceAll(" ", "-")}-${viewport.width}.png`),
+              fullPage: true,
+            });
+          }
+        } finally {
+          await scenarioPage.close();
         }
       });
     }
   });
 }
 
-test("mobile contact search and project address picker remain usable", async ({ page, api }) => {
-  const name = createUniqueName("איש קשר לנייד");
-  const created = await api.send(HTTP_METHODS.POST, "/contact-directory", {
-    name,
-    phone: "+12025550123",
-  });
-  expect(created.status()).toBe(201);
+test("mobile own customer details and project address picker remain usable", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(ROUTES.NEW_CUSTOMER);
-  const picker = findCardByTitle(page, "בחר איש קשר קיים");
-  await picker.getByPlaceholder("שם, טלפון או דוא״ל").fill(name);
-  await picker.getByRole("button", { name: `בחר ${name}` }).click();
-  await expect(picker.getByText(name, { exact: false })).toBeVisible();
+  await page
+    .getByRole("textbox", { name: "טלפון ראשי של הלקוח", exact: true })
+    .fill("+12025550123");
+  await page
+    .getByRole("textbox", { name: "דוא״ל של הלקוח", exact: true })
+    .fill("mobile-own@example.test");
+  await expect(page.getByPlaceholder("שם, טלפון או דוא״ל")).toHaveCount(0);
 
   const projectForm = createProjectFormPage(page);
   await projectForm.goto();

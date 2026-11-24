@@ -55,17 +55,18 @@ they are not test gates introduced by this policy.
 
 ## Test-gate freshness and recovery
 
-The frontend dev → test gate pins its candidate merge, backend test SHA and Automation SHA. It
-rejects wrong directions, forks, conflicts, unavailable candidates and moving head/base revisions.
-A failed suite or changed backend/head/base cannot publish successful compatibility.
+The frontend dev → test gate pins its candidate merge, backend test SHA, Worker test SHA and
+Automation SHA. It rejects wrong directions, forks, conflicts, unavailable candidates and moving head/base revisions.
+A failed suite or changed backend/Worker/head/base cannot publish successful compatibility.
 
 Backend test pushes invalidate eligible frontend dev → test results before rerunning their latest
 completed gate. No active/absent run is replaced with fake success: wait and explicitly rerun.
-The notifier observes neither backend dev nor main. Keep frontend test merges paused while backend
-test promotion/notifier processing is active; GitHub events provide no atomic cross-repo lock.
+The notifier observes neither backend dev nor main. Worker pushes do not trigger a notifier;
+finish-time checks reject Worker test movement, requiring an explicit fresh gate run. Keep frontend
+test merges paused while backend test promotion/notifier processing is active; GitHub events provide no atomic cross-repo lock.
 
-Merge backend dependencies into test before running the frontend gate. Fix infrastructure/token
-failures and rerun only the affected dev → test gate. Feature failures instead require a fix,
+Merge backend and Worker dependencies into test before running the frontend gate. Fix
+infrastructure/token failures and rerun only the affected dev → test gate. Feature failures instead require a fix,
 review and targeted QA against the changed revisions, without a full suite. Never reuse stale QA.
 Never reset hosted databases for CI or publish credentials/artifacts containing tokens.
 
@@ -89,6 +90,33 @@ job budget, leaving room for startup, cleanup and its own retained report. Shard
 are not cancelled when a sibling fails. Artifact names include the shard number.
 The aggregate job keeps the existing required `End-to-end / Playwright` check name.
 Only that job publishes Backend compatibility, and only all-shard success plus a
-fresh backend/head/base can pass. Failed, cancelled, skipped or timed-out work
+fresh backend/Worker/head/base can pass. Failed, cancelled, skipped or timed-out work
 cannot publish success. A failed revision-resolution step also fails the aggregate
 check. Feature → dev and test → main policies are unchanged.
+
+## Disposable PDF publication broker — task 186
+
+Every full-suite shard starts its own `rabbitmq:4.1-management` Actions service with
+fixed disposable `quotation_test` credentials and explicit loopback bindings
+`127.0.0.1:5678:5672` and `127.0.0.1:15678:15672`. A bounded
+RabbitMQ health check runs before the job steps. RabbitMQ 4.1's default 16 MiB message
+limit accommodates the PDF protocol's maximum 6 MiB result; do not lower it below that
+contract. No company broker or production secret is used.
+
+`GEN_AIR_PDF_QA=true` enables the actual candidate Nest Worker and Backend publication
+path. `GEN_AIR_TEST_RABBITMQ_URL` supplies the loopback test broker. The harness starts
+Worker from an empty temporary runtime directory, assigns Backend and Worker the same
+per-run queue prefix, and uses separate `.pdf.jobs`/`.pdf.results` queues; CSV queues
+remain unchanged. Its existing HTTP PDF endpoint remains available for download tests.
+
+`GEN_AIR_TEST_RABBITMQ_MANAGEMENT_URL=http://127.0.0.1:15678` lets the discovered
+publication recovery spec inspect redelivery metrics for its own isolated queues.
+Management authentication derives from the disposable broker URL; credentials are
+never printed. Recovery exercises use per-run connections and queues without stopping
+the shared service. The wrapper runs inside the existing suite, with no added CI step.
+
+Resolution records all four immutable revisions in the job summary. Worker checks out
+the resolved `test` commit, and the aggregate gate re-reads both Backend and Worker
+`test` before publishing compatibility. Merge Worker into `test` before frontend
+promotion; a later Worker movement invalidates a running result and needs a fresh run.
+This adds no feature suite, main gate, Worker push trigger or duplicate full suite.

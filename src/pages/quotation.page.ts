@@ -2,6 +2,7 @@ import { expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { selectMuiOption } from "./mui-select.component.ts";
 import { HTTP_METHODS } from "../constants/http.constant.ts";
+import { LIFECYCLE_COPY } from "../constants/quotation-lifecycle.constant.ts";
 
 export const createQuotationPage = (page: Page) => {
   const button = (name: string) => page.getByRole("button", { name, exact: true });
@@ -11,6 +12,8 @@ export const createQuotationPage = (page: Page) => {
       .or(page.getByRole("combobox", { name, exact: true }))
       .or(page.getByRole("textbox", { name, exact: true }))
       .or(page.getByRole("spinbutton", { name, exact: true }));
+  const entitySearch = (name: string) =>
+    page.getByRole("dialog", { name, exact: true }).getByRole("combobox", { name, exact: true });
   const saved = async (action: () => Promise<unknown>) => {
     const response = page.waitForResponse(
       response =>
@@ -29,7 +32,8 @@ export const createQuotationPage = (page: Page) => {
   const addBrandTab = (brand: string) =>
     saved(() => selectMuiOption(page, field("הוספת לשונית חברה"), brand));
   const chooseEntity = async (name: string, label: string) => {
-    await field(name).fill(label);
+    await field(name).click();
+    await entitySearch(name).fill(label);
     await page.getByRole("option", { name: label, exact: true }).click();
   };
   const selectEntity = (name: string, label: string) => saved(() => chooseEntity(name, label));
@@ -46,6 +50,21 @@ export const createQuotationPage = (page: Page) => {
     );
     await button(name).click();
     expect((await response).status()).toBe(201);
+    await expect(page.getByRole("alert")).toHaveCount(0);
+  };
+  const returnToEditing = async (): Promise<void> => {
+    await button(LIFECYCLE_COPY.RETURN).click();
+    const dialog = page.getByRole("dialog", { name: LIFECYCLE_COPY.RETURN, exact: true });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText("היסטוריית המסמך תישמר");
+    const response = page.waitForResponse(
+      (response): boolean =>
+        response.url().endsWith("/review") && response.request().method() === HTTP_METHODS.POST,
+    );
+    await dialog.getByRole("button", { name: LIFECYCLE_COPY.CONFIRM_RETURN, exact: true }).click();
+    expect((await response).status()).toBe(201);
+    await expect(dialog).toHaveCount(0);
+    await expect(button(LIFECYCLE_COPY.RETURN)).toHaveCount(0);
     await expect(page.getByRole("alert")).toHaveCount(0);
   };
   const acknowledge = async () => {
@@ -67,6 +86,7 @@ export const createQuotationPage = (page: Page) => {
     page,
     button,
     field,
+    entitySearch,
     saved,
     fill,
     select,
@@ -76,6 +96,7 @@ export const createQuotationPage = (page: Page) => {
     add,
     amount,
     transition,
+    returnToEditing,
     acknowledge,
     goto: (id: string) => page.goto(`/quotations/${id}`),
   };
