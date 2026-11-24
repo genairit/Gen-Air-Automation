@@ -12,6 +12,7 @@ import {
   ASSIGNABLE_USER_ROLE_VALUES,
 } from "../../src/constants/user-role.constant.ts";
 
+import type { Response } from "@playwright/test";
 import { seedUser } from "../../src/api/seed-data.ts";
 import { isRecord } from "../../src/utilities/guard.utility.ts";
 import { ROUTES } from "../../src/constants/routes.constant.ts";
@@ -111,6 +112,20 @@ test("the role filters narrow the table to assignable roles", async ({ page, api
   const employeesPage = createEmployeesPage(page);
   const employees = await Promise.all(ASSIGNABLE_USER_ROLE_VALUES.map(role => seedUser(api, role)));
 
+  const filteredResponses = new Map<string, Response>();
+  page.on("response", (response): void => {
+    const url = new URL(response.url());
+    const isRead = response.request().method() === HTTP_METHODS.GET;
+    const isUsersPath = url.pathname.endsWith("/user");
+    if (!isRead || !isUsersPath) {
+      return;
+    }
+    const key = JSON.stringify({
+      role: url.searchParams.get("role"),
+      email: url.searchParams.get("search"),
+    });
+    filteredResponses.set(key, response);
+  });
   await employeesPage.goto();
 
   const expectRoleSearch = async ({
@@ -118,17 +133,14 @@ test("the role filters narrow the table to assignable roles", async ({ page, api
     email,
     expectedEmails,
   }: IEmployeeRoleSearchExpectation): Promise<void> => {
-    const filtered = page.waitForResponse((response): boolean => {
-      const url = new URL(response.url());
-      const isRead = response.request().method() === HTTP_METHODS.GET;
-      const isUsersPath = url.pathname.endsWith("/user");
-      const matchesRole = url.searchParams.get("role") === role;
-      const matchesSearch = url.searchParams.get("search") === email;
-      return isRead && isUsersPath && matchesRole && matchesSearch;
-    });
+    const key = JSON.stringify({ role, email });
     await employeesPage.roleTab(role).click();
     await employeesPage.searchBox.fill(email);
-    const response = await filtered;
+    await expect.poll((): boolean => filteredResponses.has(key)).toBe(true);
+    const response = filteredResponses.get(key);
+    if (!response) {
+      throw new Error("Missing the actual employee role/search response");
+    }
     expect(response.status()).toBe(200);
     const body: unknown = await response.json();
     if (!isRecord(body) || !Array.isArray(body.items) || !body.items.every(isUserRecord)) {
@@ -202,6 +214,8 @@ test("employee edit and delete actions fit inside their table cell on desktop an
 
   await employeesPage.goto();
   await employeesPage.searchBox.fill(employee.email);
+  await expect(employeesPage.findRow(employee.email)).toBeVisible();
+  await expectSingleResultRow(page);
 
   const actionCell = employeesPage.findRow(employee.email).getByRole("cell").last();
   const actions = [EMPLOYEES_COPY.EDIT_EMPLOYEE, EMPLOYEES_COPY.DELETE_EMPLOYEE];
@@ -220,9 +234,8 @@ test("employee edit and delete actions fit inside their table cell on desktop an
 
     for (const name of actions) {
       const button = actionCell.getByRole("button", { name });
-      const bounds = await button.boundingBox();
-
       await expect(button).toBeVisible();
+      const bounds = await button.boundingBox();
       if (!bounds) {
         throw new Error(`${name} is not visible`);
       }
