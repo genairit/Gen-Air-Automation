@@ -8,19 +8,30 @@ import {
 import {
   USER_ROLES,
   USER_ROLE_LABELS,
+  type UserRoleType,
   ASSIGNABLE_USER_ROLE_VALUES,
 } from "../../src/constants/user-role.constant.ts";
 
+import type { Response } from "@playwright/test";
 import { seedUser } from "../../src/api/seed-data.ts";
+import { isRecord } from "../../src/utilities/guard.utility.ts";
 import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { createLoginPage } from "../../src/pages/login.page.ts";
 import { readTabCount } from "../../src/pages/tab.component.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
+import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { VIEWPORTS } from "../../src/constants/viewport.constant.ts";
 import { EMPLOYEES_COPY } from "../../src/constants/copy.constant.ts";
 import { createEmployeesPage } from "../../src/pages/employees.page.ts";
-import { expectSingleResultRow } from "../../src/pages/table.component.ts";
+import { isUserRecord } from "../../src/utilities/entity-guard.utility.ts";
 import { EMPTY_AUTH_STATE } from "../../src/constants/auth-state.constant.ts";
+import { expectSingleResultRow, expectResultRowCount } from "../../src/pages/table.component.ts";
+
+interface IEmployeeRoleSearchExpectation {
+  email: string;
+  role: UserRoleType;
+  expectedEmails: string[];
+}
 
 const NEW_EMPLOYEE_PREFIXES = { NAME: "עובדת חדשה", EMAIL: "new-employee" } as const;
 
@@ -101,19 +112,69 @@ test("the role filters narrow the table to assignable roles", async ({ page, api
   const employeesPage = createEmployeesPage(page);
   const employees = await Promise.all(ASSIGNABLE_USER_ROLE_VALUES.map(role => seedUser(api, role)));
 
+  const filteredResponses = new Map<string, Response>();
+  page.on("response", (response): void => {
+    const url = new URL(response.url());
+    const isRead = response.request().method() === HTTP_METHODS.GET;
+    const isUsersPath = url.pathname.endsWith("/user");
+    if (!isRead || !isUsersPath) {
+      return;
+    }
+    const key = JSON.stringify({
+      role: url.searchParams.get("role"),
+      email: url.searchParams.get("search"),
+    });
+    filteredResponses.set(key, response);
+  });
   await employeesPage.goto();
 
-  for (const [index, employee] of employees.entries()) {
-    const otherRoleEmployee = employees[(index + 1) % employees.length];
+  const expectRoleSearch = async ({
+    role,
+    email,
+    expectedEmails,
+  }: IEmployeeRoleSearchExpectation): Promise<void> => {
+    const key = JSON.stringify({ role, email });
+    await employeesPage.roleTab(role).click();
+    await employeesPage.searchBox.fill(email);
+    await expect.poll((): boolean => filteredResponses.has(key)).toBe(true);
+    const response = filteredResponses.get(key);
+    if (!response) {
+      throw new Error("Missing the actual employee role/search response");
+    }
+    expect(response.status()).toBe(200);
+    const body: unknown = await response.json();
+    if (!isRecord(body) || !Array.isArray(body.items) || !body.items.every(isUserRecord)) {
+      throw new Error("Expected a filtered employee page with assigned roles");
+    }
+    expect(body.items.map((user): string => user.email)).toEqual(expectedEmails);
+    await expectResultRowCount(page, expectedEmails.length);
+  };
 
-    await employeesPage.roleTab(employee.role).click();
-    await employeesPage.searchBox.fill(employee.email);
-
-    await expect(employeesPage.findRow(employee.email)).toBeVisible();
-
-    await employeesPage.searchBox.fill(otherRoleEmployee.email);
-
-    await expect(employeesPage.findRow(otherRoleEmployee.email)).toHaveCount(0);
+  for (const employee of employees) {
+    const included =
+      employee.role === USER_ROLES.ENGINEER
+        ? employees.filter((candidate): boolean =>
+            [USER_ROLES.ENGINEER, USER_ROLES.ENGINEERING_LEAD].some(
+              (role): boolean => role === candidate.role,
+            ),
+          )
+        : [employee];
+    for (const matching of included) {
+      await expectRoleSearch({
+        role: employee.role,
+        email: matching.email,
+        expectedEmails: [matching.email],
+      });
+      await expect(employeesPage.findRow(matching.email)).toBeVisible();
+    }
+    const excludedRole =
+      employee.role === USER_ROLES.ENGINEER ? USER_ROLES.SECRETARY : USER_ROLES.ENGINEER;
+    const excluded = employees.find((candidate): boolean => candidate.role === excludedRole);
+    if (!excluded) {
+      throw new Error("Missing employee outside the selected role's eligibility group");
+    }
+    await expectRoleSearch({ role: employee.role, email: excluded.email, expectedEmails: [] });
+    await expect(employeesPage.findRow(excluded.email)).toHaveCount(0);
   }
 });
 
@@ -153,6 +214,8 @@ test("employee edit and delete actions fit inside their table cell on desktop an
 
   await employeesPage.goto();
   await employeesPage.searchBox.fill(employee.email);
+  await expect(employeesPage.findRow(employee.email)).toBeVisible();
+  await expectSingleResultRow(page);
 
   const actionCell = employeesPage.findRow(employee.email).getByRole("cell").last();
   const actions = [EMPLOYEES_COPY.EDIT_EMPLOYEE, EMPLOYEES_COPY.DELETE_EMPLOYEE];
@@ -171,9 +234,8 @@ test("employee edit and delete actions fit inside their table cell on desktop an
 
     for (const name of actions) {
       const button = actionCell.getByRole("button", { name });
-      const bounds = await button.boundingBox();
-
       await expect(button).toBeVisible();
+      const bounds = await button.boundingBox();
       if (!bounds) {
         throw new Error(`${name} is not visible`);
       }
