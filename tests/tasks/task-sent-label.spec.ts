@@ -157,8 +157,13 @@ test("sent control sends the stable key once for each task type and cancelling o
     page.on("request", record);
     await detail.statusTab(TASK_STATUS_NAMES.QUOTE_SENT).focus();
     await page.keyboard.press(KEYBOARD_KEYS.ENTER);
+    await expectTabSelected(detail.statusTab(TASK_STATUS_NAMES.QUOTE_SENT));
     if (task.taskType === TASK_TYPES.QUOTATION) {
-      await createQuotationEmailPage(page).cancel();
+      const email = createQuotationEmailPage(page);
+      await expect(email.dialog).toHaveCount(0);
+      await email.open(task.id);
+      await expect(email.dialog).toBeVisible();
+      await email.cancel();
     }
     await expectTabSelected(detail.statusTab(TASK_STATUS_NAMES.QUOTE_SENT));
     await expect(
