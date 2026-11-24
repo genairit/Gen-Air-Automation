@@ -1,6 +1,8 @@
+import { CUSTOMERS_COPY } from "./copy.constant.ts";
+
 export const APARTMENT_DESIGN_COPY = {
   CUSTOMER_TITLE: "לקוח הדירה *",
-  CUSTOMER_SEARCH: "חיפוש לקוח לפי שם, ח.פ, איש קשר או טלפון...",
+  CUSTOMER_SEARCH: CUSTOMERS_COPY.PICKER_SEARCH_PLACEHOLDER,
   CUSTOMER_REQUIRED: "בחר לקוח לדירה לפני השמירה",
   VALIDATION_COUNT: "יש 3 שדות לתיקון לפני ההוספה",
   CONTACT_TEAM: "צוות הדירה",
@@ -8,8 +10,8 @@ export const APARTMENT_DESIGN_COPY = {
   INHERITED_TITLE: "נתונים מהפרויקט האב",
   END_CUSTOMER: "לקוח קצה — דירה זו",
   TEAM_TITLE: "צוות הדירה",
-  ENGINEER: "עובד הנדסה בדירה",
-  NO_ENGINEER: "ללא עובד הנדסה",
+  ENGINEER: "עובד הנדסי בדירה",
+  NO_ENGINEER: "ללא עובד הנדסי",
   OTHER_TEAM: "שאר צוות הדירה",
   INHERITED: "עובר מהבניין",
   OWN: "שונה בדירה זו",

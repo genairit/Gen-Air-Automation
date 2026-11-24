@@ -1,6 +1,8 @@
-const SECOND_MS = 1000;
+const MILLISECOND_MS = 1;
+const SECOND_MS = 1000 * MILLISECOND_MS;
 
 export const TIME_UNITS = {
   SECOND_MS,
+  MILLISECOND_MS,
   MINUTE_MS: 60 * SECOND_MS,
 } as const;

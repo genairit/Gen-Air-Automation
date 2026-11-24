@@ -1,8 +1,6 @@
 import {
   quotationBox,
-  expectQuotationDeleteFooter,
   expectQuotationWithinViewport,
-  QUOTATION_DELETE_HORIZONTAL_INSET,
 } from "../../src/utilities/quotation-layout.utility.ts";
 
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
@@ -16,7 +14,7 @@ import { QUOTATION, QUOTATION_PERMISSIONS } from "../../src/constants/quotation.
 import { quotationDocument, quotationWrite, saveQuotation } from "../../src/api/quotation.api.ts";
 
 for (const status of Object.values(QUOTATION.STATUS)) {
-  test(`delete card matches design and confirmed ${status} deletion returns to refreshed list`, async ({
+  test(`top-left trash confirms ${status} deletion and returns to refreshed list`, async ({
     page,
     api,
   }, testInfo) => {
@@ -28,75 +26,41 @@ for (const status of Object.values(QUOTATION.STATUS)) {
         deletions.push(request.url());
       }
     });
-    await page.setViewportSize({ width: 1440, height: 1100 });
-    await page.goto("/quotations");
-    await quote.field("חיפוש לפי מספר, לקוח, פרויקט או חברה").fill(customer.name);
-    await expect(page.getByRole("button", { name: "הכל 1", exact: true })).toBeVisible();
-    await page.getByRole("button").filter({ hasText: quotation.number }).click();
-    const remove = quote.button("מחיקת ההצעה");
-    await expect(remove).toBeEnabled();
-    expect((await quotationBox(remove)).height).toBe(44);
-    await expect(remove).toHaveCSS("background-color", "rgb(255, 255, 255)");
-    for (const width of [1440, 1100]) {
+    for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: 1100 });
-      const footer = await expectQuotationDeleteFooter(page, remove);
-      await footer.screenshot({
-        path: testInfo.outputPath(`delete-${status}-${width}-footer.png`),
-      });
+      await quote.goto(quotation.id);
+      const remove = quote.button("מחיקת ההצעה");
+      const action = await quotationBox(remove);
+      const heading = await quotationBox(page.getByRole("heading", { name: quotation.number }));
+      expect(action.width).toBeGreaterThanOrEqual(44);
+      expect(action.height).toBeGreaterThanOrEqual(44);
+      expect(action.x).toBeLessThan(heading.x);
+      await expectQuotationWithinViewport(page, [remove]);
+      await page.screenshot({ path: testInfo.outputPath(`delete-${status}-${width}-header.png`) });
     }
+    const remove = quote.button("מחיקת ההצעה");
     await remove.click();
-    const confirm = quote.button("אישור מחיקת ההצעה");
-    await expect(
-      page.getByText(`למחוק את ${quotation.number}? אי אפשר לשחזר דרך האפליקציה.`, { exact: true }),
-    ).toBeVisible();
-    expect((await quotationBox(confirm)).height).toBe(38);
-    await expect(confirm).toHaveCSS("background-color", "rgb(15, 23, 42)");
+    const dialog = page.getByRole("dialog", { name: "מחיקת הצעה" });
+    await expect(dialog).toContainText(quotation.number);
     expect(deletions).toEqual([]);
-    await quote.button("ביטול").click();
-    await expect(remove).toBeVisible();
+    await dialog.getByRole("button", { name: "חזרה" }).click();
+    await expect(dialog).toHaveCount(0);
     expect(
       (await quotationDocument(await api.send(HTTP_METHODS.GET, `/quotation/${quotation.id}`)))
         .version,
     ).toBe(quotation.version);
-    await page.setViewportSize({ width: 390, height: 1100 });
-    await page.emulateMedia({ reducedMotion: "reduce" });
-    await expectQuotationWithinViewport(page, [remove]);
-    const mobileAction = await quotationBox(remove);
-    const mobileCard = await quotationBox(remove.locator(".."));
-    const mobileReview = await quotationBox(
-      page.getByRole("heading", { name: "בדיקה ואישור", exact: true }).locator(".."),
-    );
-    expect(
-      Math.abs(mobileAction.width - (mobileCard.width - QUOTATION_DELETE_HORIZONTAL_INSET)),
-    ).toBeLessThanOrEqual(1);
-    expect(mobileCard.y).toBeGreaterThanOrEqual(mobileReview.y + mobileReview.height + 23);
-    await remove.scrollIntoViewIfNeeded();
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    await remove.locator("..").screenshot({
-      path: testInfo.outputPath(`delete-${status}-390-footer.png`),
-    });
     await remove.click();
-    await expectQuotationWithinViewport(page, [confirm, quote.button("ביטול")]);
-    await confirm.scrollIntoViewIfNeeded();
-    await page.screenshot({
-      path: testInfo.outputPath(`delete-${status}-mobile.png`),
-      fullPage: true,
-    });
     const response = page.waitForResponse(
       response =>
         response.request().method() === HTTP_METHODS.DELETE &&
         response.url().endsWith(`/quotation/${quotation.id}`),
     );
-    await confirm.click();
+    await dialog.getByRole("button", { name: "מחק הצעה" }).click();
     expect((await response).status()).toBe(204);
     await expect(page).toHaveURL(/\/quotations$/);
-    await expect(page.getByRole("button").filter({ hasText: quotation.number })).toHaveCount(0);
     await quote.field("חיפוש לפי מספר, לקוח, פרויקט או חברה").fill(customer.name);
     await expect(page.getByRole("button", { name: "הכל 0", exact: true })).toBeVisible();
     expect(deletions).toHaveLength(1);
-    await quote.goto(quotation.id);
-    await expect(page.getByRole("alert")).toBeVisible();
-    await expect(remove).toHaveCount(0);
   });
 }
 
@@ -119,7 +83,7 @@ test("failed delete keeps confirmation open, reload resolves actual stale versio
   const conflict = page.waitForResponse(
     response => response.request().method() === HTTP_METHODS.DELETE,
   );
-  await quote.button("אישור מחיקת ההצעה").click();
+  await quote.button("מחק הצעה").click();
   expect((await conflict).status()).toBe(409);
   await expect(page).toHaveURL(new RegExp(`/quotations/${quotation.id}$`));
   await expect(page.getByRole("alert")).toBeVisible();
@@ -128,16 +92,19 @@ test("failed delete keeps confirmation open, reload resolves actual stale versio
   expect(logged).not.toContain("Bearer ");
   expect(logged).not.toContain("Authorization");
   expect(logged).not.toMatch(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/);
-  await expect(quote.button("אישור מחיקת ההצעה")).toBeEnabled();
-  await quote.button("טעינת גרסה מעודכנת").click();
+  await expect(quote.button("מחק הצעה")).toBeEnabled();
+  await quote.button("טען גרסה עדכנית").click();
   await expect(page.getByRole("alert")).toHaveCount(0);
+  await quote.button("חזרה").click();
+  await page.getByText("פרטים נוספים", { exact: true }).click();
   await expect(quote.field("הערות פנימיות (לא יופיעו ללקוח)")).toHaveValue(
     "Changed in another tab",
   );
   const success = page.waitForResponse(
     response => response.request().method() === HTTP_METHODS.DELETE,
   );
-  await quote.button("אישור מחיקת ההצעה").click();
+  await quote.button("מחיקת ההצעה").click();
+  await quote.button("מחק הצעה").click();
   expect((await success).status()).toBe(204);
   await expect(page).toHaveURL(/\/quotations$/);
 });
@@ -165,7 +132,7 @@ test("read-only user cannot see deletion while delete-only grant works independe
       const response = page.waitForResponse(
         response => response.request().method() === HTTP_METHODS.DELETE,
       );
-      await quote.button("אישור מחיקת ההצעה").click();
+      await quote.button("מחק הצעה").click();
       expect((await response).status()).toBe(204);
       await expect(page).toHaveURL(/\/quotations$/);
     },
@@ -200,11 +167,11 @@ test("pending deletion disables confirmation and cancel and dispatches exactly o
   try {
     await quote.goto(quotation.id);
     await quote.button("מחיקת ההצעה").click();
-    await quote.button("אישור מחיקת ההצעה").click();
+    await quote.button("מחק הצעה").click();
     await reached;
-    await expect(quote.button("אישור מחיקת ההצעה")).toBeDisabled();
-    await expect(quote.button("ביטול")).toBeDisabled();
-    await quote.button("אישור מחיקת ההצעה").evaluate(element => {
+    await expect(quote.button("מוחק...")).toBeDisabled();
+    await expect(quote.button("חזרה")).toBeDisabled();
+    await quote.button("מוחק...").evaluate(element => {
       if (element instanceof HTMLButtonElement) {
         element.click();
       }

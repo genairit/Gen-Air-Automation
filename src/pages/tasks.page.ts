@@ -21,6 +21,7 @@ import { ROUTES } from "../constants/routes.constant.ts";
 import { findTab, findCountedTab } from "./tab.component.ts";
 import { buildTaskRoute } from "../utilities/route.utility.ts";
 import type { TaskLinkKindType } from "../constants/domain.constant.ts";
+import { selectDueDate, parseDateInputValue } from "./date-field.component.ts";
 import { buildStartPattern, buildSequencePattern } from "../utilities/regex.utility.ts";
 
 export interface ITaskLinkChoice {
@@ -113,7 +114,7 @@ export const createTaskFormPage = (page: Page) => {
   const fillDetails = async (input: ITaskDetailsInput) => {
     await selectOption(page, assigneePicker, input.assigneeName);
     await form.getByPlaceholder(TASK_FORM_COPY.TITLE_PLACEHOLDER).fill(input.title);
-    await form.locator('input[type="date"]').fill(input.dueDate);
+    await selectDueDate(page, parseDateInputValue(input.dueDate));
     await form.getByPlaceholder(TASK_FORM_COPY.DESCRIPTION_PLACEHOLDER).fill(input.description);
   };
 

@@ -23,9 +23,16 @@ import { selectMuiOption } from "../../src/pages/mui-select.component.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 import { createCatalogueFixture } from "../../src/environment/quotation-fixtures.ts";
 import { QUOTATION, QUOTATION_PERMISSIONS } from "../../src/constants/quotation.constant.ts";
+import { CUSTOMER_PAYMENT_COPY } from "../../src/constants/customer-payment-schedule.constant.ts";
 
 const NOTES = "הערות פנימיות (לא יופיעו ללקוח)";
 const NOTE = "הערה לתנאי התשלום (להצעה זו בלבד)";
+const openDetails = async (page: Parameters<typeof createQuotationPage>[0]) => {
+  const toggle = page.getByRole("button", { name: "פרטים נוספים", exact: true });
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") {
+    await toggle.click();
+  }
+};
 const getQuote = async (api: Parameters<typeof createQuotation>[0], id: string) =>
   quotationDocument(await api.send(HTTP_METHODS.GET, `/quotation/${id}`));
 
@@ -50,6 +57,7 @@ test("customer-first creation, optional project, local payments and RTL desktop/
   await expect(page.getByRole("radio", { name: "תשלום מראש", exact: true })).toBeChecked();
   await expect(quote.field(NOTE)).toHaveValue("");
   await quote.fill(NOTE, "Quotation terms only");
+  await openDetails(page);
   await quote.fill(NOTES, "Internal information");
   await quote.selectEntity("פרויקט (אופציונלי)", project.name);
   expect(
@@ -312,20 +320,18 @@ test("required warnings block approval, explicit self approval and repeated reop
   expect(await warnings.count()).toBeGreaterThan(0);
   await quote.acknowledge();
   await quote.transition("אישור ההצעה");
+  await openDetails(page);
   await expect(quote.field(NOTES)).toBeDisabled();
   await page.reload();
   expect((await getQuote(api, initial.id)).approvedById).not.toBeNull();
   for (const cycle of [1, 2]) {
     await quote.transition("פתיחה לעריכה (אותו מזהה)");
+    await openDetails(page);
     await expect(quote.field(NOTES)).toBeEnabled();
     await quote.fill(NOTES, `Cycle ${cycle}`);
     await quote.transition("סיימתי, לבדיקה");
     await expect(page.getByRole("heading", { name: "סיכום לבדיקה" })).toBeVisible();
-    await quote.button("עריכה").click();
-    await expect(quote.field("אחוז מהסכום").first()).toBeVisible();
-    await quote.transition("חזרה לטיוטה");
-    await expect(quote.field(NOTES)).toHaveValue(`Cycle ${cycle}`);
-    await quote.transition("סיימתי, לבדיקה");
+    await expect((await getQuote(api, initial.id)).internalNotes).toBe(`Cycle ${cycle}`);
     await expect(page.getByRole("heading", { name: "סיכום לבדיקה" })).toBeVisible();
     await quote.acknowledge();
     await quote.transition("אישור ההצעה");
@@ -369,7 +375,7 @@ test("payment stages replace fixed terms, survive reload and require confirmatio
   await quote.transition("סיימתי, לבדיקה");
   await expect(page.getByText("תנאי תשלום: לפי שלבי תשלום", { exact: true })).toBeVisible();
   await expect(page.getByText("30% Deposit · 70% Delivery", { exact: true })).toBeVisible();
-  await quote.transition("חזרה לטיוטה");
+  await quote.button("עריכה").click();
   await page.getByRole("radio", { name: "תשלום מראש", exact: true }).click();
   await expect(quote.button("מחק שלבים ובחר תנאים")).toBeVisible();
   await quote.button("ביטול").click();
@@ -405,7 +411,7 @@ test("legacy conflicting payment data is flagged in editor and review and cannot
     ],
   });
   await page.reload();
-  await expect(page.getByRole("alert")).toContainText("נבחרו גם תנאי תשלום קבועים וגם שלבים");
+  await expect(page.getByRole("alert")).toContainText(CUSTOMER_PAYMENT_COPY.CONFLICT);
   await expect(page.getByRole("radio", { name: "תשלום מראש", exact: true })).not.toBeChecked();
   await expect(page.getByRole("radio", { name: "לפי שלבי תשלום", exact: true })).not.toBeChecked();
   await quote.transition("סיימתי, לבדיקה");
@@ -436,9 +442,7 @@ test("incomplete payment stages show guidance and remain unapprovable after ackn
   await quote.saved(() => quote.button("הוסף שלב תשלום").click());
   await quote.fill("אחוז מהסכום", "30");
   await quote.fill("מועד / אבן דרך", "Deposit");
-  await expect(
-    page.getByText("כדי לאשר את ההצעה, תארו כל שלב והשלימו את האחוזים ל־100%."),
-  ).toBeVisible();
+  await expect(page.getByText(CUSTOMER_PAYMENT_COPY.INVALID, { exact: true })).toBeVisible();
   await quote.transition("סיימתי, לבדיקה");
   await quote.acknowledge();
   const approval = page.waitForResponse(
@@ -466,8 +470,10 @@ test("transport failure keeps unsaved edit, retry persists; actual version confl
 
     await route.continue();
   });
+  await openDetails(page);
   await quote.field(NOTES).fill("Retained after network error");
   await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.getByRole("alert").locator('[dir="rtl"]')).toHaveCSS("direction", "rtl");
   await expect(quote.field(NOTES)).toHaveValue("Retained after network error");
   await expect(quote.button("סיימתי, לבדיקה")).toBeDisabled();
   expect((await getQuote(api, initial.id)).internalNotes).toBe("");
@@ -506,6 +512,7 @@ test("read-only role sees saved quotation without creation, mutation or approval
       await expect(page.getByRole("heading", { name: "הצעות מחיר" })).toBeVisible();
       await expect(quote.button("הצעה חדשה")).toHaveCount(0);
       await quote.goto(initial.id);
+      await openDetails(page);
       await expect(quote.field(NOTES)).toBeDisabled();
       await expect(quote.button("סיימתי, לבדיקה")).toHaveCount(0);
       await expect(quote.button("הוסף שלב תשלום")).toHaveCount(0);
@@ -709,6 +716,7 @@ test("pre-add placement and quantities persist while decimal focus edits retain 
   await expect(quote.field("מחיר ליחידה")).toHaveValue("10.005");
   await quote.field("מחיר ליחידה").focus();
   await expect(quote.field("מחיר ליחידה")).toHaveValue("10.005");
+  await openDetails(page);
   await quote.field(NOTES).focus();
   await expect(quote.field("מחיר ליחידה")).toHaveValue("10.005");
   expect((await getQuote(api, initial.id)).version).toBe(addedDocument.version);

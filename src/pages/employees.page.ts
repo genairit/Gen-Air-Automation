@@ -1,8 +1,8 @@
 import {
   USER_ROLE_LABELS,
-  USER_ROLE_VALUES,
   type UserRoleType,
   USER_ROLE_PLURAL_LABELS,
+  ASSIGNABLE_USER_ROLE_VALUES,
 } from "../constants/user-role.constant.ts";
 
 import type { Page } from "@playwright/test";
@@ -29,6 +29,9 @@ export const createEmployeesPage = (page: Page) => {
   const passwordInput = form.locator('input[type="password"]').first();
   const passwordConfirmationInput = form.locator('input[type="password"]').last();
   const roleOptions = form.getByRole("checkbox");
+  const addCard = form
+    .getByRole("heading", { name: EMPLOYEES_COPY.ACCOUNT_SECTION })
+    .locator("xpath=ancestor::section[2]");
   const roleCheckbox = (role: UserRoleType) =>
     form.getByRole("checkbox", { name: USER_ROLE_LABELS[role], exact: true });
 
@@ -45,7 +48,7 @@ export const createEmployeesPage = (page: Page) => {
     await form.getByPlaceholder(EMPLOYEES_COPY.PHONE_PLACEHOLDER).fill(input.phone);
     await passwordInput.fill(input.password);
     await passwordConfirmationInput.fill(input.passwordConfirmation ?? input.password);
-    for (const role of USER_ROLE_VALUES) {
+    for (const role of ASSIGNABLE_USER_ROLE_VALUES) {
       await roleCheckbox(role).setChecked(assignedRoles.includes(role));
     }
   };
@@ -65,6 +68,7 @@ export const createEmployeesPage = (page: Page) => {
     passwordConfirmationInput,
     roleCheckbox,
     roleOptions,
+    addCard,
     goto,
     findRow,
     roleTab,

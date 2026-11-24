@@ -16,16 +16,14 @@ import {
 import type { Page, Locator } from "@playwright/test";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { findCardByTitle } from "../../src/pages/card.component.ts";
-import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { FAKE_PLACES } from "../../src/constants/fake-places.constant.ts";
-import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { ROUTES, ROUTE_SEGMENTS } from "../../src/constants/routes.constant.ts";
 
 interface ICardPair {
   first: string;
   second: string;
-  widePlacement?: "adaptive";
+  widePlacement?: "adaptive" | "stacked";
 }
 
 interface IPageScenario {
@@ -106,7 +104,7 @@ for (const viewport of VIEWPORTS) {
         name: "customer",
         path: buildCustomerRoute(customer.id),
         pairs: [
-          { first: "פרטי הלקוח", second: "איש קשר של הלקוח" },
+          { first: "פרטי הלקוח", second: "פרטי קשר של הלקוח" },
           { first: "סנכרון עם Priority", second: "תנאי תשלום" },
         ],
       },
@@ -134,7 +132,7 @@ for (const viewport of VIEWPORTS) {
         name: "new customer",
         path: ROUTES.NEW_CUSTOMER,
         pairs: [
-          { first: "זהות הלקוח", second: "בחר איש קשר קיים", widePlacement: "adaptive" },
+          { first: "זהות הלקוח", second: "פרטי קשר של הלקוח (לא חובה)", widePlacement: "stacked" },
           { first: "תנאי תשלום כברירת מחדל", second: "מה יישמר", widePlacement: "adaptive" },
         ],
       },
@@ -185,7 +183,9 @@ for (const viewport of VIEWPORTS) {
           await expectPairPlacement(
             first,
             second,
-            viewport.width === 1600 ? (pair.widePlacement ?? viewport.placement) : viewport.placement,
+            viewport.width === 1600
+              ? (pair.widePlacement ?? viewport.placement)
+              : viewport.placement,
           );
         }
         if (viewport.width === 1600 || viewport.width === 390) {
@@ -201,19 +201,16 @@ for (const viewport of VIEWPORTS) {
   });
 }
 
-test("mobile contact search and project address picker remain usable", async ({ page, api }) => {
-  const name = createUniqueName("איש קשר לנייד");
-  const created = await api.send(HTTP_METHODS.POST, "/contact-directory", {
-    name,
-    phone: "+12025550123",
-  });
-  expect(created.status()).toBe(201);
+test("mobile own customer details and project address picker remain usable", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(ROUTES.NEW_CUSTOMER);
-  const picker = findCardByTitle(page, "בחר איש קשר קיים");
-  await picker.getByPlaceholder("שם, טלפון או דוא״ל").fill(name);
-  await picker.getByRole("button", { name: `בחר ${name}` }).click();
-  await expect(picker.getByText(name, { exact: false })).toBeVisible();
+  await page
+    .getByRole("textbox", { name: "טלפון ראשי של הלקוח", exact: true })
+    .fill("+12025550123");
+  await page
+    .getByRole("textbox", { name: "דוא״ל של הלקוח", exact: true })
+    .fill("mobile-own@example.test");
+  await expect(page.getByPlaceholder("שם, טלפון או דוא״ל")).toHaveCount(0);
 
   const projectForm = createProjectFormPage(page);
   await projectForm.goto();

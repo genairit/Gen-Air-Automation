@@ -11,6 +11,8 @@ export const createQuotationPage = (page: Page) => {
       .or(page.getByRole("combobox", { name, exact: true }))
       .or(page.getByRole("textbox", { name, exact: true }))
       .or(page.getByRole("spinbutton", { name, exact: true }));
+  const entitySearch = (name: string) =>
+    page.getByRole("dialog", { name, exact: true }).getByRole("combobox", { name, exact: true });
   const saved = async (action: () => Promise<unknown>) => {
     const response = page.waitForResponse(
       response =>
@@ -29,7 +31,8 @@ export const createQuotationPage = (page: Page) => {
   const addBrandTab = (brand: string) =>
     saved(() => selectMuiOption(page, field("הוספת לשונית חברה"), brand));
   const chooseEntity = async (name: string, label: string) => {
-    await field(name).fill(label);
+    await field(name).click();
+    await entitySearch(name).fill(label);
     await page.getByRole("option", { name: label, exact: true }).click();
   };
   const selectEntity = (name: string, label: string) => saved(() => chooseEntity(name, label));
@@ -67,6 +70,7 @@ export const createQuotationPage = (page: Page) => {
     page,
     button,
     field,
+    entitySearch,
     saved,
     fill,
     select,

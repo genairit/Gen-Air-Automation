@@ -1,6 +1,7 @@
 export const USER_ROLES = {
   FINANCE: "finance",
   ENGINEER: "engineer",
+  ENGINEERING_LEAD: "engineering_lead",
   INSTALLER: "installer",
   SALES_AGENT: "sales_agent",
   SECRETARY: "secretary",
@@ -14,6 +15,7 @@ export type UserRoleType = (typeof USER_ROLES)[keyof typeof USER_ROLES];
 export const USER_ROLE_VALUES: UserRoleType[] = [
   USER_ROLES.SYSTEM_ADMIN,
   USER_ROLES.ENGINEER,
+  USER_ROLES.ENGINEERING_LEAD,
   USER_ROLES.SECRETARY,
   USER_ROLES.PROJECT_MANAGER,
   USER_ROLES.FINANCE,
@@ -21,6 +23,10 @@ export const USER_ROLE_VALUES: UserRoleType[] = [
   USER_ROLES.SALES_AGENT,
   USER_ROLES.PURCHASING_EXECUTION_MANAGER,
 ];
+
+export const ASSIGNABLE_USER_ROLE_VALUES: UserRoleType[] = USER_ROLE_VALUES.filter(
+  role => role !== USER_ROLES.SALES_AGENT,
+);
 
 export const PROJECT_MEMBER_ROLES = [
   USER_ROLES.ENGINEER,
@@ -33,6 +39,7 @@ export type ProjectMemberRoleType = (typeof PROJECT_MEMBER_ROLES)[number];
 
 export const NON_MEMBER_ROLES: UserRoleType[] = [
   USER_ROLES.SYSTEM_ADMIN,
+  USER_ROLES.ENGINEERING_LEAD,
   USER_ROLES.FINANCE,
   USER_ROLES.SALES_AGENT,
   USER_ROLES.PURCHASING_EXECUTION_MANAGER,
@@ -44,8 +51,9 @@ export const RETIRED_ROLES = {
 
 export const USER_ROLE_LABELS: Record<UserRoleType, string> = {
   [USER_ROLES.FINANCE]: "מחלקת כספים",
-  [USER_ROLES.SALES_AGENT]: "סוכן מכירות",
-  [USER_ROLES.ENGINEER]: "עובד הנדסה",
+  [USER_ROLES.SALES_AGENT]: "תפקיד ישן: סוכן מכירות",
+  [USER_ROLES.ENGINEER]: "עובד הנדסי",
+  [USER_ROLES.ENGINEERING_LEAD]: "ראש צוות הנדסה",
   [USER_ROLES.INSTALLER]: "מתקין",
   [USER_ROLES.SECRETARY]: "מזכירה",
   [USER_ROLES.SYSTEM_ADMIN]: "הנהלה / מנהל מערכת",
@@ -55,8 +63,9 @@ export const USER_ROLE_LABELS: Record<UserRoleType, string> = {
 
 export const USER_ROLE_PLURAL_LABELS: Record<UserRoleType, string> = {
   [USER_ROLES.FINANCE]: "כספים",
-  [USER_ROLES.SALES_AGENT]: "סוכני מכירות",
-  [USER_ROLES.ENGINEER]: "הנדסה",
+  [USER_ROLES.SALES_AGENT]: "תפקיד ישן",
+  [USER_ROLES.ENGINEER]: "עובדים הנדסיים",
+  [USER_ROLES.ENGINEERING_LEAD]: "ראשי צוות הנדסה",
   [USER_ROLES.INSTALLER]: "מתקינים",
   [USER_ROLES.SECRETARY]: "מזכירות",
   [USER_ROLES.SYSTEM_ADMIN]: "הנהלה",

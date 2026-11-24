@@ -1,8 +1,11 @@
-import { randomUUID } from "node:crypto";
+import {
+  contactSearchInput,
+  additionalContactSection,
+} from "../../src/pages/contact-search.page.ts";
+
 import type { Locator, Page } from "@playwright/test";
 import { seedTaskScenario } from "../../src/api/seed-data.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
-import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { findCardByTitle } from "../../src/pages/card.component.ts";
 import { buildTaskRoute } from "../../src/utilities/route.utility.ts";
 import { findFieldContainer } from "../../src/pages/field.component.ts";
@@ -55,68 +58,45 @@ const fitsViewport = async (page: Page) => {
 const screenshot = async (page: Page, name: string, width: number) =>
   page.screenshot({ path: test.info().outputPath(`${name}-${width}.png`), fullPage: true });
 
-test("new customer cards align as rows, then existing contact search spans the row", async ({
+test("new customer own-details cards retain compact rows without a directory picker", async ({
   page,
-  api,
 }) => {
-  const contactName = `איש קשר תצוגה ${randomUUID()}`;
-  const created = await api.send(HTTP_METHODS.POST, "/contact-directory", {
-    name: contactName,
-    phone: "+12025550123",
-  });
-  expect(created.status()).toBe(201);
   const form = createCustomerFormPage(page);
   await form.goto();
   const identity = form.identityCard;
-  const picker = findCardByTitle(page, "בחר איש קשר קיים");
-  const manual = form.contactCard;
+  const ownDetails = form.contactCard;
   const payment = findCardByTitle(page, "תנאי תשלום כברירת מחדל");
   const summary = form.summaryCard;
-
+  await expect(page.getByPlaceholder("שם, טלפון או דוא״ל")).toHaveCount(0);
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
     await expect(identity).toBeVisible();
-    await expect(picker).toBeVisible();
-    await expect(manual).toBeVisible();
+    await expect(ownDetails).toBeVisible();
     await expect(summary).toBeVisible();
     await fitsViewport(page);
-    const [identityRect, pickerRect, manualRect, paymentRect, summaryRect] = await Promise.all([
+    const [identityRect, ownRect, paymentRect, summaryRect] = await Promise.all([
       bounds(identity),
-      bounds(picker),
-      bounds(manual),
+      bounds(ownDetails),
       bounds(payment),
       bounds(summary),
     ]);
-    expect(identityRect.y + identityRect.height).toBeLessThanOrEqual(pickerRect.y + EPSILON);
-    if (width === 2048) sameRow(pickerRect, manualRect);
-    else stacked(pickerRect, manualRect);
-    if (width === 2048) sameRow(paymentRect, summaryRect);
-    else stacked(paymentRect, summaryRect);
+    expect(identityRect.y + identityRect.height).toBeLessThanOrEqual(ownRect.y + EPSILON);
+    const assertPaymentPlacement = width === 2048 ? sameRow : stacked;
+    assertPaymentPlacement(paymentRect, summaryRect);
     await noOrphanRow(
       ["סוג הלקוח", "שם הלקוח", "ח.פ / ת.פ / ת.ז", "כתובת"].map(label =>
         findFieldContainer(identity, label),
       ),
     );
     await noOrphanRow(
-      ["שם איש הקשר", "טלפון", "דוא״ל"].map(label => findFieldContainer(manual, label)),
+      ["טלפון ראשי של הלקוח", "דוא״ל של הלקוח"].map(label => findFieldContainer(ownDetails, label)),
     );
     await noOrphanRow(
       ["מזהה Priority", "נוצר ע״י", "סטטוס סנכרון"].map(label =>
         summary.getByText(label, { exact: true }).locator("xpath=.."),
       ),
     );
-    await screenshot(page, "new-customer-empty-contact", width);
-  }
-
-  await page.getByPlaceholder("שם, טלפון או דוא״ל").fill(contactName);
-  await picker.getByRole("button", { name: `בחר ${contactName}` }).click();
-  await expect(manual).toHaveCount(0);
-  for (const width of WIDTHS) {
-    await page.setViewportSize({ width, height: 900 });
-    await fitsViewport(page);
-    const [identityRect, pickerRect] = await Promise.all([bounds(identity), bounds(picker)]);
-    expect(Math.abs(pickerRect.width - identityRect.width)).toBeLessThanOrEqual(EPSILON);
-    await screenshot(page, "new-customer-selected-contact", width);
+    await screenshot(page, "new-customer-own-details", width);
   }
 });
 
@@ -126,7 +106,7 @@ test("new project directory contacts and property details share a row only when 
   const form = createProjectFormPage(page);
   await form.goto();
   await page.getByText(PROJECT_TYPE_NAMES.PRIVATE_CLIENT, { exact: true }).click();
-  const contacts = findCardByTitle(page, "אנשי קשר לפרויקט");
+  const contacts = additionalContactSection(page);
   const property = findCardByTitle(page, "פרטי הנכס");
   await expect(property.getByPlaceholder("לדוגמה: 7")).toBeVisible();
   for (const width of WIDTHS) {
@@ -137,7 +117,7 @@ test("new project directory contacts and property details share a row only when 
     else stacked(contactsRect, propertyRect);
     await screenshot(page, "new-project-with-property", width);
   }
-  await expect(page.getByPlaceholder("שם, טלפון או דוא״ל")).toBeVisible();
+  await expect(contactSearchInput(contacts)).toBeVisible();
 });
 
 test("task urgency remains a compact full-width strip above details", async ({ page, api }) => {

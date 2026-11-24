@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { TIME_UNITS } from "./time.constant.ts";
 import { readPort } from "../utilities/port.utility.ts";
+import { WORKER_RUNTIME_TOKEN } from "../environment/worker-runtime-token.ts";
 
 const AUTOMATION_ROOT = resolve(import.meta.dirname, "../..");
 const REPOSITORIES_ROOT = resolve(AUTOMATION_ROOT, "..");
@@ -65,6 +66,12 @@ export const PORTS = {
   ),
 } as const;
 
+export const PUBLICATION_BROKER = {
+  URL:
+    process.env.GEN_AIR_TEST_RABBITMQ_URL ?? "amqp://quotation_test:quotation_test@127.0.0.1:5678",
+  PREFIX: `qa.${createHash("sha256").update(ARTIFACTS_ROOT).digest("hex").slice(0, 20)}`,
+} as const;
+
 export const LOCAL_HOST = "localhost";
 
 const LOCAL_ORIGIN = `http://${LOCAL_HOST}`;
@@ -90,12 +97,12 @@ export const TEST_SECRETS = {
   JWT: "gen-air-automation-test-only-secret",
   PLACES_API_KEY: "fake-places-key",
   AUTH_CLIENT: "gen-air-automation-auth-client-test-secret",
-  PDF_WORKER: "gen-air-automation-pdf-worker-test-only-secret",
+  PDF_WORKER: WORKER_RUNTIME_TOKEN,
 } as const;
 
 export const STACK_TIMEOUTS = {
   SERVER_START_MS: 4 * TIME_UNITS.MINUTE_MS,
-  SHUTDOWN_MS: 30 * TIME_UNITS.SECOND_MS,
+  SHUTDOWN_MS: 3 * TIME_UNITS.MINUTE_MS,
   TEST_MS: TIME_UNITS.MINUTE_MS,
   EXPECT_MS: 10 * TIME_UNITS.SECOND_MS,
 } as const;

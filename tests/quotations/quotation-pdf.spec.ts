@@ -1,10 +1,17 @@
 import {
+  seedBuilding,
+  seedCustomer,
+  buildCustomerInput,
+  seedStandaloneProject,
+} from "../../src/api/seed-data.ts";
+
+import {
   createCatalogueFixture,
   setQuotationCountFixture,
 } from "../../src/environment/quotation-fixtures.ts";
 
 import { join } from "node:path";
-import { randomUUID, createHash } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
@@ -15,7 +22,6 @@ import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { createQuotationPage } from "../../src/pages/quotation.page.ts";
 import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
-import { seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts";
 import { AUTOMATION_DIRECTORIES } from "../../src/constants/environment.constant.ts";
 import { saveQuotation, quotationWrite, createQuotation } from "../../src/api/quotation.api.ts";
 
@@ -69,9 +75,10 @@ const line = (item: Awaited<ReturnType<typeof createCatalogueFixture>>, quantity
   requestedCapacityBtu: item.capacityBtu,
 });
 
-test("one-click PDF download uses saved quotation data; linking saves only the next export in project quotations folder", async ({
+test("one-click PDF download uses saved data and never uploads even for a linked approved quotation", async ({
   api,
   page,
+  openPageAs,
 }, testInfo) => {
   const customer = await seedCustomer(api);
   const item = await createCatalogueFixture({
@@ -133,15 +140,31 @@ test("one-click PDF download uses saved quotation data; linking saves only the n
   await editor.button("ייצוא PDF").click();
   const downloadResponse = await response;
   const download = await downloaded;
+  const unlinkedFilename = `הצעת מחיר - ${quote.number} - ${customer.name} - ${QUOTATION.BRAND} + ${QUOTATION.OTHER_BRAND}.pdf`;
   expect(downloadResponse.status()).toBe(200);
   expect(downloadResponse.headers()["content-type"]).toContain("application/pdf");
+  expect(downloadResponse.headers()["content-disposition"]).toContain(
+    encodeURIComponent(unlinkedFilename),
+  );
   const downloadBytes = await downloadResponse.body();
   await writeFile(testInfo.outputPath("quotation-unlinked.pdf"), downloadBytes);
   expect(downloadBytes.subarray(0, 5).toString()).toBe("%PDF-");
   await expect(page.getByTitle("תצוגה מקדימה של PDF")).toHaveCount(0);
   await expect(editor.button("הורדת PDF")).toHaveCount(0);
-  expect(download.suggestedFilename()).toBe(`הצעת מחיר ${quote.number}.pdf`);
+  expect(download.suggestedFilename()).toBe(unlinkedFilename);
   expect(await readFile(await download.path())).toEqual(downloadBytes);
+  const engineerPage = await openPageAs(TEST_USERS[USER_ROLES.ENGINEER]);
+  await createQuotationPage(engineerPage).goto(quote.id);
+  const engineerResponse = engineerPage.waitForResponse(candidate =>
+    candidate.url().endsWith(`/quotation/${quote.id}/pdf`),
+  );
+  const engineerDownloaded = engineerPage.waitForEvent("download");
+  await createQuotationPage(engineerPage).button("ייצוא PDF").click();
+  expect((await engineerResponse).headers()["content-disposition"]).toBe(
+    downloadResponse.headers()["content-disposition"],
+  );
+  expect((await engineerDownloaded).suggestedFilename()).toBe(unlinkedFilename);
+  await engineerPage.close();
   const pages = await pdfPages(downloadBytes);
   const text = pages.join(" ");
   expect(pages.length).toBeGreaterThan(1);
@@ -198,9 +221,14 @@ test("one-click PDF download uses saved quotation data; linking saves only the n
   );
   const linkedDownloaded = page.waitForEvent("download");
   await editor.button("ייצוא PDF").click();
-  const linkedBytes = await (await linkedResponse).body();
+  const linkedResult = await linkedResponse;
+  const linkedBytes = await linkedResult.body();
   const linkedDownload = await linkedDownloaded;
-  expect(linkedDownload.suggestedFilename()).toBe(`הזמנה ${quote.number}.pdf`);
+  const linkedFilename = `הזמנה - ${quote.number} - ${customer.name} - ${project.name} - ${QUOTATION.BRAND} + ${QUOTATION.OTHER_BRAND}.pdf`;
+  expect(linkedResult.headers()["content-disposition"]).toContain(
+    encodeURIComponent(linkedFilename),
+  );
+  expect(linkedDownload.suggestedFilename()).toBe(linkedFilename);
   expect(await readFile(await linkedDownload.path())).toEqual(linkedBytes);
   await expect(page.getByTitle("תצוגה מקדימה של PDF")).toHaveCount(0);
   await writeFile(testInfo.outputPath("quotation-linked.pdf"), linkedBytes);
@@ -208,18 +236,41 @@ test("one-click PDF download uses saved quotation data; linking saves only the n
   expect(linkedText).toContain("הזמנה");
   expect(linkedText).toContain(project.name.split(" ").slice(0, -1).join(" "));
   expect(linkedText).toContain(project.name.split(" ").at(-1));
-  const newUploads = (await uploads()).slice(before.length);
-  expect(newUploads).toHaveLength(1);
-  expect(newUploads[0]).toMatchObject({
-    name: `הזמנה ${quote.number}.pdf`,
-    mimeType: "application/pdf",
+  expect(await uploads()).toEqual(before);
+});
+
+test("apartment quotation filename includes the apartment number and sanitizes unsafe customer text", async ({
+  api,
+  page,
+}) => {
+  const before = await uploads();
+  const customer = await api.createCustomer({
+    ...buildCustomerInput(),
+    name: "לקוח/בדיקה: שם",
   });
-  expect(newUploads[0].bytes).toBe(linkedBytes.length);
-  expect(newUploads[0].sha256).toBe(createHash("sha256").update(linkedBytes).digest("hex"));
-  const contents = await api.send(HTTP_METHODS.GET, `/project-drive/${project.id}/contents`);
-  expect(contents.ok()).toBe(true);
-  const folders = (await contents.json()).folders as { id: string; name: string }[];
-  expect(folders.find(folder => folder.name === "הצעות מחיר")?.id).toBe(newUploads[0].parentId);
+  const building = await seedBuilding(api, customer);
+  const apartment = await api.createApartment(building.id, {
+    customerId: customer.id,
+    customerFloor: 1,
+    customerApartment: "45א",
+  });
+  const created = await createQuotation(api, customer.id);
+  const quotation = await saveQuotation(api, created.id, {
+    ...quotationWrite(created),
+    projectId: apartment.id,
+  });
+  await createQuotationPage(page).goto(quotation.id);
+  const response = page.waitForResponse(candidate =>
+    candidate.url().endsWith(`/quotation/${quotation.id}/pdf`),
+  );
+  const downloaded = page.waitForEvent("download");
+  await createQuotationPage(page).button("ייצוא PDF").click();
+  const result = await response;
+  const filename = `הצעת מחיר - ${quotation.number} - לקוח בדיקה שם - ${apartment.name} - בנין ${building.name} דירה 45א.pdf`;
+  expect(result.status()).toBe(200);
+  expect(result.headers()["content-disposition"]).toContain(encodeURIComponent(filename));
+  expect((await downloaded).suggestedFilename()).toBe(filename);
+  expect(await uploads()).toEqual(before);
 });
 
 test("quotation PDF export requires the export grant in API and editor", async ({
@@ -271,7 +322,9 @@ test("review and cancelled quotations remain exportable and another engineer doe
     const result = await response;
     const download = await downloaded;
     expect(result.status()).toBe(200);
-    expect(download.suggestedFilename()).toBe(`הצעת מחיר ${quotation.number}.pdf`);
+    expect(download.suggestedFilename()).toBe(
+      `הצעת מחיר - ${quotation.number} - ${customer.name}.pdf`,
+    );
     expect(await readFile(await download.path())).toEqual(await result.body());
     const text = await pdfText(await result.body());
     expect(text).toContain("הצעת מחיר");

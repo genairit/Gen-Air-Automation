@@ -46,6 +46,10 @@ const isCancellation = (value: unknown) =>
   ) &&
   strings(value, ["reason", "cancelledAt", "cancelledById", "cancelledByName"]) &&
   nullableStrings(value, ["restoredAt", "restoredById", "restoredByName"]);
+const isRejection = (value: unknown) =>
+  isRecord(value) &&
+  strings(value, ["reason", "rejectedAt", "rejectedById", "rejectedByName"]) &&
+  nullableStrings(value, ["resubmittedAt", "resubmittedById"]);
 const isSchedule = (value: unknown) => isRecord(value) && strings(value, ["percent", "text"]);
 const isQuotationDocument = (value: unknown): value is IQuotationDocument =>
   isRecord(value) &&
@@ -79,6 +83,8 @@ const isQuotationDocument = (value: unknown): value is IQuotationDocument =>
     )) &&
   Array.isArray(value.cancellationHistory) &&
   value.cancellationHistory.every(isCancellation) &&
+  Array.isArray(value.rejectionHistory) &&
+  value.rejectionHistory.every(isRejection) &&
   typeof value.version === "number" &&
   typeof value.warningScopeVersion === "number" &&
   Array.isArray(value.brands) &&

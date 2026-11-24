@@ -30,6 +30,7 @@ import { isTaskUpdateResponse } from "../../src/utilities/response.utility.ts";
 import { ROUTE_PATTERNS } from "../../src/constants/route-patterns.constant.ts";
 import { readTabCount, expectTabSelected } from "../../src/pages/tab.component.ts";
 import { USER_ROLES, USER_ROLE_VALUES } from "../../src/constants/user-role.constant.ts";
+import { getUpcomingDate, toDateInputValue } from "../../src/pages/date-field.component.ts";
 import { createTaskPage, createTasksPage, createTaskFormPage } from "../../src/pages/tasks.page.ts";
 
 const { defaultBrowserType: _browserType, ...PHONE } = devices["Pixel 7"];
@@ -43,7 +44,7 @@ const NON_ENGINEER_USERS = USER_ROLE_VALUES.filter(role => role !== USER_ROLES.E
 const HISTORY_ENTRIES_AFTER_ONE_CHANGE = 2;
 
 const NEW_TASK = {
-  dueDate: "2030-01-15",
+  dueDate: toDateInputValue(getUpcomingDate(14)),
   titlePrefix: "משימה מהטופס",
   description: "להכין הצעת מחיר ללקוח",
 } as const;
@@ -298,7 +299,9 @@ test.describe("as an engineer", () => {
       await tasksPage.goto();
       await tasksPage.searchBox.fill(task.title);
       await expect(page.getByText(task.title)).toBeVisible();
-      await expect(page.getByRole("combobox")).toHaveCount(0);
+      await expect(
+        page.getByRole("region", { name: task.title, exact: true }).getByRole("combobox"),
+      ).toHaveCount(0);
       await page.getByText(task.title).click();
       await expect(page).toHaveURL(new RegExp(`/tasks/${task.id}$`));
     });

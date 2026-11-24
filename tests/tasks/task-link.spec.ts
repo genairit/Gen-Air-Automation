@@ -7,6 +7,13 @@ import {
   buildStandaloneProjectInput,
 } from "../../src/api/seed-data.ts";
 
+import {
+  selectDueDate,
+  getUpcomingDate,
+  findDueDateField,
+  toDateInputValue,
+} from "../../src/pages/date-field.component.ts";
+
 import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { TIME_UNITS } from "../../src/constants/time.constant.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
@@ -17,6 +24,7 @@ import { failApiRequests } from "../../src/mocks/api-request.mock.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { TASK_LINK_KINDS } from "../../src/constants/domain.constant.ts";
+import { contactSearchInput } from "../../src/pages/contact-search.page.ts";
 import { getAuthStatePath } from "../../src/utilities/auth-state.utility.ts";
 import { isTaskCreationRequest } from "../../src/utilities/response.utility.ts";
 import { HTTP_STATUS, HTTP_METHODS } from "../../src/constants/http.constant.ts";
@@ -39,7 +47,7 @@ test("manual task form starts project-only with selectable type and optional emp
   await expect(form.form.getByText(TYPE_HELP)).toBeVisible();
   await expect(form.form.getByText("כללי", { exact: true })).toBeVisible();
   await expect(form.form.getByRole("radio", { name: /הצעת מחיר|תכנון/ })).toHaveCount(0);
-  await expect(form.form.locator('input[type="date"]')).toHaveValue("");
+  await expect(form.form.getByRole("textbox", { name: /^תאריך יעד/ })).toHaveValue("");
   await form.saveButton.click();
   await expect(page).toHaveURL(ROUTES.NEW_TASK);
   await expect(form.form.getByText("בחר פרויקט", { exact: true })).toBeVisible();
@@ -68,7 +76,7 @@ test("creating a General project task without due date sends no customer or inve
   });
   expect(payload).not.toHaveProperty("customerId");
   await expect(page).toHaveURL(/\/tasks\/[a-f0-9-]+$/);
-  await expect(page.locator('input[type="date"]')).toHaveValue("");
+  await expect(page.getByRole("textbox", { name: /^תאריך יעד/ })).toHaveValue("");
   await expect(page.getByText("כללי", { exact: true }).first()).toBeVisible();
   await expect(createTaskPage(page).projectCustomerLink).toHaveText(customer.name);
 });
@@ -141,7 +149,7 @@ test("project card deliberately creates a quotation task and reopens the occupie
   await createProjectPage(page).goto(project.id);
   await expect(page.getByText(title, { exact: true })).toBeVisible();
   await createProjectPage(page).newTaskButton.click();
-  await page.getByRole("menuitem", { name: /פתח משימה קיימת.*הצעת מחיר/ }).click();
+  await page.getByRole("menuitem", { name: /הצעת מחיר.*פתח משימה קיימת/ }).click();
   await expect(page).toHaveURL(new RegExp(`/tasks/${task.id}$`));
 });
 
@@ -216,11 +224,15 @@ test("protected task details expose readonly type/resume help and allow optional
   ).toBeVisible();
   await expect(page.getByText("הצעת מחיר", { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: /מחק/ })).toHaveCount(0);
-  const date = page.locator('input[type="date"]');
+  const date = findDueDateField(page);
+  const selectedDate = getUpcomingDate(14);
   await expect(date).toHaveValue("");
-  await date.fill("2030-02-20");
-  await expect.poll(async () => (await api.getTask(task.id)).dueDate).toContain("2030-02-20");
-  await date.clear();
+  await selectDueDate(page, selectedDate);
+  await expect
+    .poll(async () => (await api.getTask(task.id)).dueDate)
+    .toContain(toDateInputValue(selectedDate));
+  await date.click();
+  await page.getByRole("button", { name: "נקה תאריך" }).click();
   await expect.poll(async () => (await api.getTask(task.id)).dueDate).toBeNull();
 });
 
@@ -300,7 +312,7 @@ test("maximum project title renders an empty task card without mobile overflow",
   await page.setViewportSize(VIEWPORTS.MOBILE);
   await createProjectPage(page).goto(project.id);
   await expect(page.getByText("אין משימות עדיין", { exact: true })).toBeVisible();
-  await page.getByPlaceholder("שם, טלפון או דוא״ל").fill(contactName);
+  await contactSearchInput(page).fill(contactName);
   await expect(page.getByText(contactEmail, { exact: false })).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
   await expect
