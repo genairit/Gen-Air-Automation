@@ -140,7 +140,7 @@ test("one-click PDF download uses saved data and never uploads even for a linked
   await editor.button("ייצוא PDF").click();
   const downloadResponse = await response;
   const download = await downloaded;
-  const unlinkedFilename = `הצעת מחיר ${quote.number}_${customer.name}_${QUOTATION.BRAND}-${QUOTATION.OTHER_BRAND}.pdf`;
+  const unlinkedFilename = `הצעת מחיר - ${quote.number} - ${customer.name} - ${QUOTATION.BRAND} + ${QUOTATION.OTHER_BRAND}.pdf`;
   expect(downloadResponse.status()).toBe(200);
   expect(downloadResponse.headers()["content-type"]).toContain("application/pdf");
   expect(downloadResponse.headers()["content-disposition"]).toContain(
@@ -224,7 +224,7 @@ test("one-click PDF download uses saved data and never uploads even for a linked
   const linkedResult = await linkedResponse;
   const linkedBytes = await linkedResult.body();
   const linkedDownload = await linkedDownloaded;
-  const linkedFilename = `הזמנה ${quote.number}_${customer.name}_${project.code}_${QUOTATION.BRAND}-${QUOTATION.OTHER_BRAND}.pdf`;
+  const linkedFilename = `הזמנה - ${quote.number} - ${customer.name} - ${project.name} - ${QUOTATION.BRAND} + ${QUOTATION.OTHER_BRAND}.pdf`;
   expect(linkedResult.headers()["content-disposition"]).toContain(
     encodeURIComponent(linkedFilename),
   );
@@ -266,7 +266,7 @@ test("apartment quotation filename includes the apartment number and sanitizes u
   const downloaded = page.waitForEvent("download");
   await createQuotationPage(page).button("ייצוא PDF").click();
   const result = await response;
-  const filename = `הצעת מחיר ${quotation.number}_לקוח בדיקה שם_${apartment.code}_45א.pdf`;
+  const filename = `הצעת מחיר - ${quotation.number} - לקוח בדיקה שם - ${apartment.name} - בנין ${building.name} דירה 45א.pdf`;
   expect(result.status()).toBe(200);
   expect(result.headers()["content-disposition"]).toContain(encodeURIComponent(filename));
   expect((await downloaded).suggestedFilename()).toBe(filename);
@@ -322,7 +322,9 @@ test("review and cancelled quotations remain exportable and another engineer doe
     const result = await response;
     const download = await downloaded;
     expect(result.status()).toBe(200);
-    expect(download.suggestedFilename()).toBe(`הצעת מחיר ${quotation.number}_${customer.name}.pdf`);
+    expect(download.suggestedFilename()).toBe(
+      `הצעת מחיר - ${quotation.number} - ${customer.name}.pdf`,
+    );
     expect(await readFile(await download.path())).toEqual(await result.body());
     const text = await pdfText(await result.body());
     expect(text).toContain("הצעת מחיר");

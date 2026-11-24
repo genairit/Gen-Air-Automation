@@ -208,6 +208,8 @@ test messages remain under the private artifact directory and must not be upload
 `GEN_AIR_QA_PORT_OFFSET` shifts the app, database, Places, and SMTP ports when another local stack
 is active.
 
+[Filename coverage](docs/quotation-filenames.md) records the revised canonical template and immutable legacy-job checks.
+
 Quotation PDF QA uses the real renderer from an adjacent Gen-Air-Worker checkout. Set
 `GEN_AIR_PDF_QA=true` and provide a local Chromium executable through
 `CHROMIUM_EXECUTABLE_PATH`; `GEN_AIR_WORKER_DIR` overrides the adjacent checkout path.
@@ -224,7 +226,7 @@ under `GEN_AIR_ARTIFACTS_DIR`.
 export GEN_AIR_PDF_QA=true
 export CHROMIUM_EXECUTABLE_PATH=/absolute/path/to/chromium
 export GEN_AIR_ARTIFACTS_DIR="$(mktemp -d /tmp/genair-pdf-qa.XXXXXX)"
-npx playwright test tests/quotations/quotation-pdf.spec.ts --project=chromium --retries=0
+npx playwright test tests/quotations/quotation-pdf.spec.ts tests/quotations/quotation-filenames.spec.ts --project=chromium --retries=0
 ```
 
 ```bash
