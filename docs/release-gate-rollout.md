@@ -79,11 +79,16 @@ before doing that while the user's no-full-suite instruction for this task remai
 
 ## Isolated full-suite shards — 12 November 2026
 
-The full dev → test suite is partitioned across three GitHub-hosted runners. Each
+The full dev → test suite is partitioned across six GitHub-hosted runners. Each
 runner retains one Playwright worker and its own disposable stack/database. This
 changes execution placement, not coverage: no feature, file or required test is
 excluded. Candidate/frontend and backend revisions are resolved once before any
 shard starts; every shard consumes those same immutable revisions.
+
+Playwright partitions the complete inventory natively using the matrix job count;
+only authentication setup dependencies repeat in each isolated stack. Six shards
+provide headroom for the longer browser flows within the existing per-shard budget.
+Available GitHub-hosted capacity can queue jobs before they start.
 
 Each shard has a 45-minute Playwright budget, a 46-minute suite step and a 60-minute
 job budget, leaving room for startup, cleanup and its own retained report. Shards

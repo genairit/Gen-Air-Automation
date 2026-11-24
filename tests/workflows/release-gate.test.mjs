@@ -346,7 +346,7 @@ test("full gate partitions every suite across isolated runners and retains each 
   const shards = workflow.jobs.shards;
   const suite = shards.steps.find(step => step.id === "suite");
   assert.equal(shards.needs, "revisions");
-  assert.deepEqual(shards.strategy.matrix.shard, [1, 2, 3]);
+  assert.deepEqual(shards.strategy.matrix.shard, [1, 2, 3, 4, 5, 6]);
   assert.equal(shards.strategy["fail-fast"], false);
   assert.equal(shards["timeout-minutes"], 60);
   assert.equal(suite["timeout-minutes"], 46);
