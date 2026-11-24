@@ -143,7 +143,7 @@ test("reviewer rejects in the page and engineer sees the correction, edits, and 
   expect((await rejection).status()).toBe(201);
   await expect(dialog).toHaveCount(0);
   await expect(leadPage.getByText("נדרש תיקון", { exact: true }).first()).toBeVisible();
-  await expect(leadPage.getByText(reason, { exact: true })).toBeVisible();
+  await expect(leadPage.getByRole("alert").getByText(reason, { exact: true })).toBeVisible();
   await leadPage.goto("/quotations");
   await leadQuote.field("חיפוש לפי מספר, לקוח, פרויקט או חברה").fill(quotation.number);
   await expect(leadPage.getByRole("button").filter({ hasText: quotation.number })).toContainText(
@@ -154,8 +154,13 @@ test("reviewer rejects in the page and engineer sees the correction, edits, and 
   const engineerQuote = createQuotationPage(engineerPage);
   await engineerQuote.goto(quotation.id);
   await expect(engineerQuote.button("דחייה עם סיבה")).toHaveCount(0);
-  await expect(engineerPage.getByText(reason, { exact: true })).toBeVisible();
+  await expect(engineerPage.getByRole("alert").getByText(reason, { exact: true })).toBeVisible();
   await engineerPage.getByText("פרטים נוספים", { exact: true }).click();
+  const timeline = engineerPage
+    .getByRole("list")
+    .filter({ has: engineerPage.getByText(reason, { exact: true }) });
+  await expect(timeline).toHaveCount(1);
+  await expect(timeline.getByText(reason, { exact: true })).toBeVisible();
   const save = engineerPage.waitForResponse(
     (response): boolean =>
       response.url().endsWith(`/quotation/${quotation.id}`) &&
@@ -163,7 +168,7 @@ test("reviewer rejects in the page and engineer sees the correction, edits, and 
   );
   await engineerQuote.field("הערות פנימיות (לא יופיעו ללקוח)").fill("Corrected after review");
   expect((await save).status()).toBe(200);
-  await expect(engineerPage.getByText(reason, { exact: true })).toBeVisible();
+  await expect(engineerPage.getByRole("alert").getByText(reason, { exact: true })).toBeVisible();
   const resubmit = engineerPage.waitForResponse(
     (response): boolean =>
       response.url().endsWith(`/quotation/${quotation.id}/resubmit`) &&

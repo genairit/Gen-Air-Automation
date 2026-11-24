@@ -62,7 +62,9 @@ test("approved quotation is an order, cancellation remains searchable and locked
   await page.getByText("פרטים נוספים", { exact: true }).click();
   await expect(quote.field("הערות פנימיות (לא יופיעו ללקוח)")).toBeDisabled();
   await expect(page.getByText(COPY.HISTORY, { exact: true })).toBeVisible();
-  await expect(page.getByText(new RegExp(reason))).toBeVisible();
+  const timeline = page.getByRole("list").filter({ has: page.getByText(reason, { exact: true }) });
+  await expect(timeline).toHaveCount(1);
+  await expect(timeline.getByText(reason, { exact: true })).toBeVisible();
   const saved = await quotationDocument(
     await api.send(HTTP_METHODS.GET, `/quotation/${quotation.id}`),
   );
