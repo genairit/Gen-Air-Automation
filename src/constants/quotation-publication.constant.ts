@@ -23,6 +23,8 @@ export const PUBLICATION_STATE = {
 export type PublicationStateType = (typeof PUBLICATION_STATE)[keyof typeof PUBLICATION_STATE];
 export const PUBLICATION_KIND = { ORDER: "order", QUOTATION: "quotation" } as const;
 export type PublicationKindType = (typeof PUBLICATION_KIND)[keyof typeof PUBLICATION_KIND];
+export const PUBLICATION_ROLE = { ...PUBLICATION_KIND, ARCHIVE: "archive" } as const;
+export type PublicationRoleType = (typeof PUBLICATION_ROLE)[keyof typeof PUBLICATION_ROLE];
 export const PUBLICATION_EFFECT = {
   MOVE: "move",
   CREATE: "create",
