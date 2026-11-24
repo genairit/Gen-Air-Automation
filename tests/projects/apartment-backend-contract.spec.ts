@@ -103,20 +103,9 @@ test("new apartment links its own customer and reads primary contact phone witho
     parentProjectId: building.id,
   });
   await update(api, apartment.id, { notes: "Apartment note" });
-  const savedCustomer: unknown = await (
-    await api.send(HTTP_METHODS.GET, buildCustomerPath(customer.id))
-  ).json();
-  if (!isRecord(savedCustomer) || typeof savedCustomer.primaryContactId !== "string") {
-    throw new Error("Customer primary contact is missing");
-  }
-  const response = await api.send(
-    HTTP_METHODS.PATCH,
-    `/contact-directory/${savedCustomer.primaryContactId}`,
-    {
-      name: "Updated customer contact",
-      phone: "0531234567",
-    },
-  );
+  const response = await api.send(HTTP_METHODS.PATCH, buildCustomerPath(customer.id), {
+    phone: "0531234567",
+  });
   await expectResponseOk(response);
   expect(await read(api, apartment.id)).toMatchObject({
     contactName: null,

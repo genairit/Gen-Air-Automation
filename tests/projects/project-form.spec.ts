@@ -32,6 +32,7 @@ import { PROJECT_DRAFT_VERSIONS } from "../../src/constants/storage.constant.ts"
 import { buildProjectDraftKey } from "../../src/utilities/auth-state.utility.ts";
 import { expectFieldsAbsent } from "../../src/utilities/response-assertion.utility.ts";
 import { seedUser, seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts";
+import { newDriveRadio, existingDriveRadio } from "../../src/pages/existing-drive-folder.page.ts";
 import { buildEditProjectRoute, readLastPathSegment } from "../../src/utilities/route.utility.ts";
 
 const PROJECT_NAME_PREFIXES = {
@@ -58,7 +59,8 @@ test("create a project with a verified address and see it on the board", async (
   });
 
   await expect(formPage.addressVerified).toBeVisible();
-  await expect(page.getByRole("radio")).toHaveCount(0);
+  await expect(newDriveRadio(page)).toBeChecked();
+  await expect(existingDriveRadio(page)).not.toBeChecked();
   const creation = page.waitForRequest(
     request => request.method() === HTTP_METHODS.POST && request.url().endsWith(API_PATHS.PROJECT),
   );

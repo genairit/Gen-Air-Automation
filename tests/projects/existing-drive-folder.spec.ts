@@ -72,7 +72,13 @@ test("project creation previews and links an existing folder using keyboard radi
   await expect(page.getByText(EXISTING_DRIVE_COPY.LINKED, { exact: true })).toBeVisible();
   await expect(page.getByText(EXISTING_DRIVE_COPY.MISSING, { exact: true })).toBeVisible();
   const complete = page.getByRole("button", { name: EXISTING_DRIVE_COPY.COMPLETE, exact: true });
+  const completion = page.waitForResponse(
+    (response): boolean =>
+      response.request().method() === HTTP_METHODS.POST &&
+      response.url().endsWith(`/project-drive/${projectId}/complete-template`),
+  );
   await complete.click();
+  expect((await completion).ok()).toBe(true);
   await expect(complete).toHaveCount(0);
   expect(
     (await readResponseRecord(await readDriveContents(api, projectId))).missingTemplateFolders,
@@ -230,7 +236,7 @@ test("apartment creation links a legacy folder in its own building and presents 
   await existingDriveFolderField(page).fill(legacy.firstApartment.id);
   await expect(page.getByText(legacy.firstApartment.name, { exact: true })).toBeVisible();
   const created = page.waitForResponse(
-    response =>
+    (response): boolean =>
       response.request().method() === HTTP_METHODS.POST &&
       response.url().endsWith(`/project/${building.id}/apartments`),
   );
