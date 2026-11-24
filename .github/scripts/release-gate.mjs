@@ -1,5 +1,6 @@
 const REPOSITORIES = {
   owner: "genairit",
+  worker: "Gen-Air-Worker",
   backend: "Gen-Air-Backend",
   frontend: "Gen-Air-Frontend",
 };
@@ -77,6 +78,12 @@ export const prepare = async ({ github, context, core }) => {
     repo: REPOSITORIES.backend,
     ref: target,
   });
+  const { data: worker } = await github.rest.repos.getCommit({
+    owner: REPOSITORIES.owner,
+    repo: REPOSITORIES.worker,
+    ref: target,
+  });
+  core.setOutput("worker-ref", worker.sha);
   core.setOutput("backend-ref", backend.sha);
   core.setOutput("frontend-ref", current.merge_commit_sha);
   await core.summary
@@ -85,9 +92,11 @@ export const prepare = async ({ github, context, core }) => {
       ["Repository", "Revision"],
       ["Frontend candidate merge", current.merge_commit_sha],
       [`Backend ${target}`, backend.sha],
+      [`Worker ${target}`, worker.sha],
       ["Automation", process.env.AUTOMATION_REF],
     ])
     .write();
+  return;
 };
 
 export const finish = async ({ github, context, core }) => {
@@ -97,20 +106,26 @@ export const finish = async ({ github, context, core }) => {
     repo: REPOSITORIES.backend,
     ref: target,
   });
+  const { data: worker } = await github.rest.repos.getCommit({
+    owner: REPOSITORIES.owner,
+    repo: REPOSITORIES.worker,
+    ref: target,
+  });
   const { data: current } = await github.rest.pulls.get({
     ...context.repo,
     pull_number: request.number,
   });
+  const workerIsCurrent = worker.sha === process.env.TESTED_WORKER_REF;
   const backendIsCurrent = backend.sha === process.env.TESTED_BACKEND_REF;
   const frontendIsCurrent =
     current.head.sha === request.head.sha &&
     current.base.sha === request.base.sha &&
     current.base.ref === target;
-  const passed =
-    process.env.SUITE_OUTCOME === COMMIT_STATES.SUCCESS && backendIsCurrent && frontendIsCurrent;
+  const suitePassed = process.env.SUITE_OUTCOME === COMMIT_STATES.SUCCESS;
+  const passed = suitePassed && workerIsCurrent && backendIsCurrent && frontendIsCurrent;
   const description = passed
-    ? `Passed against backend ${backend.sha.slice(0, 12)}`
-    : "Failed or stale: merge backend dependencies first, then rerun the frontend gate.";
+    ? `Passed backend ${backend.sha.slice(0, 12)}, worker ${worker.sha.slice(0, 12)}`
+    : "Failed or stale: merge backend dependencies first and Worker test, then rerun frontend gate.";
   await writeStatus({
     github,
     request,
@@ -120,4 +135,6 @@ export const finish = async ({ github, context, core }) => {
   if (!passed) {
     core.setFailed(description);
   }
+
+  return;
 };

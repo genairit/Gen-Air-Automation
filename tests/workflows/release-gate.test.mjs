@@ -22,6 +22,8 @@ const createHarness = (context = createContext()) => {
   const outputs = {};
   const errors = [];
   const reruns = [];
+  const worker = { sha: "c".repeat(40) };
+  const summary = [];
   const backend = { sha: "backend-before" };
   const request = {
     ...context.payload.pull_request,
@@ -37,7 +39,10 @@ const createHarness = (context = createContext()) => {
     },
     summary: {
       addHeading: () => core.summary,
-      addTable: () => core.summary,
+      addTable: table => {
+        summary.push(...table);
+        return core.summary;
+      },
       write: async () => {},
     },
   };
@@ -45,7 +50,9 @@ const createHarness = (context = createContext()) => {
     rest: {
       repos: {
         createCommitStatus: async status => statuses.push(status),
-        getCommit: async () => ({ data: backend }),
+        getCommit: async input => {
+          return { data: input.repo === "Gen-Air-Worker" ? worker : backend };
+        },
       },
       pulls: { get: async () => ({ data: request }), list: "pulls" },
       actions: { listWorkflowRuns: "runs", reRunWorkflow: async run => reruns.push(run) },
@@ -55,7 +62,20 @@ const createHarness = (context = createContext()) => {
         ? [request]
         : [{ id: 1, status: "completed", pull_requests: [{ number: 7 }] }],
   };
-  return { github, core, context, statuses, outputs, errors, backend, request, reruns };
+  process.env.TESTED_WORKER_REF = worker.sha;
+  return {
+    github,
+    core,
+    context,
+    statuses,
+    outputs,
+    errors,
+    backend,
+    worker,
+    summary,
+    request,
+    reruns,
+  };
 };
 
 for (const [source, target] of [["dev", "test"]]) {
@@ -97,17 +117,25 @@ test("rejects manual and foreign callers", () => {
   assert.throws(() => validatePullRequest(context));
 });
 
-test("pins candidate merge and backend SHA and requires immutable Automation", async () => {
+test("pins candidate, backend and Worker revisions and requires immutable Automation", async () => {
   const harness = createHarness();
   process.env.AUTOMATION_REF = "a".repeat(40);
   await prepare(harness);
   assert.deepEqual(harness.outputs, {
+    "worker-ref": "c".repeat(40),
     "backend-ref": "backend-before",
     "frontend-ref": "candidate-merge",
   });
+  assert.deepEqual(harness.summary, [
+    ["Repository", "Revision"],
+    ["Frontend candidate merge", "candidate-merge"],
+    ["Backend test", "backend-before"],
+    ["Worker test", "c".repeat(40)],
+    ["Automation", "a".repeat(40)],
+  ]);
   assert.equal(harness.statuses[0].state, "pending");
   process.env.AUTOMATION_REF = "main";
-  await assert.rejects(prepare(harness), /full commit SHA/);
+  return assert.rejects(prepare(harness), /full commit SHA/);
 });
 
 test("rejects moved heads, bases and conflicts", async () => {
@@ -139,17 +167,25 @@ test("missing backend dependency fails, then a refreshed integration pass succee
   assert.equal(harness.statuses.at(-1).state, "success");
 });
 
-test("backend or frontend movement invalidates a passing suite", async () => {
+test("backend, Worker, frontend head or base movement invalidates a passing suite", async () => {
   process.env.TESTED_BACKEND_REF = "backend-before";
   process.env.SUITE_OUTCOME = "success";
   const movedBackend = createHarness();
   movedBackend.backend.sha = "backend-after";
   await finish(movedBackend);
   assert.equal(movedBackend.statuses.at(-1).state, "failure");
+  const movedWorker = createHarness();
+  movedWorker.worker.sha = "worker-after";
+  await finish(movedWorker);
+  assert.equal(movedWorker.statuses.at(-1).state, "failure");
+  const movedBase = createHarness();
+  movedBase.request.base = { ref: "test", sha: "new-base" };
+  await finish(movedBase);
+  assert.equal(movedBase.statuses.at(-1).state, "failure");
   const movedFrontend = createHarness();
   movedFrontend.request.head = { sha: "new" };
   await finish(movedFrontend);
-  assert.equal(movedFrontend.statuses.at(-1).state, "failure");
+  return assert.equal(movedFrontend.statuses.at(-1).state, "failure");
 });
 
 test("API failures propagate without publishing success", async () => {
@@ -243,7 +279,7 @@ test("actual workflows only start the suite from frontend release PRs", () => {
 });
 
 for (const [source, target] of [["dev", "test"]]) {
-  test(`resolves backend ${target} for ${source} → ${target}`, async () => {
+  test(`resolves backend and Worker ${target} for ${source} → ${target}`, async () => {
     const harness = createHarness(createContext(source, target));
     const resolvedRefs = [];
     harness.github.rest.repos.getCommit = async input => {
@@ -252,7 +288,11 @@ for (const [source, target] of [["dev", "test"]]) {
     };
     process.env.AUTOMATION_REF = "a".repeat(40);
     await prepare(harness);
-    assert.deepEqual(resolvedRefs, [{ owner: "genairit", repo: "Gen-Air-Backend", ref: target }]);
+    assert.deepEqual(resolvedRefs, [
+      { owner: "genairit", repo: "Gen-Air-Backend", ref: target },
+      { owner: "genairit", repo: "Gen-Air-Worker", ref: target },
+    ]);
+    return;
   });
 }
 
@@ -338,6 +378,11 @@ test("only the aggregate gate can publish compatibility after all shards finish"
   );
   assert.equal(freshness.if, "${{ needs.revisions.result == 'success' }}");
   assert.equal(freshness.env.SUITE_OUTCOME, "${{ needs.shards.result }}");
+  assert.equal(freshness.env.TESTED_WORKER_REF, "${{ needs.revisions.outputs.worker-ref }}");
+  assert.equal(
+    workflow.jobs.revisions.outputs["worker-ref"],
+    "${{ steps.revisions.outputs.worker-ref }}",
+  );
   assert.equal(freshness.env.TESTED_BACKEND_REF, "${{ needs.revisions.outputs.backend-ref }}");
   assert.equal(
     workflow.jobs.revisions.outputs["backend-ref"],
@@ -347,6 +392,7 @@ test("only the aggregate gate can publish compatibility after all shards finish"
     workflow.jobs.revisions.outputs["frontend-ref"],
     "${{ steps.revisions.outputs.frontend-ref }}",
   );
+  return;
 });
 
 test("cancelled or timed-out suite never publishes compatibility success", async () => {
@@ -358,4 +404,75 @@ test("cancelled or timed-out suite never publishes compatibility success", async
     assert.equal(harness.statuses.at(-1).state, "failure");
     assert.ok(harness.errors.length > 0);
   }
+});
+
+test("every shard pins all resolved app revisions and isolates its real PDF broker", () => {
+  const workflow = readWorkflow("../../.github/workflows/e2e.yml");
+  const shards = workflow.jobs.shards;
+  const repositories = {
+    "Gen-Air-Worker": "worker-ref",
+    "Gen-Air-Backend": "backend-ref",
+    "Gen-Air-Frontend": "frontend-ref",
+  };
+  for (const [repository, output] of Object.entries(repositories)) {
+    const checkout = shards.steps.find(step => step.with?.repository === `genairit/${repository}`);
+    assert.equal(checkout.with.ref, `\${{ needs.revisions.outputs.${output} }}`);
+    assert.equal(checkout.with["persist-credentials"], false);
+  }
+  const automation = shards.steps.find(
+    step => step.with?.repository === "genairit/Gen-Air-Automation",
+  );
+  assert.equal(automation.with.ref, "${{ env.AUTOMATION_REF }}");
+  const broker = shards.services.rabbitmq;
+  assert.equal(broker.image, "rabbitmq:4.1-management");
+  assert.deepEqual(broker.ports, ["127.0.0.1:5678:5672", "127.0.0.1:15678:15672"]);
+  assert.deepEqual(broker.env, {
+    RABBITMQ_DEFAULT_USER: "quotation_test",
+    RABBITMQ_DEFAULT_PASS: "quotation_test",
+  });
+  assert.match(broker.options, /--health-cmd "rabbitmq-diagnostics -q ping"/);
+  assert.match(broker.options, /--health-interval 5s --health-timeout 5s --health-retries 12/);
+  const suite = shards.steps.find(step => step.id === "suite");
+  assert.equal(suite.env.GEN_AIR_PDF_QA, "true");
+  assert.equal(
+    suite.env.GEN_AIR_TEST_RABBITMQ_URL,
+    "amqp://quotation_test:quotation_test@127.0.0.1:5678",
+  );
+  assert.equal(suite.env.GEN_AIR_TEST_RABBITMQ_MANAGEMENT_URL, "http://127.0.0.1:15678");
+  return assert.deepEqual(Object.keys(workflow.jobs), ["revisions", "shards", "playwright"]);
+});
+
+test("Worker resolution and freshness API failures cannot publish success", async () => {
+  const harness = createHarness();
+  process.env.AUTOMATION_REF = "a".repeat(40);
+  process.env.TESTED_BACKEND_REF = harness.backend.sha;
+  process.env.SUITE_OUTCOME = "success";
+  harness.github.rest.repos.getCommit = async input => {
+    if (input.repo === "Gen-Air-Worker") {
+      throw new Error("Worker unavailable");
+    }
+
+    return { data: harness.backend };
+  };
+  await assert.rejects(prepare(harness), /Worker unavailable/);
+  await assert.rejects(finish(harness), /Worker unavailable/);
+  return assert.ok(harness.statuses.every(status => status.state !== "success"));
+});
+
+test("Worker pushes cannot refresh the frontend gate", async () => {
+  const harness = createRefreshHarness();
+  harness.context.repo.repo = "Gen-Air-Worker";
+  await assert.rejects(refreshFrontendGates(harness), /Only backend/);
+  assert.equal(harness.statuses.length, 0);
+  return assert.equal(harness.reruns.length, 0);
+});
+
+test("missing tested Worker revision cannot pass compatibility", async () => {
+  const harness = createHarness();
+  delete process.env.TESTED_WORKER_REF;
+  process.env.TESTED_BACKEND_REF = harness.backend.sha;
+  process.env.SUITE_OUTCOME = "success";
+  await finish(harness);
+  assert.equal(harness.statuses.at(-1).state, "failure");
+  return assert.equal(harness.errors.length, 1);
 });

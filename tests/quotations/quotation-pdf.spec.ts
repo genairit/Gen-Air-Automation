@@ -11,7 +11,7 @@ import {
 } from "../../src/environment/quotation-fixtures.ts";
 
 import { join } from "node:path";
-import { randomUUID, createHash } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
@@ -75,7 +75,7 @@ const line = (item: Awaited<ReturnType<typeof createCatalogueFixture>>, quantity
   requestedCapacityBtu: item.capacityBtu,
 });
 
-test("one-click PDF download uses saved quotation data; linking saves only the next export in project quotations folder", async ({
+test("one-click PDF download uses saved data and never uploads even for a linked approved quotation", async ({
   api,
   page,
   openPageAs,
@@ -236,24 +236,14 @@ test("one-click PDF download uses saved quotation data; linking saves only the n
   expect(linkedText).toContain("הזמנה");
   expect(linkedText).toContain(project.name.split(" ").slice(0, -1).join(" "));
   expect(linkedText).toContain(project.name.split(" ").at(-1));
-  const newUploads = (await uploads()).slice(before.length);
-  expect(newUploads).toHaveLength(1);
-  expect(newUploads[0]).toMatchObject({
-    name: linkedFilename,
-    mimeType: "application/pdf",
-  });
-  expect(newUploads[0].bytes).toBe(linkedBytes.length);
-  expect(newUploads[0].sha256).toBe(createHash("sha256").update(linkedBytes).digest("hex"));
-  const contents = await api.send(HTTP_METHODS.GET, `/project-drive/${project.id}/contents`);
-  expect(contents.ok()).toBe(true);
-  const folders = (await contents.json()).folders as { id: string; name: string }[];
-  expect(folders.find(folder => folder.name === "הצעות מחיר")?.id).toBe(newUploads[0].parentId);
+  expect(await uploads()).toEqual(before);
 });
 
 test("apartment quotation filename includes the apartment number and sanitizes unsafe customer text", async ({
   api,
   page,
 }) => {
+  const before = await uploads();
   const customer = await api.createCustomer({
     ...buildCustomerInput(),
     name: "לקוח/בדיקה: שם",
@@ -280,7 +270,7 @@ test("apartment quotation filename includes the apartment number and sanitizes u
   expect(result.status()).toBe(200);
   expect(result.headers()["content-disposition"]).toContain(encodeURIComponent(filename));
   expect((await downloaded).suggestedFilename()).toBe(filename);
-  expect((await uploads()).at(-1)?.name).toBe(filename);
+  expect(await uploads()).toEqual(before);
 });
 
 test("quotation PDF export requires the export grant in API and editor", async ({
