@@ -2,6 +2,7 @@ import { expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { selectMuiOption } from "./mui-select.component.ts";
 import { HTTP_METHODS } from "../constants/http.constant.ts";
+import { LIFECYCLE_COPY } from "../constants/quotation-lifecycle.constant.ts";
 
 export const createQuotationPage = (page: Page) => {
   const button = (name: string) => page.getByRole("button", { name, exact: true });
@@ -51,6 +52,21 @@ export const createQuotationPage = (page: Page) => {
     expect((await response).status()).toBe(201);
     await expect(page.getByRole("alert")).toHaveCount(0);
   };
+  const returnToEditing = async (): Promise<void> => {
+    await button(LIFECYCLE_COPY.RETURN).click();
+    const dialog = page.getByRole("dialog", { name: LIFECYCLE_COPY.RETURN, exact: true });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText("היסטוריית המסמך תישמר");
+    const response = page.waitForResponse(
+      (response): boolean =>
+        response.url().endsWith("/review") && response.request().method() === HTTP_METHODS.POST,
+    );
+    await dialog.getByRole("button", { name: LIFECYCLE_COPY.CONFIRM_RETURN, exact: true }).click();
+    expect((await response).status()).toBe(201);
+    await expect(dialog).toHaveCount(0);
+    await expect(button(LIFECYCLE_COPY.RETURN)).toHaveCount(0);
+    await expect(page.getByRole("alert")).toHaveCount(0);
+  };
   const acknowledge = async () => {
     for (const checkbox of await page.getByRole("checkbox").all()) {
       if (await checkbox.isChecked()) {
@@ -80,6 +96,7 @@ export const createQuotationPage = (page: Page) => {
     add,
     amount,
     transition,
+    returnToEditing,
     acknowledge,
     goto: (id: string) => page.goto(`/quotations/${id}`),
   };

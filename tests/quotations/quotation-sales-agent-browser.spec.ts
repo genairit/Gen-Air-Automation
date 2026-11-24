@@ -18,7 +18,9 @@ import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 const PICKER = "סוכן מכירות (אופציונלי)";
 
 const chooseSalesAgent = async (page: Page, firstName: string): Promise<void> => {
+  const quote = createQuotationPage(page);
   await page.getByRole("combobox", { name: PICKER }).first().click();
+  await quote.entitySearch(PICKER).fill(firstName);
   await page.getByRole("option", { name: new RegExp(firstName) }).click();
 };
 
@@ -116,6 +118,8 @@ test("quotation creator selects an engineer, changes to admin and clears it", as
   await page.setViewportSize({ width: 390, height: 844 });
   await expectQuotationWithinViewport(page, [agentPicker, clientPicker]);
   await agentPicker.click();
+  await quote.entitySearch(PICKER).fill(second.firstName);
+  await expect(page.getByRole("option", { name: new RegExp(second.firstName) })).toBeVisible();
   await expect(page.getByRole("listbox")).toBeVisible();
   await expectQuotationWithinViewport(page, [page.getByRole("listbox")]);
   await agentPicker.press("Escape");
