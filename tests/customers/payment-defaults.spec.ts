@@ -75,7 +75,7 @@ for (const option of [
     await expect(page).toHaveURL(ROUTE_PATTERNS.CUSTOMER);
     const id = readLastPathSegment(page.url());
     await page.reload();
-    await expect(payment.choice(option.label)).toBeChecked();
+    await expect(payment.defaultMenu).toHaveText(option.label);
     expect(await readCustomerPaymentConfiguration(api, id)).toMatchObject({
       paymentTerms: option.value,
       paymentSchedule: option.paymentSchedule,
@@ -91,9 +91,13 @@ test("custom customer stages validate, survive failed save/retry and reload, and
   const payment = createCustomerPaymentDefaultPage(page);
   await page.setViewportSize(VIEWPORTS.MOBILE);
   await page.goto(buildCustomerRoute(customer.id));
-  await payment.choice(COPY.NONE).focus();
-  await page.keyboard.press(KEYBOARD_KEYS.ARROW_RIGHT);
-  await expect(payment.choice(CUSTOMER_PAYMENT_COPY.CUSTOM)).toBeChecked();
+  await expect(payment.defaultMenu).toHaveText(COPY.NONE);
+  await payment.defaultMenu.press(KEYBOARD_KEYS.ENTER);
+  await expect(payment.defaultOption(COPY.NONE)).toBeFocused();
+  await page.keyboard.press(KEYBOARD_KEYS.ARROW_UP);
+  await expect(payment.defaultOption(CUSTOMER_PAYMENT_COPY.CUSTOM)).toBeFocused();
+  await page.keyboard.press(KEYBOARD_KEYS.ENTER);
+  await expect(payment.defaultMenu).toHaveText(CUSTOMER_PAYMENT_COPY.CUSTOM);
   await payment.fillSchedule(CUSTOMER_PAYMENT_SCHEDULE.FIRST);
   await expect(payment.percent()).toHaveValue(CUSTOMER_PAYMENT_SCHEDULE.FIRST[0].percent);
   await expect(payment.percent(1)).toHaveValue(CUSTOMER_PAYMENT_SCHEDULE.FIRST[1].percent);
@@ -132,7 +136,7 @@ test("custom customer stages validate, survive failed save/retry and reload, and
   expect((await saved).status()).toBe(HTTP_STATUS.OK);
   await expect(page.getByRole("status").filter({ hasText: COPY.SAVED })).toHaveText(COPY.SAVED);
   await page.reload();
-  await expect(payment.choice(CUSTOMER_PAYMENT_COPY.CUSTOM)).toBeChecked();
+  await expect(payment.defaultMenu).toHaveText(CUSTOMER_PAYMENT_COPY.CUSTOM);
   await expect(payment.percent()).toHaveValue(CUSTOMER_PAYMENT_SCHEDULE.FIRST[0].percent);
   await expect(payment.milestone(1)).toHaveValue(CUSTOMER_PAYMENT_SCHEDULE.FIRST[1].text);
   await expect(page.getByText(/₪/)).toHaveCount(0);
@@ -141,20 +145,20 @@ test("custom customer stages validate, survive failed save/retry and reload, and
   await expect(payment.percent(2)).toBeVisible();
   await payment.removeButton(2).click();
   await expect(payment.percent(2)).toHaveCount(0);
-  await payment.choose(CUSTOMER_PAYMENT_FIXED_OPTIONS[0].label);
+  await payment.chooseDefault(CUSTOMER_PAYMENT_FIXED_OPTIONS[0].label);
   await page.getByRole("button", { name: CUSTOMER_PAYMENT_COPY.CANCEL, exact: true }).click();
   await expect(payment.percent()).toHaveValue(CUSTOMER_PAYMENT_SCHEDULE.FIRST[0].percent);
-  await payment.choose(CUSTOMER_PAYMENT_FIXED_OPTIONS[0].label);
+  await payment.chooseDefault(CUSTOMER_PAYMENT_FIXED_OPTIONS[0].label);
   await expect(payment.percent()).toBeVisible();
   await page
     .getByRole("button", { name: CUSTOMER_PAYMENT_COPY.CONFIRM_PRESET, exact: true })
     .click();
   await expect(payment.percent()).toHaveCount(0);
-  await payment.choose(COPY.NONE);
+  await payment.chooseDefault(COPY.NONE);
   await payment.saveButton.click();
   await expect(page.getByRole("status").filter({ hasText: COPY.SAVED })).toHaveText(COPY.SAVED);
   await page.reload();
-  await expect(payment.choice(COPY.NONE)).toBeChecked();
+  await expect(payment.defaultMenu).toHaveText(COPY.NONE);
   expect(await readCustomerPaymentConfiguration(api, customer.id)).toMatchObject({
     paymentTerms: null,
     paymentSchedule: [],
@@ -181,6 +185,7 @@ test("legacy Other is visibly unconfigured while read-only viewers cannot alter 
   const payment = createCustomerPaymentDefaultPage(viewerPage);
   await expect(viewerPage.getByText(CUSTOMER_PAYMENT_COPY.LEGACY, { exact: true })).toBeVisible();
   await expect(payment.saveButton).toHaveCount(0);
+  await expect(payment.defaultMenu).toHaveCount(0);
   await expect(viewerPage.getByRole("radio")).toHaveCount(0);
   await expect(payment.percent()).toHaveCount(0);
   await expect(payment.milestone()).toHaveCount(0);
@@ -195,6 +200,7 @@ test("legacy Other is visibly unconfigured while read-only viewers cannot alter 
   ).join(" · ");
   await expect(viewerPage.getByText(summary, { exact: true })).toBeVisible();
   await expect(payment.saveButton).toHaveCount(0);
+  await expect(payment.defaultMenu).toHaveCount(0);
   await expect(viewerPage.getByRole("radio")).toHaveCount(0);
   const viewer = await apiAs(credentials);
   expect(
