@@ -1,7 +1,10 @@
 import {
+  seedTask,
   seedBuilding,
   seedCustomer,
+  linkToProject,
   seedApartment,
+  buildTaskInput,
   seedStandaloneProject,
 } from "../../src/api/seed-data.ts";
 
@@ -18,6 +21,7 @@ import { createJennyPage } from "../../src/pages/jenny.page.ts";
 import { createBoardPage } from "../../src/pages/board.page.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { URLS } from "../../src/constants/environment.constant.ts";
+import { TASK_STATUSES } from "../../src/constants/domain.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
@@ -27,6 +31,7 @@ import { registerJennyPdf } from "../../src/environment/jenny-drive-fixture.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
 import { buildBrowserApiPattern } from "../../src/utilities/api-path.utility.ts";
+import { setTaskSortFixtures } from "../../src/environment/task-sort-fixtures.ts";
 
 const CURRENCY = new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS" });
 const FINANCE = USER_ROLES.FINANCE;
@@ -34,6 +39,8 @@ const MOBILE_VIEWPORT = { width: 390, height: 844 };
 const PROJECT_PDF = "מפרט יחידות מיזוג.pdf";
 const APARTMENT_PDF = "תוכנית דירה מפורטת.pdf";
 const ARCHIVED_PDF = "תוכנית דירה בארכיון.pdf";
+const TASK_PAGE_LIMIT = 20;
+const OVERDUE_TASK_DATE = "2000-01-01T00:00:00.000Z";
 
 const chatRequest = (projectId: string, question: string) => ({
   context: { type: "project", id: projectId },
@@ -161,6 +168,55 @@ test("Jenny lists and searches only the current project's Drive, citing the matc
   await expect(jenny.thread).not.toContainText(JENNY_QUESTION.DOCUMENTS);
 });
 
+test("Jenny reads only the current project’s tasks and reports counts beyond the displayed page", async ({
+  api,
+  page,
+  apiAs,
+}) => {
+  const assignee = (await apiAs(TEST_USERS[USER_ROLES.ENGINEER])).session.user;
+  const project = await seedBuilding(api, await seedCustomer(api));
+  const child = await seedApartment(api, project);
+  const empty = await seedStandaloneProject(api, await seedCustomer(api));
+  const assignedTask = await seedTask(api, {
+    link: linkToProject(project),
+    assigneeId: assignee.id,
+  });
+  const childTask = await seedTask(api, { link: linkToProject(child) });
+  await setTaskSortFixtures([
+    {
+      ...assignedTask,
+      isUrgent: false,
+      dueDate: OVERDUE_TASK_DATE,
+      assigneeId: assignee.id,
+      status: TASK_STATUSES.IN_PROGRESS,
+    },
+  ]);
+  const additionalTasks = Array.from({ length: TASK_PAGE_LIMIT }, () =>
+    buildTaskInput({ link: linkToProject(project) }),
+  );
+  for (const task of additionalTasks) {
+    await api.createTask({ ...task, dueDate: null });
+  }
+
+  const jenny = createJennyPage(page);
+  await page.goto(buildProjectRoute(project.id));
+  await jenny.launcher.click();
+  await jenny.ask(JENNY_QUESTION.TASKS);
+  await expect(jenny.thread).toContainText(
+    `בתיק ${TASK_PAGE_LIMIT + 1} משימות, מתוכן 1 באיחור. מוצגות ${TASK_PAGE_LIMIT} משימות.`,
+  );
+  await expect(jenny.thread).toContainText(
+    `${assignedTask.title} | ${TASK_STATUSES.IN_PROGRESS} | ${assignee.firstName} ${assignee.lastName} | ${OVERDUE_TASK_DATE.slice(0, 10)}`,
+  );
+  await expect(jenny.thread).toContainText(JENNY_REPLIES.MORE_TASKS);
+  await expect(jenny.thread).not.toContainText(childTask.title);
+
+  await page.goto(buildProjectRoute(empty.id));
+  await jenny.launcher.click();
+  await jenny.ask(JENNY_QUESTION.TASKS);
+  await expect(jenny.thread).toContainText(JENNY_REPLIES.NO_TASKS);
+});
+
 test("Jenny exposes only the current permissions and requires project read", async ({
   api,
   apiAs,
@@ -169,6 +225,7 @@ test("Jenny exposes only the current permissions and requires project read", asy
 }) => {
   const project = await seedStandaloneProject(api, await seedCustomer(api));
   const chat = chatRequest(project.id, JENNY_QUESTION.PERMISSIONS);
+  const task = await seedTask(api, { link: linkToProject(project) });
 
   const actor = await apiAs(TEST_USERS[FINANCE]);
   const unauthenticated = await request.post(`${URLS.BACKEND}${JENNY_API_PATH}`, { data: chat });
@@ -187,6 +244,10 @@ test("Jenny exposes only the current permissions and requires project read", asy
     await expect(jenny.thread).toContainText(JENNY_REPLIES.LIMITED_ACCESS);
     await expect(jenny.thread).toContainText(project.name);
     await expect(jenny.thread.getByRole("link")).toHaveCount(0);
+
+    await jenny.ask(JENNY_QUESTION.TASKS);
+    await expect(jenny.thread).toContainText(JENNY_REPLIES.TASKS_NOT_AVAILABLE);
+    await expect(jenny.thread).not.toContainText(task.title);
   });
 });
 
