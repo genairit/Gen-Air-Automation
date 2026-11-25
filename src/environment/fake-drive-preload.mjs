@@ -2,6 +2,8 @@ import Module from "node:module";
 import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { randomUUID, createHash } from "node:crypto";
+import { JENNY_PDF } from "../constants/jenny.constant.ts";
+import { JENNY_DRIVE_PDF } from "./jenny-drive-fixture.ts";
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { PUBLICATION_EFFECT } from "../constants/quotation-publication.constant.ts";
 
@@ -117,6 +119,22 @@ const metadata = id => {
 
   const builder = dynamicMetadata.find(candidate => id.startsWith(candidate.prefix));
   return builder?.create(id, projectIdFrom(id, builder.prefix)) ?? null;
+};
+
+const fixtureChildren = id => {
+  loadLegacyFixtures();
+  const created = [...createdMetadata.values()].filter(source => source.parents.includes(id));
+  const projectId = projectIdFrom(id, "qa-project-");
+  if (projectId) {
+    return [...created, metadata(nestedFolder(projectId))];
+  }
+
+  const nestedProjectId = projectIdFrom(id, "qa-nested-");
+  if (nestedProjectId) {
+    return [...created, metadata(planFile(nestedProjectId)), metadata(zipFile(nestedProjectId))];
+  }
+
+  return created;
 };
 
 const displayItem = source => ({
@@ -299,30 +317,18 @@ const fakeMethods = {
     foldersByParentAndName.set(folderKey(destinationFolderId, source.name), fileId);
   },
   countDescendantFiles: async ids => new Map(ids.map(id => [id, 2])),
-  listChildren: async id => {
-    loadLegacyFixtures();
-    const created = [...createdMetadata.values()]
-      .filter(candidate => candidate.parents.includes(id))
-      .map(displayItem);
-    const projectId = projectIdFrom(id, "qa-project-");
-    if (projectId) {
-      return [...created, displayItem(metadata(nestedFolder(projectId)))];
+  listChildren: async id => fixtureChildren(id).map(displayItem),
+  listAll: async query => {
+    const parentIds = Array.from(query.matchAll(/'([^']+)' in parents/g), match => match[1]);
+    if (parentIds.length === 0) {
+      throw new Error("Expected a Drive child-list query");
     }
 
-    const nestedProjectId = projectIdFrom(id, "qa-nested-");
-    if (nestedProjectId) {
-      return [
-        ...created,
-        ...[planFile(nestedProjectId), zipFile(nestedProjectId)].map(fileId =>
-          displayItem(metadata(fileId)),
-        ),
-      ];
-    }
-
-    return created;
+    return parentIds.flatMap(fixtureChildren);
   },
   downloadFile: async id => {
     const contentByPrefix = {
+      [JENNY_PDF.FILE_PREFIX]: JENNY_DRIVE_PDF,
       "qa-plan-": Buffer.from("%PDF-1.4\nQA plan\n"),
       "qa-revised-plan-": Buffer.from("%PDF-1.4\nQA revised plan\n"),
       "qa-zip-": Buffer.from([0x50, 0x4b, 0x03, 0x04, 0, 0, 0, 0]),
