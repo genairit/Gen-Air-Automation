@@ -5,9 +5,11 @@ import {
 } from "../constants/fake-places.constant.ts";
 
 import { json } from "node:stream/consumers";
+import { answerFakeOpenAI } from "./fake-openai.ts";
 import { isRecord } from "../utilities/guard.utility.ts";
 import { HTTP_STATUS } from "../constants/http.constant.ts";
 import { createLogger } from "../utilities/logger.utility.ts";
+import { FAKE_OPENAI_CHAT_PATH } from "../constants/jenny.constant.ts";
 import type { IFakePlace } from "../interfaces/fake-place.interface.ts";
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from "node:http";
 
@@ -78,6 +80,11 @@ const answerAutocomplete = async (request: IncomingMessage, response: ServerResp
 };
 
 const routeRequest = async (request: IncomingMessage, response: ServerResponse) => {
+  if (request.url === FAKE_OPENAI_CHAT_PATH) {
+    await answerFakeOpenAI(request, response);
+    return;
+  }
+
   const isAutocomplete = request.url?.startsWith(FAKE_PLACES_ROUTES.AUTOCOMPLETE) ?? false;
 
   if (isAutocomplete) {
