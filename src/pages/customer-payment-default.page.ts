@@ -10,6 +10,12 @@ import type { IPaymentStage } from "../interfaces/payment-configuration.interfac
 export const createCustomerPaymentDefaultPage = (page: Page) => {
   const choice = (label: string) => page.getByRole("radio", { name: label, exact: true });
   const choose = (label: string) => choice(label).click();
+  const defaultMenu = page.getByRole("combobox", { name: PAYMENT_DEFAULT_COPY.EDIT, exact: true });
+  const defaultOption = (label: string) => page.getByRole("option", { name: label, exact: true });
+  const chooseDefault = async (label: string) => {
+    await defaultMenu.click();
+    await defaultOption(label).click();
+  };
   const percent = (index = 0) =>
     page.getByRole("spinbutton", { name: CUSTOMER_PAYMENT_COPY.PERCENT, exact: true }).nth(index);
   const milestone = (index = 0) =>
@@ -24,7 +30,6 @@ export const createCustomerPaymentDefaultPage = (page: Page) => {
       exact: true,
     });
   const fillSchedule = async (stages: readonly IPaymentStage[]) => {
-    await choose(CUSTOMER_PAYMENT_COPY.CUSTOM);
     for (const [index, stage] of stages.entries()) {
       if ((await percent(index).count()) === 0) {
         await addButton.click();
@@ -44,6 +49,9 @@ export const createCustomerPaymentDefaultPage = (page: Page) => {
   return {
     choice,
     choose,
+    defaultMenu,
+    defaultOption,
+    chooseDefault,
     percent,
     milestone,
     addButton,
