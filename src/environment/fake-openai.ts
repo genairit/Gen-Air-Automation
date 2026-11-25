@@ -20,6 +20,7 @@ const toolsByQuestion: ReadonlyMap<string, TJennyToolName[]> = new Map([
   [JENNY_QUESTION.SUMMARY, [JENNY_TOOL.STATUS, JENNY_TOOL.QUOTATION]],
   [JENNY_QUESTION.DOCUMENTS, [JENNY_TOOL.DOCUMENTS, JENNY_TOOL.SEARCH]],
   [JENNY_QUESTION.PERMISSIONS, Object.values(JENNY_TOOL)],
+  [JENNY_QUESTION.TASKS, [JENNY_TOOL.TASKS]],
 ]);
 
 const toolResults = (messages: TOpenAIMessage[]) =>
@@ -35,6 +36,21 @@ const records = (value: unknown): TOpenAIMessage[] =>
 const recordCollection = (value: unknown, key: string): TOpenAIMessage[] =>
   isRecord(value) ? records(value[key]) : [];
 
+const renderTasks = (value: TOpenAIMessage): string => {
+  const tasks = recordCollection(value, "tasks");
+  if (value.totalTasks === 0) {
+    return JENNY_REPLIES.NO_TASKS;
+  }
+
+  const summary = `בתיק ${value.totalTasks} משימות, מתוכן ${value.overdueTasks} באיחור. מוצגות ${tasks.length} משימות.`;
+  const details = tasks.map(task =>
+    [task.title, task.status, task.assignee, task.dueDate].filter(Boolean).join(" | "),
+  );
+  const more = value.hasMoreMatchingTasks ? [JENNY_REPLIES.MORE_TASKS] : [];
+
+  return [summary, ...details, ...more].join("\n\n");
+};
+
 const toolResultText = (results: Map<unknown, unknown>, name: TJennyToolName): string => {
   const value = results.get(name);
   if (!isRecord(value) || typeof value.error === "string") {
@@ -42,6 +58,7 @@ const toolResultText = (results: Map<unknown, unknown>, name: TJennyToolName): s
   }
 
   const renderers: Record<TJennyToolName, () => string> = {
+    [JENNY_TOOL.TASKS]: () => renderTasks(value),
     [JENNY_TOOL.STATUS]: () => `השלב של ${value.name} הוא ${value.stage}.`,
     [JENNY_TOOL.QUOTATION]: () => {
       const [quote] = recordCollection(value, "quotations");
@@ -115,6 +132,10 @@ const buildCompletion = (body: unknown): object => {
   const toolCalls = needsTools ? tools.map(toolCall) : [];
   const resultText = () => tools.map(name => toolResultText(results, name)).filter(Boolean);
   const answer = () => {
+    if (question === JENNY_QUESTION.TASKS && tools.length === 0) {
+      return JENNY_REPLIES.TASKS_NOT_AVAILABLE;
+    }
+
     const paragraphs = resultText();
     return question === JENNY_QUESTION.PERMISSIONS
       ? [...paragraphs, JENNY_REPLIES.LIMITED_ACCESS].join("\n\n")
