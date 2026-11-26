@@ -17,6 +17,8 @@ import { JENNY_DRIVE_PDF, registerJennyPdf } from "../../src/environment/jenny-d
 import { quotationDocument, quotationWrite, saveQuotation } from "../../src/api/quotation.api.ts";
 
 const ESTIMATES = "/engineering-estimates";
+const NEW_ESTIMATE = "כתב כמויות חדש";
+const ESTIMATE_NAME = "שם כתב הכמויות";
 const PLANS_PROMPT = "אילו תוכניות נצרף לכתב הכמויות?";
 const CUSTOMER_PDF = "הורדת הצעה ללקוח (PDF)";
 const SKETCH = "הפקת סקיצה לאישור";
@@ -50,7 +52,7 @@ const estimateResponse = async (
 const estimateFromUrl = (page: Page): string => {
   const id = new URL(page.url()).searchParams.get("estimate");
   if (!id) {
-    throw new Error("Jenny did not select the saved estimate");
+    throw new Error("The saved estimate was not selected");
   }
   return id;
 };
@@ -73,7 +75,7 @@ const startJenny = async (
   expect(launcher.x).toBeLessThan(50);
   expect(viewport.height - launcher.y - launcher.height).toBeLessThan(110);
   await jenny.launcher.click();
-  const nameInput = jenny.dialog.getByLabel("שם כתב הכמויות");
+  const nameInput = jenny.dialog.getByLabel(ESTIMATE_NAME);
   const create = jenny.dialog.getByRole("button", { name: "יצירת טיוטה" });
   await expect(nameInput).toBeFocused();
   await expect(create).toBeDisabled();
@@ -139,6 +141,106 @@ const inspectPdf = async (bytes: Buffer): Promise<IPdfContent> => {
     await document.destroy();
   }
 };
+
+test("Manual creation validates the name, cancels with focus restored and opens a standalone estimate", async ({
+  api,
+  page,
+}) => {
+  const name = "אומדן ידני עצמאי";
+  const cancelledName = "אומדן שבוטל";
+  const jenny = createJennyPage(page);
+  const start = page.getByRole("button", { name: NEW_ESTIMATE, exact: true });
+  const form = page.getByRole("form", { name: NEW_ESTIMATE, exact: true });
+  const nameInput = form.getByRole("textbox", { name: ESTIMATE_NAME });
+  const create = form.getByRole("button", { name: "יצירת כתב כמויות" });
+
+  await page.goto(ESTIMATES);
+  await expect(jenny.launcher).toBeVisible();
+  await start.click();
+  await expect(nameInput).toBeFocused();
+  await expect(create).toBeDisabled();
+  await nameInput.fill("   ");
+  await expect(create).toBeDisabled();
+  await nameInput.fill(cancelledName);
+  await form.getByRole("button", { name: "ביטול", exact: true }).click();
+  await expect(form).toBeHidden();
+  await expect(start).toBeFocused();
+
+  await start.click();
+  await expect(nameInput).toHaveValue("");
+  await nameInput.fill(`  ${name}  `);
+  await create.click();
+  await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "הוספת אזור", exact: true })).toBeVisible();
+  await expect(jenny.dialog).toBeHidden();
+  await expect(jenny.launcher).toBeVisible();
+  expect(await readEstimate(api, estimateFromUrl(page))).toMatchObject({
+    name,
+    status: "draft",
+    projectId: null,
+  });
+  await page.getByRole("button", { name: "לכל כתבי הכמויות" }).click();
+  await expect(page.getByRole("button", { name: `פתיחת ${name}`, exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: `פתיחת ${cancelledName}` })).toHaveCount(0);
+});
+
+test("An engineer links a project and edits a saved estimate and its catalogue quantities without Jenny", async ({
+  api,
+  apiAs,
+  openPageAs,
+}) => {
+  const name = "אומדן ידני מקושר";
+  const revisedName = "אומדן מקושר מעודכן";
+  const area = "חדר ישיבות";
+  const customer = await seedCustomer(api);
+  const project = await seedStandaloneProject(api, customer);
+  const item = await createCatalogueFixture({ price: "25.0000" });
+  const engineer = TEST_USERS[USER_ROLES.ENGINEER];
+  const engineerApi = await apiAs(engineer);
+  const page = await openPageAs(engineer);
+  const jenny = createJennyPage(page);
+  const form = page.getByRole("form", { name: NEW_ESTIMATE, exact: true });
+
+  await page.goto(ESTIMATES);
+  await page.getByRole("button", { name: NEW_ESTIMATE, exact: true }).click();
+  await form.getByRole("textbox", { name: ESTIMATE_NAME }).fill(name);
+  await searchOptions(page, "פרויקט (אופציונלי)", project.name);
+  await page
+    .getByRole("option", { name: `${project.name} · ${project.code}`, exact: true })
+    .click();
+  await form.getByRole("button", { name: "יצירת כתב כמויות" }).click();
+  await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
+  const id = estimateFromUrl(page);
+  expect(await readEstimate(engineerApi, id)).toMatchObject({ projectId: project.id });
+
+  await page.getByRole("button", { name: "לכל כתבי הכמויות" }).click();
+  await page.getByRole("button", { name: `פתיחת ${name}`, exact: true }).click();
+  await page.getByRole("button", { name: "עריכת פרטי טיוטה" }).click();
+  await page.getByRole("textbox", { name: ESTIMATE_NAME }).fill(revisedName);
+  await page.getByRole("button", { name: "שמירת שם" }).click();
+  await expect(page.getByRole("heading", { name: revisedName, exact: true })).toBeVisible();
+
+  await page.getByLabel("שם אזור או טיפוס").fill(area);
+  await page.getByRole("button", { name: "הוספת אזור", exact: true }).click();
+  await searchOptions(page, "בחירת פריט מהקטלוג", item.sku);
+  await page
+    .getByRole("option", { name: `${item.sku} · ${item.description}`, exact: true })
+    .click();
+  await page.getByLabel("כמות לאזור אחד").fill("2");
+  await page.getByRole("button", { name: "הוספת פריט", exact: true }).click();
+
+  const row = page.getByRole("row").filter({ hasText: item.sku });
+  await expect(row.getByRole("cell", { name: "₪50.00", exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: revisedName, exact: true })).toBeVisible();
+  await expect(row.getByRole("cell", { name: "₪50.00", exact: true })).toBeVisible();
+  await expect(jenny.dialog).toBeHidden();
+  expect(await readEstimate(engineerApi, id)).toMatchObject({
+    name: revisedName,
+    projectId: project.id,
+    lines: [expect.objectContaining({ quantity: "2.0000", unitPrice: "25.0000", total: "50.00" })],
+  });
+});
 
 test("Jenny resumes a standalone RTL mobile draft with uploaded plans, repeatable areas and catalogue pricing", async ({
   api,
@@ -280,6 +382,9 @@ test("Jenny copies a plan only from the selected project and enforces private es
     HTTP_STATUS.FORBIDDEN,
   );
   const financePage = await openPageAs(TEST_USERS[USER_ROLES.FINANCE]);
+  await financePage.goto(ESTIMATES);
+  await expect(financePage.getByText("אין הרשאה לפעולה זו")).toBeVisible();
+  await expect(financePage.getByRole("button", { name: NEW_ESTIMATE, exact: true })).toHaveCount(0);
   await financePage.goto(estimatePath(id));
   await expect(financePage.getByText("אין הרשאה לפעולה זו")).toBeVisible();
   await expect(createJennyPage(financePage).launcher).toHaveCount(0);
