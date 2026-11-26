@@ -58,7 +58,7 @@ const provisionDrive = async (api: TGenAirApi, projectId: string): Promise<strin
   return body.driveFolderId;
 };
 
-test("Jenny is project-only and answers in a Hebrew RTL popup with the actual quotation totals", async ({
+test("Jenny stays off the project board and answers on project details with actual quotation totals in RTL", async ({
   page,
   api,
 }) => {
