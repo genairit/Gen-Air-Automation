@@ -10,6 +10,9 @@ export const PERMISSIONS = {
   EXECUTION_PLANS_READ: "execution_plans.read",
   EXECUTION_PLANS_SUBMIT: "execution_plans.submit",
   EXECUTION_PLANS_APPROVE: "execution_plans.approve",
+  ENGINEERING_ESTIMATES_READ: "engineering_estimates.read",
+  ENGINEERING_ESTIMATES_MANAGE: "engineering_estimates.manage",
+  ENGINEERING_ESTIMATES_APPROVE: "engineering_estimates.approve",
   CATALOGUE_MANAGE: QUOTATION_PERMISSIONS.CATALOGUE_MANAGE,
   PROJECTS_READ: "projects.read",
   PROJECTS_CREATE: "projects.create",
@@ -85,9 +88,16 @@ const EXECUTION_PLAN_PERMISSION_VALUES = [
   PERMISSIONS.EXECUTION_PLANS_APPROVE,
 ];
 
+const ENGINEERING_ESTIMATE_PERMISSION_VALUES = [
+  PERMISSIONS.ENGINEERING_ESTIMATES_READ,
+  PERMISSIONS.ENGINEERING_ESTIMATES_MANAGE,
+  PERMISSIONS.ENGINEERING_ESTIMATES_APPROVE,
+];
+
 export const INITIAL_PERMISSION_VALUES = PERMISSION_VALUES.filter(
   key =>
     !Object.values(QUOTATION_PERMISSIONS).some(quotationKey => quotationKey === key) &&
     !EXECUTION_PLAN_PERMISSION_VALUES.some(executionPlanKey => executionPlanKey === key) &&
-    !PURCHASING_PERMISSION_VALUES.some(purchasingKey => purchasingKey === key),
+    !PURCHASING_PERMISSION_VALUES.some(purchasingKey => purchasingKey === key) &&
+    !ENGINEERING_ESTIMATE_PERMISSION_VALUES.some(estimateKey => estimateKey === key),
 );
