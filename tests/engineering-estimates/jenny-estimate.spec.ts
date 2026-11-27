@@ -19,6 +19,7 @@ import { quotationDocument, quotationWrite, saveQuotation } from "../../src/api/
 const ESTIMATES = "/engineering-estimates";
 const NEW_ESTIMATE = "כתב כמויות חדש";
 const ESTIMATE_NAME = "שם כתב הכמויות";
+const ESTIMATE_LIST = "רשימת כתבי כמויות";
 const PLANS_PROMPT = "אילו תוכניות נצרף לכתב הכמויות?";
 const CUSTOMER_PDF = "הורדת הצעה ללקוח (PDF)";
 const SKETCH = "הפקת סקיצה לאישור";
@@ -148,6 +149,7 @@ test("An engineer creates a standalone estimate and manages catalogue items with
 }, testInfo) => {
   const name = "אומדן ידני עצמאי";
   const cancelledName = "אומדן שבוטל";
+  const existingName = "אומדן הנדסי נוסף";
   const item = await createCatalogueFixture({ price: "25.0000" });
   const engineer = TEST_USERS[USER_ROLES.ENGINEER];
   const api = await apiAs(engineer);
@@ -158,6 +160,10 @@ test("An engineer creates a standalone estimate and manages catalogue items with
   const nameInput = form.getByRole("textbox", { name: ESTIMATE_NAME });
   const create = form.getByRole("button", { name: "יצירת כתב כמויות" });
 
+  await estimateResponse(
+    await api.send(HTTP_METHODS.POST, ESTIMATES, { name: existingName }),
+    HTTP_STATUS.CREATED,
+  );
   await page.goto(ESTIMATES);
   await expect(jenny.launcher).toBeVisible();
   await start.click();
@@ -240,8 +246,24 @@ test("An engineer creates a standalone estimate and manages catalogue items with
   });
 
   await page.getByRole("button", { name: "לכל כתבי הכמויות" }).click();
-  await expect(page.getByRole("button", { name: `פתיחת ${name}`, exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: `פתיחת ${cancelledName}` })).toHaveCount(0);
+  const openLabel = `פתיחת ${name}`;
+  const estimateList = page.getByRole("region", { name: ESTIMATE_LIST, exact: true });
+  const openEstimate = estimateList.getByRole("button", { name: openLabel, exact: true });
+  await expect(estimateList).toHaveCount(1);
+  await expect(
+    estimateList.getByRole("button", { name: `פתיחת ${existingName}`, exact: true }),
+  ).toBeVisible();
+  await expect(openEstimate.getByText(name, { exact: true })).toBeVisible();
+  await expect(estimateList.getByText(openLabel, { exact: true })).toHaveCount(0);
+  await expect(estimateList.getByRole("button", { name: `פתיחת ${cancelledName}` })).toHaveCount(0);
+  await testInfo.attach("manual-estimate-list-card", {
+    body: await estimateList.screenshot(),
+    contentType: "image/png",
+  });
+  await openEstimate.focus();
+  await expect(openEstimate).toBeFocused();
+  await openEstimate.press("Enter");
+  await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
 });
 
 test("An engineer links a project and edits a saved estimate and its catalogue quantities without Jenny", async ({
@@ -274,7 +296,11 @@ test("An engineer links a project and edits a saved estimate and its catalogue q
   expect(await readEstimate(engineerApi, id)).toMatchObject({ projectId: project.id });
 
   await page.getByRole("button", { name: "לכל כתבי הכמויות" }).click();
-  await page.getByRole("button", { name: `פתיחת ${name}`, exact: true }).click();
+  await page
+    .getByRole("region", { name: ESTIMATE_LIST, exact: true })
+    .getByRole("button", { name: `פתיחת ${name}`, exact: true })
+    .getByText(name, { exact: true })
+    .click();
   await page.getByRole("button", { name: "עריכת פרטי טיוטה" }).click();
   await page.getByRole("textbox", { name: ESTIMATE_NAME }).fill(revisedName);
   await page.getByRole("button", { name: "שמירת שם" }).click();
