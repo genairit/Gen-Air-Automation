@@ -25,6 +25,7 @@ const CUSTOMER_PDF = "הורדת הצעה ללקוח (PDF)";
 const SKETCH = "הפקת סקיצה לאישור";
 const MARKED_PLAN = "internal-marked-plan.png";
 const MOBILE = { width: 390, height: 844 };
+const DESKTOP = { width: 1440, height: 900 };
 
 interface IEstimateResponse extends Record<string, unknown> {
   id: string;
@@ -37,6 +38,16 @@ interface IPdfContent {
 }
 
 const estimatePath = (id: string): string => `${ESTIMATES}?estimate=${id}`;
+
+const draftRow = (list: Locator, name: string): Locator =>
+  list.getByRole("button", { name: `פתיחת ${name} · טיוטה`, exact: true });
+
+const expectLargeHeading = async (heading: Locator, size: number): Promise<void> => {
+  await expect(heading).toBeVisible();
+  await expect(heading).toHaveCSS("direction", "rtl");
+  await expect(heading).toHaveCSS("font-size", `${size}px`);
+  await expect(heading).toHaveCSS("font-weight", "800");
+};
 
 const estimateResponse = async (
   response: APIResponse,
@@ -159,14 +170,26 @@ test("An engineer creates a standalone estimate and manages catalogue items with
   const form = page.getByRole("form", { name: NEW_ESTIMATE, exact: true });
   const nameInput = form.getByRole("textbox", { name: ESTIMATE_NAME });
   const create = form.getByRole("button", { name: "יצירת כתב כמויות" });
+  const estimateList = page.getByRole("region", { name: ESTIMATE_LIST, exact: true });
 
   await estimateResponse(
     await api.send(HTTP_METHODS.POST, ESTIMATES, { name: existingName }),
     HTTP_STATUS.CREATED,
   );
+  await page.setViewportSize(DESKTOP);
   await page.goto(ESTIMATES);
-  await expect(jenny.launcher).toBeVisible();
+  await expectLargeHeading(page.getByRole("heading", { name: "כתבי כמויות", exact: true }), 32);
+  await expect(estimateList).toBeVisible();
+  await jenny.launcher.click();
+  await expect(jenny.dialog).toHaveAttribute("aria-modal", "false");
+  const jennyName = jenny.dialog.getByLabel(ESTIMATE_NAME);
+  await jennyName.fill("טיוטה זמנית של ג׳ני");
+
   await start.click();
+  await expectLargeHeading(page.getByRole("heading", { name: NEW_ESTIMATE, exact: true }), 32);
+  await expect(estimateList).toBeHidden();
+  await expect(start).toBeHidden();
+  await expect(jennyName).toHaveValue("טיוטה זמנית של ג׳ני");
   await expect(nameInput).toBeFocused();
   await expect(create).toBeDisabled();
   await nameInput.fill("   ");
@@ -175,12 +198,25 @@ test("An engineer creates a standalone estimate and manages catalogue items with
   await form.getByRole("button", { name: "ביטול", exact: true }).click();
   await expect(form).toBeHidden();
   await expect(start).toBeFocused();
+  await expect(estimateList).toBeVisible();
+  await expect(jennyName).toHaveValue("טיוטה זמנית של ג׳ני");
+  await jennyName.press("Escape");
+  await expect(jenny.dialog).toBeHidden();
 
   await start.click();
+  await expect(nameInput).toBeFocused();
+  await testInfo.attach("manual-estimate-desktop-create", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
   await expect(nameInput).toHaveValue("");
   await nameInput.fill(`  ${name}  `);
   await create.click();
-  await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
+  await expectLargeHeading(page.getByRole("heading", { name, exact: true }), 32);
+  await expect(page.getByRole("heading", { name: "פריטים מהקטלוג", exact: true })).toHaveCSS(
+    "font-size",
+    "22px",
+  );
   await expect(page.getByRole("combobox", { name: "בחירת פריט מהקטלוג" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "הוספת אזור", exact: true })).toBeVisible();
   await expect(jenny.dialog).toBeHidden();
@@ -246,15 +282,13 @@ test("An engineer creates a standalone estimate and manages catalogue items with
   });
 
   await page.getByRole("button", { name: "לכל כתבי הכמויות" }).click();
-  const openLabel = `פתיחת ${name}`;
-  const estimateList = page.getByRole("region", { name: ESTIMATE_LIST, exact: true });
-  const openEstimate = estimateList.getByRole("button", { name: openLabel, exact: true });
+  const openEstimate = draftRow(estimateList, name);
+  const rowName = openEstimate.getByText(name, { exact: true });
   await expect(estimateList).toHaveCount(1);
-  await expect(
-    estimateList.getByRole("button", { name: `פתיחת ${existingName}`, exact: true }),
-  ).toBeVisible();
-  await expect(openEstimate.getByText(name, { exact: true })).toBeVisible();
-  await expect(estimateList.getByText(openLabel, { exact: true })).toHaveCount(0);
+  await expect(draftRow(estimateList, existingName)).toBeVisible();
+  await expect(rowName).toHaveCSS("font-size", "18px");
+  await expect(rowName).toHaveCSS("font-weight", "700");
+  await expect(estimateList.getByText(`פתיחת ${name}`, { exact: true })).toHaveCount(0);
   await expect(estimateList.getByRole("button", { name: `פתיחת ${cancelledName}` })).toHaveCount(0);
   await testInfo.attach("manual-estimate-list-card", {
     body: await estimateList.screenshot(),
@@ -270,7 +304,7 @@ test("An engineer links a project and edits a saved estimate and its catalogue q
   api,
   apiAs,
   openPageAs,
-}) => {
+}, testInfo) => {
   const name = "אומדן ידני מקושר";
   const revisedName = "אומדן מקושר מעודכן";
   const area = "חדר ישיבות";
@@ -296,12 +330,18 @@ test("An engineer links a project and edits a saved estimate and its catalogue q
   expect(await readEstimate(engineerApi, id)).toMatchObject({ projectId: project.id });
 
   await page.getByRole("button", { name: "לכל כתבי הכמויות" }).click();
-  await page
-    .getByRole("region", { name: ESTIMATE_LIST, exact: true })
-    .getByRole("button", { name: `פתיחת ${name}`, exact: true })
-    .getByText(name, { exact: true })
-    .click();
+  const estimateList = page.getByRole("region", { name: ESTIMATE_LIST, exact: true });
+  await draftRow(estimateList, name).getByText(name, { exact: true }).click();
+  await expectLargeHeading(page.getByRole("heading", { name, exact: true }), 32);
   await page.getByRole("button", { name: "עריכת פרטי טיוטה" }).click();
+  await expect(page.getByRole("heading", { name: "פרטי כתב הכמויות", exact: true })).toHaveCSS(
+    "font-weight",
+    "700",
+  );
+  await testInfo.attach("manual-estimate-desktop-edit", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
   await page.getByRole("textbox", { name: ESTIMATE_NAME }).fill(revisedName);
   await page.getByRole("button", { name: "שמירת שם" }).click();
   await expect(page.getByRole("heading", { name: revisedName, exact: true })).toBeVisible();
@@ -325,6 +365,55 @@ test("An engineer links a project and edits a saved estimate and its catalogue q
     name: revisedName,
     projectId: project.id,
     lines: [expect.objectContaining({ quantity: "2.0000", unitPrice: "25.0000", total: "50.00" })],
+  });
+});
+
+test("A narrow RTL estimate list, create form and detail keep the title and status readable", async ({
+  api,
+  page,
+}, testInfo) => {
+  const name = "כתב כמויות למתחם מלונאות NorthWingMechanicalFloor2026";
+  await estimateResponse(
+    await api.send(HTTP_METHODS.POST, ESTIMATES, { name }),
+    HTTP_STATUS.CREATED,
+  );
+  await page.setViewportSize(MOBILE);
+  await page.goto(ESTIMATES);
+
+  const list = page.getByRole("region", { name: ESTIMATE_LIST, exact: true });
+  const row = draftRow(list, name);
+  await expectLargeHeading(page.getByRole("heading", { name: "כתבי כמויות", exact: true }), 28);
+  await expect(list).toHaveCSS("direction", "rtl");
+  await expect(row.getByText(name, { exact: true })).toHaveCSS("font-size", "18px");
+  const status = row.getByText("טיוטה", { exact: true });
+  await expect(status).toBeInViewport({ ratio: 1 });
+  await expect(status).toHaveCSS("font-weight", "700");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(MOBILE.width);
+  await testInfo.attach("manual-estimate-mobile-list", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
+
+  await page.getByRole("button", { name: NEW_ESTIMATE, exact: true }).click();
+  const form = page.getByRole("form", { name: NEW_ESTIMATE, exact: true });
+  await expectLargeHeading(page.getByRole("heading", { name: NEW_ESTIMATE, exact: true }), 28);
+  await expect(list).toBeHidden();
+  await expect(form).toHaveCSS("direction", "rtl");
+  await expect(form.getByRole("textbox", { name: ESTIMATE_NAME })).toBeFocused();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(MOBILE.width);
+  await testInfo.attach("manual-estimate-mobile-create", {
+    body: await page.screenshot(),
+    contentType: "image/png",
+  });
+  await form.getByRole("button", { name: "ביטול", exact: true }).click();
+
+  await row.click();
+  await expectLargeHeading(page.getByRole("heading", { name, exact: true }), 28);
+  await expect(page.getByRole("combobox", { name: "בחירת פריט מהקטלוג" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(MOBILE.width);
+  await testInfo.attach("manual-estimate-mobile-detail", {
+    body: await page.screenshot(),
+    contentType: "image/png",
   });
 });
 
@@ -676,7 +765,8 @@ test("Reviewed revisions yield an exact marked sketch and one approved customer 
     ).status(),
   ).toBe(HTTP_STATUS.FORBIDDEN);
   await page.getByRole("button", { name: "אישור גרסת הסקיצה" }).click();
-  await expect(page.getByText(`גרסה ${current.version} · מאושר`, { exact: true })).toBeVisible();
+  await expect(page.getByText("מאושר", { exact: true })).toBeVisible();
+  await expect(page.getByText(`גרסה ${current.version}`, { exact: true })).toBeVisible();
   expect(await capturePdf(page, "הורדת הסקיצה השמורה")).toEqual(sketch);
 
   const openQuotation = page.waitForResponse(
