@@ -19,6 +19,7 @@ import { quotationDocument, quotationWrite, saveQuotation } from "../../src/api/
 const ESTIMATES = "/engineering-estimates";
 const NEW_ESTIMATE = "כתב כמויות חדש";
 const ESTIMATE_NAME = "שם כתב הכמויות";
+const ESTIMATE_LIST = "רשימת כתבי כמויות";
 const PLANS_PROMPT = "אילו תוכניות נצרף לכתב הכמויות?";
 const CUSTOMER_PDF = "הורדת הצעה ללקוח (PDF)";
 const SKETCH = "הפקת סקיצה לאישור";
@@ -142,18 +143,27 @@ const inspectPdf = async (bytes: Buffer): Promise<IPdfContent> => {
   }
 };
 
-test("Manual creation validates the name, cancels with focus restored and opens a standalone estimate", async ({
-  api,
-  page,
-}) => {
+test("An engineer creates a standalone estimate and manages catalogue items without Jenny or area setup", async ({
+  apiAs,
+  openPageAs,
+}, testInfo) => {
   const name = "אומדן ידני עצמאי";
   const cancelledName = "אומדן שבוטל";
+  const existingName = "אומדן הנדסי נוסף";
+  const item = await createCatalogueFixture({ price: "25.0000" });
+  const engineer = TEST_USERS[USER_ROLES.ENGINEER];
+  const api = await apiAs(engineer);
+  const page = await openPageAs(engineer);
   const jenny = createJennyPage(page);
   const start = page.getByRole("button", { name: NEW_ESTIMATE, exact: true });
   const form = page.getByRole("form", { name: NEW_ESTIMATE, exact: true });
   const nameInput = form.getByRole("textbox", { name: ESTIMATE_NAME });
   const create = form.getByRole("button", { name: "יצירת כתב כמויות" });
 
+  await estimateResponse(
+    await api.send(HTTP_METHODS.POST, ESTIMATES, { name: existingName }),
+    HTTP_STATUS.CREATED,
+  );
   await page.goto(ESTIMATES);
   await expect(jenny.launcher).toBeVisible();
   await start.click();
@@ -171,17 +181,89 @@ test("Manual creation validates the name, cancels with focus restored and opens 
   await nameInput.fill(`  ${name}  `);
   await create.click();
   await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "בחירת פריט מהקטלוג" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "הוספת אזור", exact: true })).toBeVisible();
   await expect(jenny.dialog).toBeHidden();
   await expect(jenny.launcher).toBeVisible();
-  expect(await readEstimate(api, estimateFromUrl(page))).toMatchObject({
+  const id = estimateFromUrl(page);
+  expect(await readEstimate(api, id)).toMatchObject({
     name,
+    areas: [],
+    lines: [],
     status: "draft",
     projectId: null,
   });
+
+  const row = page.getByRole("row").filter({ hasText: item.sku });
+  const defaultArea = page.getByRole("heading", { name: "כללי · 1 חזרות", exact: true });
+  const editItem = page.getByRole("combobox", { name: "פריט לעריכה", exact: true });
+  const itemOption = `${item.description} · שורה 1`;
+  const quantity = page.getByLabel("כמות לאזור אחד");
+  await test.step("Add a catalogue item to the empty draft", async () => {
+    await searchOptions(page, "בחירת פריט מהקטלוג", item.sku);
+    await page.getByRole("option", { name: `${item.sku} · ${item.description}` }).click();
+    await quantity.fill("2");
+    await page.getByRole("button", { name: "הוספת פריט", exact: true }).click();
+    await expect(defaultArea).toBeVisible();
+    await expect(row.getByRole("cell", { name: "₪50.00", exact: true })).toBeVisible();
+    expect(await readEstimate(api, id)).toMatchObject({
+      areas: [
+        expect.objectContaining({
+          name: "כללי",
+          repeatCount: 1,
+          lines: [expect.objectContaining({ catalogueItemId: item.id })],
+        }),
+      ],
+    });
+    await testInfo.attach("manual-catalogue-first-item", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+  });
+
+  await test.step("Change the quantity and reload", async () => {
+    await chooseOption(page, editItem, itemOption);
+    await quantity.fill("3");
+    await page.getByRole("button", { name: "שמירת פריט", exact: true }).click();
+    await expect(row.getByRole("cell", { name: "₪75.00", exact: true })).toBeVisible();
+    await page.reload();
+    await expect(row.getByRole("cell", { name: "3.0000 יח׳", exact: true })).toBeVisible();
+    await expect(row.getByRole("cell", { name: "₪75.00", exact: true })).toBeVisible();
+  });
+
+  await test.step("Remove the item and verify the saved estimate is empty again", async () => {
+    await chooseOption(page, editItem, itemOption);
+    await page.getByRole("button", { name: "הסרת פריט", exact: true }).click();
+    await expect(page.getByText("אין פריטים באזור הזה.", { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(defaultArea).toBeVisible();
+    await expect(row).toHaveCount(0);
+    expect(await readEstimate(api, id)).toMatchObject({
+      lines: [],
+      areas: [expect.objectContaining({ lines: [] })],
+    });
+    await expect(jenny.dialog).toBeHidden();
+  });
+
   await page.getByRole("button", { name: "לכל כתבי הכמויות" }).click();
-  await expect(page.getByRole("button", { name: `פתיחת ${name}`, exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: `פתיחת ${cancelledName}` })).toHaveCount(0);
+  const openLabel = `פתיחת ${name}`;
+  const estimateList = page.getByRole("region", { name: ESTIMATE_LIST, exact: true });
+  const openEstimate = estimateList.getByRole("button", { name: openLabel, exact: true });
+  await expect(estimateList).toHaveCount(1);
+  await expect(
+    estimateList.getByRole("button", { name: `פתיחת ${existingName}`, exact: true }),
+  ).toBeVisible();
+  await expect(openEstimate.getByText(name, { exact: true })).toBeVisible();
+  await expect(estimateList.getByText(openLabel, { exact: true })).toHaveCount(0);
+  await expect(estimateList.getByRole("button", { name: `פתיחת ${cancelledName}` })).toHaveCount(0);
+  await testInfo.attach("manual-estimate-list-card", {
+    body: await estimateList.screenshot(),
+    contentType: "image/png",
+  });
+  await openEstimate.focus();
+  await expect(openEstimate).toBeFocused();
+  await openEstimate.press("Enter");
+  await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
 });
 
 test("An engineer links a project and edits a saved estimate and its catalogue quantities without Jenny", async ({
@@ -214,7 +296,11 @@ test("An engineer links a project and edits a saved estimate and its catalogue q
   expect(await readEstimate(engineerApi, id)).toMatchObject({ projectId: project.id });
 
   await page.getByRole("button", { name: "לכל כתבי הכמויות" }).click();
-  await page.getByRole("button", { name: `פתיחת ${name}`, exact: true }).click();
+  await page
+    .getByRole("region", { name: ESTIMATE_LIST, exact: true })
+    .getByRole("button", { name: `פתיחת ${name}`, exact: true })
+    .getByText(name, { exact: true })
+    .click();
   await page.getByRole("button", { name: "עריכת פרטי טיוטה" }).click();
   await page.getByRole("textbox", { name: ESTIMATE_NAME }).fill(revisedName);
   await page.getByRole("button", { name: "שמירת שם" }).click();
