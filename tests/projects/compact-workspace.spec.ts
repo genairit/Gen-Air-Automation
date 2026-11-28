@@ -12,9 +12,11 @@ import {
   mockDriveManagement,
 } from "../../src/mocks/drive-management.mock.ts";
 
+import { seedUser } from "../../src/api/seed-data.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { createProjectPage } from "../../src/pages/project.page.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
+import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { ROOT_FOLDER_ID, MOCK_DRIVE_FILE } from "../../src/mocks/drive.mock.ts";
 import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { PROJECT_CONTACT_ROLES } from "../../src/constants/project-contact-role.constant.ts";
@@ -60,9 +62,10 @@ for (const kind of ["standalone", "building", "apartment"] as const) {
       expect(tabBox && createBox && rowBox).toBeTruthy();
       if (width === 1280) {
         expect(Math.abs(createBox!.y - tabBox!.y)).toBeLessThan(15);
-        expect(
-          rowBox!.y - Math.max(tabBox!.y + tabBox!.height, createBox!.y + createBox!.height),
-        ).toBeLessThan(40);
+        const gap =
+          rowBox!.y - Math.max(tabBox!.y + tabBox!.height, createBox!.y + createBox!.height);
+        expect(gap).toBeGreaterThanOrEqual(0);
+        expect(gap).toBeLessThanOrEqual(24);
       }
       await openWorkspaceTab(page, "people");
       if (width === 390) await page.getByRole("button", { name: "אנשי קשר", exact: true }).click();
@@ -81,10 +84,16 @@ for (const kind of ["standalone", "building", "apartment"] as const) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
       );
-      if (width === 1280)
+      if (width === 1280) {
+        expect(
+          await page
+            .getByRole("tabpanel", { name: "אנשי קשר וצוות", exact: true })
+            .evaluate(el => el.scrollHeight - el.clientHeight),
+        ).toBeLessThanOrEqual(1);
         expect(
           await page.evaluate(() => document.documentElement.scrollHeight - innerHeight),
         ).toBeLessThanOrEqual(1);
+      }
       await page.screenshot({ path: info.outputPath(`people-${kind}-${width}.png`) });
     });
   }
@@ -154,10 +163,16 @@ for (const width of [1280, 390]) {
     );
     await ui.driveCard.getByRole("button", { name: "הבא", exact: true }).click();
     await expect(ui.driveCard.getByRole("link", { name: "פריט 7.pdf", exact: true })).toBeVisible();
-    if (width === 1280)
+    if (width === 1280) {
+      expect(
+        await page
+          .getByRole("tabpanel", { name: "קבצים", exact: true })
+          .evaluate(el => el.scrollHeight - el.clientHeight),
+      ).toBeLessThanOrEqual(1);
       expect(
         await page.evaluate(() => document.documentElement.scrollHeight - innerHeight),
       ).toBeLessThanOrEqual(1);
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
@@ -193,10 +208,58 @@ test("additional contacts paginate while each professional role remains visible"
     for (const contact of contacts)
       if (await page.getByText(contact.name, { exact: true }).isVisible()) visited.add(contact.id);
     await expect(page.getByText("אדריכל", { exact: true })).toBeVisible();
-    if (i < 2) await next.click();
+    if (i < 2) {
+      const visibleNames = [];
+      for (const contact of contacts)
+        if (await page.getByText(contact.name, { exact: true }).isVisible())
+          visibleNames.push(contact.name);
+      await next.click();
+      await expect(page.getByText(visibleNames[0], { exact: true })).toHaveCount(0);
+    }
   }
   expect(visited.size).toBe(contacts.length);
   expect(
     await page.evaluate(() => document.documentElement.scrollHeight - innerHeight),
+  ).toBeLessThanOrEqual(1);
+});
+
+test("assigned team has compact callable rows and paginates every member", async ({
+  page,
+  api,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const project = await seedStandaloneProject(api, await seedCustomer(api));
+  const users: Awaited<ReturnType<typeof seedUser>>[] = [];
+  for (let i = 0; i < 6; i++) users.push(await seedUser(api, USER_ROLES.INSTALLER));
+  const stored = await api.getProject(project.id);
+  await page.route(`**/api/project/${project.id}`, route =>
+    route.fulfill({
+      json: {
+        ...stored,
+        members: users.map(user => ({ userId: user.id, role: USER_ROLES.INSTALLER, user })),
+      },
+    }),
+  );
+  await createProjectPage(page).goto(project.id);
+  await openWorkspaceTab(page, "people");
+  for (const user of users.slice(0, 5)) {
+    await expect(
+      page.getByText(`${user.firstName} ${user.lastName}`, { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: `התקשר ${user.firstName} ${user.lastName}`, exact: true }),
+    ).toBeVisible();
+  }
+  await page.getByRole("button", { name: "עובדים הבאים", exact: true }).click();
+  await expect(
+    page.getByText(`${users[5].firstName} ${users[5].lastName}`, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(`${users[0].firstName} ${users[0].lastName}`, { exact: true }),
+  ).toHaveCount(0);
+  expect(
+    await page
+      .getByRole("tabpanel", { name: "אנשי קשר וצוות", exact: true })
+      .evaluate(el => el.scrollHeight - el.clientHeight),
   ).toBeLessThanOrEqual(1);
 });

@@ -221,6 +221,10 @@ for (const [kind, createScenario] of Object.entries(DRIVE_SCENARIOS)) {
       if (scenario.hasUploads) {
         await page.getByRole("button", { name: "העלאת קבצים", exact: true }).click();
         await expect(projectPage.uploadInput).toHaveCount(1);
+        await page
+          .getByRole("dialog", { name: "העלאת קבצים", exact: true })
+          .getByRole("button", { name: "סיום", exact: true })
+          .click();
         await openWorkspaceTab(page, "history");
         await expect(page.getByText(PROJECT_PAGE_COPY.TIMELINE_TITLE)).toBeVisible();
         await expect(card).toBeHidden();

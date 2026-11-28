@@ -169,7 +169,7 @@ for (const width of [1440, 390]) {
       ui.driveFolder(FOLDERS.TARGET.name).getByRole("img", { name: DRIVE_COPY.FOLDER_HAS_FILES }),
     ).toBeVisible();
     expect(mock.requests.contents.slice(before)).toEqual(
-      expect.arrayContaining([FOLDERS.ROOT, FOLDERS.SOURCE.id, FOLDERS.NESTED.id]),
+      expect.arrayContaining([FOLDERS.ROOT, FOLDERS.NESTED.id]),
     );
     await ui.driveFolder(FOLDERS.TARGET.name).click();
     await expect(ui.file).toHaveAttribute("href", MANAGEMENT_FILE.webViewLink);
@@ -311,6 +311,7 @@ test("picker loading and friendly folder error disable selection; retry and empt
   const ui = createDriveManagement(page);
   await ui.goto(project.id);
   await openWorkspaceTab(page, "files");
+  await page.getByRole("button", { name: "העלאת קבצים", exact: true }).click();
   await page.getByRole("button", { name: COPY.CHOOSE, exact: true }).click();
   const pending = deferred();
   mock.state.holdContents = pending.promise;

@@ -45,7 +45,7 @@ for (const kind of ["standalone", "building", "apartment"] as const) {
         dialog.getByRole("button", { name: "בחר קבצים מהמחשב", exact: true }),
       ).toBeEnabled();
       await expect(dialog.locator("input[type=file]")).toHaveCount(1);
-      await expect(dialog.getByRole("button", { name: "בחר תיקייה", exact: true })).toBeEnabled();
+      await expect(dialog.getByRole("button", { name: "בחירת תיקייה", exact: true })).toBeEnabled();
       expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
       await dialog.screenshot({ path: info.outputPath(`upload-${kind}-${width}.png`) });
       await dialog.getByRole("button", { name: "סיום", exact: true }).click();
