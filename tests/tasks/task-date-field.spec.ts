@@ -1,6 +1,7 @@
 import {
   selectDueDate,
   getUpcomingDate,
+  findDateCalendar,
   findDueDateField,
   toDateDisplayValue,
 } from "../../src/pages/date-field.component.ts";
@@ -8,13 +9,16 @@ import {
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { createTaskFormPage } from "../../src/pages/tasks.page.ts";
 import { VIEWPORTS } from "../../src/constants/viewport.constant.ts";
+import { seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts";
 
 for (const viewport of [{ width: 1440, height: 1000 }, VIEWPORTS.MOBILE]) {
   test(`task due date uses a rounded Hebrew calendar at ${viewport.width}px`, async ({
     page,
+    api,
   }, testInfo) => {
     await page.setViewportSize(viewport);
-    await createTaskFormPage(page).goto();
+    const project = await seedStandaloneProject(api, await seedCustomer(api));
+    await createTaskFormPage(page).goto(project.id);
     const field = findDueDateField(page);
     await expect(page.locator('input[type="date"]')).toHaveCount(0);
     await expect(field).toHaveValue("");
@@ -23,7 +27,7 @@ for (const viewport of [{ width: 1440, height: 1000 }, VIEWPORTS.MOBILE]) {
 
     await field.focus();
     await field.press("Enter");
-    const calendar = page.locator(".MuiPopover-paper");
+    const calendar = findDateCalendar(page);
     await expect(calendar).toBeVisible();
     await expect(calendar.getByRole("grid", { name: /[א-ת]+ 20\d\d/ })).toBeVisible();
     await expect(calendar.getByRole("columnheader", { name: "יום ראשון" })).toBeVisible();

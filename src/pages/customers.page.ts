@@ -129,3 +129,12 @@ export const createCustomerFormPage = (page: Page) => {
     findSummaryTile,
   };
 };
+
+export const createCustomerPopup = (page: Page, title: string) => {
+  const dialog = page.getByRole("dialog", { name: title, exact: true });
+  const field = (name: CustomerFieldType) =>
+    dialog.getByRole("textbox", { name: CUSTOMER_FORM_COPY.FIELDS[name], exact: true });
+  const save = dialog.getByRole("button", { name: CUSTOMER_FORM_COPY.SAVE, exact: true });
+  const cancel = dialog.getByRole("button", { name: CUSTOMER_FORM_COPY.CANCEL, exact: true });
+  return { dialog, field, save, cancel };
+};
