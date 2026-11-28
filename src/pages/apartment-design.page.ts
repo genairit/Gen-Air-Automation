@@ -22,7 +22,10 @@ export const createApartmentDesignPage = (page: Page) => {
     await search.fill(name);
     await page.getByRole("option").filter({ hasText: name }).click();
   };
-  const teamCard = () => findCardByTitle(page, COPY.CONTACT_TEAM);
+  const teamCard = () =>
+    page
+      .getByRole("dialog", { name: COPY.CONTACT_TEAM, exact: true })
+      .or(findCardByTitle(page, COPY.CONTACT_TEAM));
   const draftTeam = () => findCardByTitle(page, COPY.TEAM_TITLE);
   const selectMember = async (name: string) => {
     await page.getByPlaceholder(COPY.ADD_MEMBER).first().click();

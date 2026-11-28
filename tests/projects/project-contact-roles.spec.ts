@@ -16,6 +16,7 @@ import {
   contactRoleEditor,
   selectRoleContact,
   fillRoleContactEditor,
+  openContactRoleControls,
 } from "../../src/pages/project-contact-roles.page.ts";
 
 import {
@@ -71,6 +72,7 @@ test("new project always shows three optional roles and persists existing direct
   );
   await page.reload();
   await openWorkspaceTab(page, "people");
+  await openContactRoleControls(page, PROJECT_CONTACT_ROLES.ARCHITECT);
   await expect(contactRolePicker(page, PROJECT_CONTACT_ROLES.ARCHITECT)).toHaveValue(contact.name);
 });
 
@@ -94,6 +96,7 @@ test("edit replaces and clears a role while keeping the displaced additional con
   }
   await page.goto(buildEditProjectRoute(project.id));
   await openWorkspaceTab(page, "people");
+  await openContactRoleControls(page, PROJECT_CONTACT_ROLES.CONSULTANT);
   await expect(contactRolePicker(page, PROJECT_CONTACT_ROLES.CONSULTANT)).toHaveValue(first.name);
   await selectRoleContact(page, PROJECT_CONTACT_ROLES.CONSULTANT, second.name);
   await expect
@@ -102,6 +105,7 @@ test("edit replaces and clears a role while keeping the displaced additional con
       expect.objectContaining({ contactId: second.id, role: PROJECT_CONTACT_ROLES.CONSULTANT }),
     );
   await page.reload();
+  await openContactRoleControls(page, PROJECT_CONTACT_ROLES.CONSULTANT);
   await expect(contactRolePicker(page, PROJECT_CONTACT_ROLES.CONSULTANT)).toHaveValue(second.name);
   await page.getByRole("button", { name: "הסר מהתפקיד יועץ", exact: true }).click();
   await expect(contactRolePicker(page, PROJECT_CONTACT_ROLES.CONSULTANT)).toHaveValue("");
@@ -113,6 +117,10 @@ test("edit replaces and clears a role while keeping the displaced additional con
   expect(await readRoleLinks(api, other.id)).toContainEqual(
     expect.objectContaining({ contactId: first.id, role: PROJECT_CONTACT_ROLES.CONSULTANT }),
   );
+  await page
+    .getByRole("dialog", { name: "יועץ", exact: true })
+    .getByRole("button", { name: "סיום", exact: true })
+    .click();
   await expect(
     findCardByTitle(page, PROJECT_CONTACT_ROLE_COPY.SECTION).getByText(first.name, {
       exact: false,
@@ -148,6 +156,7 @@ test("inline contact creation recovers after a failed role assignment without du
   );
   await page.goto(buildProjectRoute(project.id));
   await openWorkspaceTab(page, "people");
+  await openContactRoleControls(page, PROJECT_CONTACT_ROLES.ARCHITECT);
   await page.getByRole("button", { name: "הוסף אדריכל", exact: true }).click();
   const name = createUniqueName("אדריכל חדש");
   const save = await fillRoleContactEditor(page, PROJECT_CONTACT_ROLES.ARCHITECT, name);
@@ -159,6 +168,7 @@ test("inline contact creation recovers after a failed role assignment without du
   await save.click();
   await expect(contactRolePicker(page, PROJECT_CONTACT_ROLES.ARCHITECT)).toHaveValue(updated);
   await page.reload();
+  await openContactRoleControls(page, PROJECT_CONTACT_ROLES.ARCHITECT);
   await expect(contactRolePicker(page, PROJECT_CONTACT_ROLES.ARCHITECT)).toHaveValue(updated);
   expect(attempts.create).toBe(1);
   expect(await readRoleLinks(api, project.id)).toContainEqual(
@@ -190,6 +200,7 @@ test("editing a shared role contact shows the warning and retains its role after
   }
   await page.goto(buildProjectRoute(project.id));
   await openWorkspaceTab(page, "people");
+  await openContactRoleControls(page, PROJECT_CONTACT_ROLES.PROJECT_MANAGER);
   await page.getByRole("button", { name: "ערוך פרטי מנהל פרויקט", exact: true }).click();
   await expect(
     page.getByText(PROJECT_CONTACT_ROLE_COPY.SHARED_EDIT, { exact: true }),
@@ -199,6 +210,7 @@ test("editing a shared role contact shows the warning and retains its role after
   await save.click();
   await expect(contactRolePicker(page, PROJECT_CONTACT_ROLES.PROJECT_MANAGER)).toHaveValue(name);
   await page.reload();
+  await openContactRoleControls(page, PROJECT_CONTACT_ROLES.PROJECT_MANAGER);
   await expect(contactRolePicker(page, PROJECT_CONTACT_ROLES.PROJECT_MANAGER)).toHaveValue(name);
   expect(await readRoleLinks(api, other.id)).toContainEqual(
     expect.objectContaining({
@@ -244,6 +256,7 @@ test("apartment creation exposes optional roles and persists the chosen consulta
   );
   await page.goto(buildApartmentRoute(building.id, body.id));
   await openWorkspaceTab(page, "people");
+  await openContactRoleControls(page, PROJECT_CONTACT_ROLES.CONSULTANT);
   await expect(contactRolePicker(page, PROJECT_CONTACT_ROLES.CONSULTANT)).toHaveValue(contact.name);
 });
 
@@ -256,15 +269,17 @@ test("read-only mobile view displays empty and populated roles with isolated con
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(buildProjectRoute(project.id));
   await openWorkspaceTab(page, "people");
+  await page
+    .getByRole("group", { name: "צוות ואנשי קשר", exact: true })
+    .getByRole("button", { name: "אנשי קשר", exact: true })
+    .click();
   const section = findCardByTitle(page, PROJECT_CONTACT_ROLE_COPY.SECTION);
   for (const role of ROLES) {
     await expect(
       section.getByText(PROJECT_CONTACT_ROLE_LABELS[role], { exact: true }),
     ).toBeVisible();
   }
-  await expect(section.getByText(PROJECT_CONTACT_ROLE_COPY.EMPTY, { exact: true })).toHaveCount(
-    ROLES.length,
-  );
+  await expect(section.getByText("לא שויך", { exact: true })).toHaveCount(ROLES.length);
   await expect(section.getByRole("combobox")).toHaveCount(0);
   await expect(section.getByRole("button")).toHaveCount(0);
   const contact = await seedRoleContact(api);
@@ -278,6 +293,10 @@ test("read-only mobile view displays empty and populated roles with isolated con
     ).ok(),
   ).toBe(true);
   await page.reload();
+  await page
+    .getByRole("group", { name: "צוות ואנשי קשר", exact: true })
+    .getByRole("button", { name: "אנשי קשר", exact: true })
+    .click();
   await expect(section.getByText(contact.name, { exact: true })).toBeVisible();
   const phone = section.getByRole("link", { name: contact.phone, exact: true });
   const email = section.getByRole("link", { name: contact.email, exact: true });
@@ -285,9 +304,7 @@ test("read-only mobile view displays empty and populated roles with isolated con
   await expect(email).toHaveAttribute("href", `mailto:${contact.email}`);
   await expect(phone).toHaveAttribute("dir", "ltr");
   await expect(email).toHaveAttribute("dir", "ltr");
-  await expect(section.getByText(PROJECT_CONTACT_ROLE_COPY.EMPTY, { exact: true })).toHaveCount(
-    ROLES.length - 1,
-  );
+  await expect(section.getByText("לא שויך", { exact: true })).toHaveCount(ROLES.length - 1);
   await testInfo.attach("readonly-contact-roles-mobile", {
     body: await page.screenshot({ fullPage: true }),
     contentType: "image/png",
@@ -321,6 +338,7 @@ test("project submission waits for an in-flight inline contact save", async ({ p
     await resume.promise;
     await route.continue();
   });
+  await openContactRoleControls(page, PROJECT_CONTACT_ROLES.ARCHITECT);
   await page.getByRole("button", { name: "הוסף אדריכל", exact: true }).click();
   const name = createUniqueName("אדריכל בזמן שמירה");
   const save = await fillRoleContactEditor(page, PROJECT_CONTACT_ROLES.ARCHITECT, name);
