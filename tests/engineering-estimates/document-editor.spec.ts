@@ -83,7 +83,7 @@ test("Grouped catalogue editing previews quantities and prices before create and
   await page.setViewportSize({ width: 1680, height: 1000 });
   await page.goto(ESTIMATES);
   await page.getByRole("button", { name: "כתב כמויות חדש", exact: true }).click();
-  await page.getByLabel("שם כתב הכמויות", { exact: true }).fill(name);
+  await page.getByRole("textbox", { name: "שם כתב הכמויות" }).fill(name);
   await page.getByRole("button", { name: "הוספת אזור", exact: true }).click();
   await editor.table.getByLabel("שם אזור או טיפוס").fill("דירה טיפוסית");
   await editor.table.getByLabel("מספר חזרות").fill("3");
@@ -158,7 +158,7 @@ test("Mobile editor and document switching keeps draft values and contains horiz
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(ESTIMATES);
   await page.getByRole("button", { name: "כתב כמויות חדש", exact: true }).click();
-  await page.getByLabel("שם כתב הכמויות", { exact: true }).fill("בדיקת תצוגה בנייד");
+  await page.getByRole("textbox", { name: "שם כתב הכמויות" }).fill("בדיקת תצוגה בנייד");
   await page.getByRole("button", { name: "הוספת פריט", exact: true }).click();
   await editor.selectCatalogueItem(editor.itemRows.first(), item.sku, item.description);
   await editor.itemRows.first().getByLabel("כמות לאזור אחד").fill("2");
