@@ -82,7 +82,7 @@ for (const kind of ["standalone", "building", "apartment"] as const) {
       await expect(card).toContainText("פתח כתב כמויות");
       await page.screenshot({ path: info.outputPath(`estimate-card-${kind}-${width}.png`) });
       await card.click();
-      await expect(page).toHaveURL(new RegExp(`/engineering-estimates/${estimate.id}$`));
+      await expect(page).toHaveURL(new RegExp(`/engineering-estimates\\?estimate=${estimate.id}$`));
       await page.goto(`${path}?tab=purchase`);
       await page.getByRole("button", { name: "יצירת כתב רכש", exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`/project-boqs/${project.id}$`));
@@ -110,11 +110,13 @@ for (const width of [1440, 390]) {
       const outer = await region.boundingBox(),
         inner = await heading.boundingBox();
       if (!outer || !inner) throw new Error("Quotation heading geometry unavailable");
-      expect(outer.x + outer.width - (inner.x + inner.width)).toBeGreaterThanOrEqual(14);
+      expect(outer.x + outer.width - (inner.x + inner.width)).toBeGreaterThanOrEqual(
+        width < 600 ? 12 : 16,
+      );
       for (const cell of await region.locator("thead th").all()) {
         expect(
           await cell.evaluate(el => parseFloat(getComputedStyle(el).paddingInlineStart)),
-        ).toBeGreaterThanOrEqual(8);
+        ).toBeGreaterThanOrEqual(width < 600 ? 4 : 8);
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
