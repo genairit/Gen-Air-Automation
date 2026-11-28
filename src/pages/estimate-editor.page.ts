@@ -19,5 +19,15 @@ export const createEstimateEditorPage = (page: Page) => {
       .fill(sku);
     await page.getByRole("option", { name: `${sku} · ${description}`, exact: true }).click();
   };
-  return { table, document, itemRows, selectCatalogueItem };
+  const details = async (row: Locator): Promise<Locator> => {
+    const id = await row
+      .getByRole("button", { name: "מדידות וכללים" })
+      .getAttribute("aria-controls");
+    if (!id) {
+      throw new Error("Expected a measurement disclosure target");
+    }
+
+    return page.locator(`[id="${id}"]`);
+  };
+  return { table, document, itemRows, details, selectCatalogueItem };
 };

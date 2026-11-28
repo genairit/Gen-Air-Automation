@@ -89,17 +89,18 @@ test("Grouped catalogue editing previews quantities and prices before create and
   await editor.table.getByLabel("מספר חזרות").fill("3");
   await page.getByRole("button", { name: "הוספת פריט לאזור דירה טיפוסית", exact: true }).click();
   const apartment = editor.itemRows.nth(0);
+  const apartmentDetails = await editor.details(apartment);
   await editor.selectCatalogueItem(apartment, equipment.sku, equipment.description);
   await apartment.getByLabel("כמות לאזור אחד").fill("2");
-  await expect(apartment.getByLabel("מקור המדידה (אופציונלי)")).toBeHidden();
+  await expect(apartmentDetails.getByLabel("מקור המדידה (אופציונלי)")).toBeHidden();
   await apartment.getByRole("button", { name: "מדידות וכללים" }).click();
-  await apartment.getByLabel("מקור המדידה (אופציונלי)").fill("תוכנית קומה 2");
-  await apartment.getByRole("button", { name: "הוספת מדידות לחישוב לפי כללים" }).click();
-  await apartment.getByRole("combobox", { name: "פיזור אוויר", exact: true }).click();
+  await apartmentDetails.getByLabel("מקור המדידה (אופציונלי)").fill("תוכנית קומה 2");
+  await apartmentDetails.getByRole("button", { name: "הוספת מדידות לחישוב לפי כללים" }).click();
+  await apartmentDetails.getByRole("combobox", { name: "פיזור אוויר", exact: true }).click();
   await page.getByRole("option", { name: "תעלת פח", exact: true }).click();
-  await apartment.getByLabel("מק״ט תעלת פח בקטלוג").fill(duct.sku);
-  await apartment.getByLabel("אורך תעלה במטרים").fill("2");
-  await apartment.getByLabel("מספר כיפופי תעלה").fill("1");
+  await apartmentDetails.getByLabel("מק״ט תעלת פח בקטלוג").fill(duct.sku);
+  await apartmentDetails.getByLabel("אורך תעלה במטרים").fill("2");
+  await apartmentDetails.getByLabel("מספר כיפופי תעלה").fill("1");
   const equipmentRow = editor.document.getByRole("row").filter({ hasText: equipment.sku });
   const ductRow = editor.document.getByRole("row").filter({ hasText: duct.sku });
   await expect(equipmentRow).toContainText("6.0000");
@@ -107,7 +108,7 @@ test("Grouped catalogue editing previews quantities and prices before create and
   await expect(ductRow).toContainText("21.6000");
   await expect(ductRow).toContainText("₪216.00");
   await apartment.getByRole("button", { name: "מדידות וכללים" }).click();
-  await expect(apartment.getByLabel("מקור המדידה (אופציונלי)")).toBeHidden();
+  await expect(apartmentDetails.getByLabel("מקור המדידה (אופציונלי)")).toBeHidden();
   await page.getByRole("button", { name: "הוספת אזור", exact: true }).click();
   await editor.table.getByLabel("שם אזור או טיפוס").nth(1).fill("לובי");
   await page.getByRole("button", { name: "הוספת פריט לאזור לובי", exact: true }).click();
@@ -126,12 +127,11 @@ test("Grouped catalogue editing previews quantities and prices before create and
   const saved = await (await api.send(HTTP_METHODS.GET, `${ESTIMATES}/${id}`)).json();
   expect(saved).toMatchObject({ version: 1, subtotal: "391.00" });
   await page.getByRole("button", { name: "עריכת כתב כמויות", exact: true }).click();
+  const reopenedDetails = await editor.details(editor.itemRows.nth(0));
   await editor.itemRows.nth(0).getByRole("button", { name: "מדידות וכללים" }).click();
-  await expect(editor.itemRows.nth(0).getByLabel("מקור המדידה (אופציונלי)")).toHaveValue(
-    "תוכנית קומה 2",
-  );
-  await expect(editor.itemRows.nth(0).getByLabel("אורך תעלה במטרים")).toHaveValue("2");
-  await expect(editor.itemRows.nth(0).getByLabel("מספר כיפופי תעלה")).toHaveValue("1");
+  await expect(reopenedDetails.getByLabel("מקור המדידה (אופציונלי)")).toHaveValue("תוכנית קומה 2");
+  await expect(reopenedDetails.getByLabel("אורך תעלה במטרים")).toHaveValue("2");
+  await expect(reopenedDetails.getByLabel("מספר כיפופי תעלה")).toHaveValue("1");
   await editor.itemRows.nth(0).getByLabel("כמות לאזור אחד").fill("3");
   await editor.itemRows.nth(1).getByLabel("כמות לאזור אחד").fill("2");
   await expect(editor.document).toContainText("₪599.00");
@@ -163,7 +163,8 @@ test("Mobile editor and document switching keeps draft values and contains horiz
   await editor.selectCatalogueItem(editor.itemRows.first(), item.sku, item.description);
   await editor.itemRows.first().getByLabel("כמות לאזור אחד").fill("2");
   await editor.itemRows.first().getByRole("button", { name: "מדידות וכללים" }).click();
-  await editor.itemRows.first().getByLabel("מקור המדידה (אופציונלי)").fill("הפניה שמורה");
+  const mobileDetails = await editor.details(editor.itemRows.first());
+  await mobileDetails.getByLabel("מקור המדידה (אופציונלי)").fill("הפניה שמורה");
   const tabs = page.getByRole("group", { name: "עורך ותצוגה מקדימה" });
   await tabs.getByRole("button", { name: "תצוגה מקדימה", exact: true }).click();
   await expect(editor.document).toBeVisible();
@@ -175,9 +176,7 @@ test("Mobile editor and document switching keeps draft values and contains horiz
   });
   await tabs.getByRole("button", { name: "עריכה", exact: true }).click();
   await expect(editor.itemRows.first().getByLabel("כמות לאזור אחד")).toHaveValue("2");
-  await expect(editor.itemRows.first().getByLabel("מקור המדידה (אופציונלי)")).toHaveValue(
-    "הפניה שמורה",
-  );
+  await expect(mobileDetails.getByLabel("מקור המדידה (אופציונלי)")).toHaveValue("הפניה שמורה");
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await testInfo.attach("boq-grouped-editor-mobile", {
     body: await page.screenshot({ fullPage: true }),

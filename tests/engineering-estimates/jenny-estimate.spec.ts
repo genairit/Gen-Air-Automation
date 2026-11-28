@@ -436,7 +436,8 @@ test("Jenny resumes a standalone RTL mobile draft with uploaded plans, repeatabl
   await editor.selectCatalogueItem(editor.itemRows.first(), item.sku, item.description);
   await editor.itemRows.first().getByLabel("כמות לאזור אחד").fill("2");
   await editor.itemRows.first().getByRole("button", { name: "מדידות וכללים" }).click();
-  await editor.itemRows.first().getByLabel("מקור המדידה (אופציונלי)").fill(provenance);
+  const details = await editor.details(editor.itemRows.first());
+  await details.getByLabel("מקור המדידה (אופציונלי)").fill(provenance);
   await page.getByRole("button", { name: "שמירת שינויים", exact: true }).click();
   await expect(page.getByRole("button", { name: "עריכת כתב כמויות", exact: true })).toBeVisible();
   const row = editor.document.getByRole("row").filter({ hasText: item.sku });
