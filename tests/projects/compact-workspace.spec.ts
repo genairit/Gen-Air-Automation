@@ -236,7 +236,12 @@ test("assigned team has compact callable rows and paginates every member", async
     route.fulfill({
       json: {
         ...stored,
-        members: users.map(user => ({ userId: user.id, role: USER_ROLES.INSTALLER, user })),
+        members: users.map(user => ({
+          id: crypto.randomUUID(),
+          userId: user.id,
+          role: USER_ROLES.INSTALLER,
+          user,
+        })),
       },
     }),
   );
