@@ -389,6 +389,7 @@ test("A narrow RTL project tab, create form and detail keep the name and status 
   await expect(list).toHaveCSS("direction", "rtl");
   await expect(list.getByText(name, { exact: true })).toBeVisible();
   const status = list.getByText("טיוטה", { exact: true });
+  await row.scrollIntoViewIfNeeded();
   await expect(status).toBeInViewport({ ratio: 1 });
   await expect(row).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(MOBILE.width);
