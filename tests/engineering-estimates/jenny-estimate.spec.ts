@@ -52,6 +52,51 @@ const expectLargeHeading = async (heading: Locator, size: number): Promise<void>
   await expect(heading).toHaveCSS("font-weight", "800");
 };
 
+const expectCompactEditActions = async (page: Page): Promise<void> => {
+  const edit = page.getByRole("button", { name: "עריכת כתב כמויות", exact: true });
+  const back = page.getByRole("button", { name: RETURN_TO_BILLS, exact: true });
+  for (const action of [edit, back]) {
+    await expect(action).toHaveCount(1);
+    await expect(action).toBeInViewport({ ratio: 1 });
+  }
+  const [editBounds, backBounds] = await Promise.all(
+    [edit, back].map(action =>
+      action.evaluate(element => {
+        const box = element.getBoundingClientRect();
+        const label = document.createRange();
+        label.selectNodeContents(element);
+        const style = getComputedStyle(element);
+        const inlineInsets = [
+          style.paddingLeft,
+          style.paddingRight,
+          style.borderLeftWidth,
+          style.borderRightWidth,
+        ];
+        const naturalWidth = inlineInsets.reduce(
+          (sum, inset) => sum + parseFloat(inset),
+          label.getBoundingClientRect().width,
+        );
+        return {
+          left: box.left,
+          right: box.right,
+          top: box.top,
+          height: box.height,
+          width: box.width,
+          naturalWidth,
+        };
+      }),
+    ),
+  );
+  expect(Math.abs(editBounds.top - backBounds.top)).toBeLessThan(2);
+  expect(editBounds.height).toBe(backBounds.height);
+  const gap = Math.max(editBounds.left - backBounds.right, backBounds.left - editBounds.right);
+  expect(gap).toBeGreaterThanOrEqual(0);
+  expect(gap).toBeLessThanOrEqual(16);
+  for (const bounds of [editBounds, backBounds]) {
+    expect(Math.abs(bounds.width - bounds.naturalWidth)).toBeLessThan(2);
+  }
+};
+
 const estimateResponse = async (
   response: APIResponse,
   expectedStatus: number,
@@ -241,7 +286,7 @@ test("An engineer creates a project estimate and manages catalogue items without
   await expect(draftRow(estimateList, existingName)).toHaveCount(0);
   await expect(draftRow(estimateList, cancelledName)).toHaveCount(0);
   await expect(start).toBeVisible();
-  await expect(estimateList.getByRole("heading", { name, exact: true })).toBeVisible();
+  await expect(estimateList.getByRole("heading")).toHaveCount(0);
   await testInfo.attach("manual-estimate-list-card", {
     body: await page.screenshot(),
     contentType: "image/png",
@@ -284,6 +329,7 @@ test("An engineer opens a linked bill and edits a saved estimate and its catalog
   const estimateList = billPanel(page);
   await estimateList.getByText(name, { exact: true }).click();
   await expectLargeHeading(page.getByRole("heading", { name, exact: true }), 32);
+  await expectCompactEditActions(page);
   await page.getByRole("button", { name: "עריכת כתב כמויות", exact: true }).click();
   await page.getByRole("button", { name: "עריכת פרטי טיוטה", exact: true }).click();
   await page.getByRole("textbox", { name: ESTIMATE_NAME }).fill(revisedName);
@@ -329,7 +375,7 @@ test("A narrow RTL project tab, create form and detail keep the name and status 
   await expect(
     page.getByRole("navigation").getByRole("button", { name: ESTIMATE_TAB, exact: true }),
   ).toHaveCount(0);
-  await expect(list.getByRole("heading", { name, exact: true })).toBeVisible();
+  await expect(list.getByRole("heading")).toHaveCount(0);
   await expect(list).toHaveCSS("direction", "rtl");
   await expect(list.getByText(name, { exact: true })).toBeVisible();
   const status = list.getByText("טיוטה", { exact: true });
@@ -358,11 +404,19 @@ test("A narrow RTL project tab, create form and detail keep the name and status 
   await list.getByText(name, { exact: true }).click();
   await expectLargeHeading(page.getByRole("heading", { name, exact: true }), 28);
   await expect(createEstimateEditorPage(page).document).toBeVisible();
+  await expectCompactEditActions(page);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(MOBILE.width);
   await testInfo.attach("manual-estimate-mobile-detail", {
     body: await page.screenshot(),
     contentType: "image/png",
   });
+  const edit = page.getByRole("button", { name: "עריכת כתב כמויות", exact: true });
+  await edit.click();
+  await expect(edit).toHaveCount(0);
+  await page.getByRole("button", { name: "ביטול עריכה", exact: true }).click();
+  await expect(edit).toBeVisible();
+  await page.getByRole("button", { name: RETURN_TO_BILLS, exact: true }).click();
+  await expect(row).toBeVisible();
 });
 
 test("Building and apartment bills use their own project, recover from load errors and follow read-only grants", async ({
@@ -410,6 +464,13 @@ test("Building and apartment bills use their own project, recover from load erro
   await expect(card).toBeVisible();
   const role = USER_ROLES.ENGINEER;
   const engineer = await apiAs(TEST_USERS[role]);
+  const ownBill = await estimateResponse(
+    await engineer.send(HTTP_METHODS.POST, ESTIMATES, {
+      name: "כתב כמויות לקריאה",
+      projectId: apartment.id,
+    }),
+    HTTP_STATUS.CREATED,
+  );
   await withRolePermissions(
     role,
     engineer.session.user.permissions.filter(
@@ -420,6 +481,15 @@ test("Building and apartment bills use their own project, recover from load erro
       await readOnly.goto(projectBills(building.id));
       await expect(billPanel(readOnly).getByText(EMPTY_BILLS, { exact: true })).toBeVisible();
       await expect(billPanel(readOnly).getByRole("button", { name: CREATE_BILL })).toHaveCount(0);
+      await readOnly.goto(estimatePath(ownBill.id));
+      await expect(
+        readOnly.getByRole("heading", { name: "כתב כמויות לקריאה", exact: true }),
+      ).toBeVisible();
+      await expect(
+        readOnly.getByRole("button", { name: "עריכת כתב כמויות", exact: true }),
+      ).toHaveCount(0);
+      await readOnly.getByRole("button", { name: RETURN_TO_BILLS, exact: true }).click();
+      await expect(draftRow(billPanel(readOnly), "כתב כמויות לקריאה")).toBeVisible();
     },
   );
 });
