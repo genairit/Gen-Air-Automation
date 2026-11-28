@@ -126,7 +126,16 @@ for (const width of WIDTHS) {
           ),
         )
         .toEqual([]);
-      await expect(page.locator('img[aria-hidden="true"]:visible').first()).toBeVisible();
+      if (
+        ["project", "building", "apartment", "editProject", "newProject", "newApartment"].includes(
+          name,
+        )
+      ) {
+        await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+        await expect(page.getByRole("tab", { selected: true })).toHaveCount(1);
+      } else {
+        await expect(page.locator('img[aria-hidden="true"]:visible').first()).toBeVisible();
+      }
       const geometry = await page.evaluate(() => ({
         viewport: innerWidth,
         content: document.documentElement.scrollWidth,
