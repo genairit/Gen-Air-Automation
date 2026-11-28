@@ -45,6 +45,8 @@ export const CUSTOMERS_COPY = {
   BACK_TO_CUSTOMERS: "חזרה ללקוחות",
   PENDING_SYNC: "ממתין ל-Priority",
   CREATE_DENIED: "אין הרשאה ליצירת לקוחות",
+  EDIT: "עריכת לקוח",
+  LINK_PROJECTS: "שיוך פרויקטים ללקוח",
   MANAGERS_ONLY: "רק מנהלים עם הרשאת ניהול לקוחות יכולים ליצור לקוחות",
   SEARCH_PLACEHOLDER: "חיפוש לפי שם, ח.פ, טלפון, דוא״ל או מזהה Priority...",
   PICKER_SEARCH_PLACEHOLDER: "חיפוש לקוח לפי שם, ח.פ, טלפון או דוא״ל...",
