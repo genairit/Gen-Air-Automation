@@ -16,7 +16,7 @@ test("project type options have uniform labels and the blue highlight follows th
   const board = createBoardPage(page);
 
   await board.goto();
-  await page.getByRole("combobox").click();
+  await board.typeFilter.click();
 
   const privateClient = page.getByRole("option", {
     name: PROJECT_TYPE_NAMES.PRIVATE_CLIENT,
@@ -43,7 +43,7 @@ test("project type options have uniform labels and the blue highlight follows th
 
   await page.screenshot({ path: `${AUTOMATION_DIRECTORIES.RESULTS}/project-type-hover.png` });
 
-  const filter = page.getByRole("combobox");
+  const filter = board.typeFilter;
   await filter.press("ArrowDown");
   await expect.poll(() => readBackground(privateClient)).toBe(BLUE_HIGHLIGHT);
   await filter.press("Enter");
