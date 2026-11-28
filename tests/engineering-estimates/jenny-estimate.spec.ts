@@ -127,7 +127,7 @@ const startJenny = async (
 ): Promise<ReturnType<typeof createJennyPage>> => {
   const jenny = createJennyPage(page);
   await page.goto(projectBills(projectId));
-  await billPanel(page).getByRole("button", { name: CREATE_BILL, exact: true }).click();
+  await page.getByRole("button", { name: CREATE_BILL, exact: true }).click();
   await expect(page.getByRole("form", { name: NEW_ESTIMATE, exact: true })).toBeVisible();
   await expect(jenny.launcher).toBeVisible();
   await expect(jenny.launcher).toHaveCSS("position", "fixed");
@@ -178,7 +178,7 @@ test("An engineer creates a project estimate and manages catalogue items without
   const api = await apiAs(engineer);
   const page = await openPageAs(engineer);
   const jenny = createJennyPage(page);
-  const start = billPanel(page).getByRole("button", { name: CREATE_BILL, exact: true });
+  const start = page.getByRole("button", { name: CREATE_BILL, exact: true });
   const form = page.getByRole("form", { name: NEW_ESTIMATE, exact: true });
   const nameInput = form.getByRole("textbox", { name: ESTIMATE_NAME });
   const create = form.getByRole("button", { name: "יצירת כתב כמויות" });
@@ -315,7 +315,7 @@ test("An engineer opens a linked bill and edits a saved estimate and its catalog
   const form = page.getByRole("form", { name: NEW_ESTIMATE, exact: true });
 
   await page.goto(projectBills(project.id));
-  await billPanel(page).getByRole("button", { name: CREATE_BILL, exact: true }).click();
+  await page.getByRole("button", { name: CREATE_BILL, exact: true }).click();
   await form.getByRole("textbox", { name: ESTIMATE_NAME }).fill(name);
   await expect(form.getByRole("combobox", { name: "פרויקט (אופציונלי)", exact: true })).toHaveCount(
     0,
@@ -387,7 +387,7 @@ test("A narrow RTL project tab, create form and detail keep the name and status 
     contentType: "image/png",
   });
 
-  await list.getByRole("button", { name: CREATE_BILL, exact: true }).click();
+  await page.getByRole("button", { name: CREATE_BILL, exact: true }).click();
   const form = page.getByRole("form", { name: NEW_ESTIMATE, exact: true });
   await expectLargeHeading(page.getByRole("heading", { name: NEW_ESTIMATE, exact: true }), 28);
   await expect(list).toBeHidden();
@@ -479,7 +479,7 @@ test("Building and apartment bills use their own project, recover from load erro
       const readOnly = await openPageAs(TEST_USERS[role]);
       await readOnly.goto(projectBills(building.id));
       await expect(billPanel(readOnly).getByText(EMPTY_BILLS, { exact: true })).toBeVisible();
-      await expect(billPanel(readOnly).getByRole("button", { name: CREATE_BILL })).toHaveCount(0);
+      await expect(readOnly.getByRole("button", { name: CREATE_BILL })).toHaveCount(0);
       await readOnly.goto(estimatePath(ownBill.id));
       await expect(
         readOnly.getByRole("heading", { name: "כתב כמויות לקריאה", exact: true }),

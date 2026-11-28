@@ -85,10 +85,7 @@ test("Grouped catalogue editing previews quantities and prices before create and
   const customer = await seedCustomer(api);
   const project = await seedStandaloneProject(api, customer);
   await page.goto(`/projects/${project.id}?tab=estimates`);
-  await page
-    .getByRole("tabpanel", { name: "כתבי כמויות", exact: true })
-    .getByRole("button", { name: "יצירת כתב כמויות", exact: true })
-    .click();
+  await page.getByRole("button", { name: "יצירת כתב כמויות", exact: true }).click();
   await page.getByRole("textbox", { name: "שם כתב הכמויות" }).fill(name);
   await page.getByRole("button", { name: "הוספת אזור", exact: true }).click();
   await editor.table.getByLabel("שם אזור או טיפוס").fill("דירה טיפוסית");
@@ -166,10 +163,7 @@ test("Mobile editor and document switching keeps draft values and contains horiz
   const customer = await seedCustomer(api);
   const project = await seedStandaloneProject(api, customer);
   await page.goto(`/projects/${project.id}?tab=estimates`);
-  await page
-    .getByRole("tabpanel", { name: "כתבי כמויות", exact: true })
-    .getByRole("button", { name: "יצירת כתב כמויות", exact: true })
-    .click();
+  await page.getByRole("button", { name: "יצירת כתב כמויות", exact: true }).click();
   await page.getByRole("textbox", { name: "שם כתב הכמויות" }).fill("בדיקת תצוגה בנייד");
   await page.getByRole("button", { name: "הוספת פריט", exact: true }).click();
   await editor.selectCatalogueItem(editor.itemRows.first(), item.sku, item.description);
