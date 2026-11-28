@@ -7,6 +7,7 @@ import { seedMultiRoleUser } from "../../src/api/multi-role.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { NAVIGATION_COPY } from "../../src/constants/copy.constant.ts";
+import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { createRoleMenu } from "../../src/pages/role-menu.component.ts";
 import { createEmployeesPage } from "../../src/pages/employees.page.ts";
 import { KEYBOARD_KEYS } from "../../src/constants/keyboard.constant.ts";
@@ -14,7 +15,6 @@ import { delayApiResponse } from "../../src/mocks/delayed-response.mock.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 import { refreshVisibility } from "../../src/utilities/browser-event.utility.ts";
 import { MULTIPLE_ROLES_COPY } from "../../src/constants/multiple-roles.constant.ts";
-import { USER_ROLES, USER_ROLE_LABELS } from "../../src/constants/user-role.constant.ts";
 import { PERMISSIONS, PERMISSION_COPY } from "../../src/constants/permission.constant.ts";
 import { buildUserPath, buildBrowserApiPattern } from "../../src/utilities/api-path.utility.ts";
 
@@ -107,67 +107,91 @@ test("a late restricted query cannot repopulate visible customer data after swit
   });
 });
 
-test("a completed employee mutation cannot run its success-close callback after revocation", async ({
-  api,
-  apiAs,
-  openPageAs,
-}) => {
-  const user = await seedMultiRoleUser(api, [ADMIN, FINANCE]);
-  const employee = await seedMultiRoleUser(api, [USER_ROLES.ENGINEER]);
-  const actor = await apiAs(user);
-  const page = await openPageAs(user);
-  const employees = createEmployeesPage(page);
-  await employees.goto();
-  await employees.searchBox.fill(employee.email);
-  await employees
-    .findRow(employee.email)
-    .getByRole("button", { name: MULTIPLE_ROLES_COPY.EDIT })
-    .click();
-  const dialog = page.getByRole("dialog");
-  await dialog.getByRole("checkbox", { name: USER_ROLE_LABELS[FINANCE], exact: true }).check();
-  const delayed = await delayApiResponse({ page, path: buildUserPath(employee.id) });
-  try {
-    await dialog.getByRole("button", { name: MULTIPLE_ROLES_COPY.SAVE }).click();
-    const response = await delayed.received;
-    expect(response.status()).toBe(200);
-    const persisted = await api.send(HTTP_METHODS.GET, buildUserPath(employee.id));
-    expect(persisted.status()).toBe(200);
-    expect(await persisted.json()).toMatchObject({
-      role: USER_ROLES.ENGINEER,
-      assignedRoles: expect.arrayContaining([USER_ROLES.ENGINEER, FINANCE]),
-    });
-    expect(
-      (
-        await api.send(HTTP_METHODS.PATCH, buildUserPath(user.id), {
+const editPermissions = [
+  PERMISSIONS.EMPLOYEES_READ,
+  PERMISSIONS.EMPLOYEES_UPDATE,
+  PERMISSIONS.EMPLOYEES_ROLES_ASSIGN,
+];
+for (const scenario of [
+  {
+    title: "revocation closes the employee editor before a previous save completes",
+    permissions: [PERMISSIONS.EMPLOYEES_READ],
+    retainsEdit: false,
+  },
+  {
+    title: "a previous employee save cannot close an authorized editor after a role change",
+    permissions: editPermissions,
+    retainsEdit: true,
+  },
+]) {
+  test(scenario.title, async ({ api, apiAs, openPageAs }) => {
+    await withRolePermissions(FINANCE, scenario.permissions, async () => {
+      const user = await seedMultiRoleUser(api, [ADMIN, FINANCE]);
+      const employee = await seedMultiRoleUser(api, [USER_ROLES.ENGINEER]);
+      const actor = await apiAs(user);
+      const page = await openPageAs(user);
+      const employees = createEmployeesPage(page);
+      await employees.goto();
+      await employees.searchBox.fill(employee.email);
+      await employees.openEdit(employee.email);
+      const dialog = page.getByRole("dialog");
+      await employees.openRoles();
+      await employees.roleOption(FINANCE).click();
+      await employees.closeRoles();
+      const delayed = await delayApiResponse({ page, path: buildUserPath(employee.id) });
+      try {
+        await dialog.getByRole("button", { name: MULTIPLE_ROLES_COPY.SAVE }).click();
+        const response = await delayed.received;
+        expect(response.status()).toBe(200);
+        const persisted = await api.send(HTTP_METHODS.GET, buildUserPath(employee.id));
+        expect(persisted.status()).toBe(200);
+        expect(await persisted.json()).toMatchObject({
+          role: USER_ROLES.ENGINEER,
+          assignedRoles: expect.arrayContaining([USER_ROLES.ENGINEER, FINANCE]),
+        });
+        expect(
+          (
+            await api.send(HTTP_METHODS.PATCH, buildUserPath(user.id), {
+              assignedRoles: [FINANCE],
+            })
+          ).status(),
+        ).toBe(200);
+        await refreshVisibility(page);
+        await expect(
+          page.getByRole("button", {
+            name: new RegExp(user.firstName),
+            includeHidden: true,
+          }),
+        ).toBeDisabled();
+        if (!scenario.retainsEdit) {
+          await expect(dialog).toHaveCount(0);
+          const row = employees.findRow(employee.email);
+          await expect(row).toBeVisible();
+          await expect(row.getByRole("button", { name: MULTIPLE_ROLES_COPY.EDIT })).toHaveCount(0);
+        }
+        await delayed.releaseAndWaitForApplication();
+        if (scenario.retainsEdit) {
+          await expect(dialog).toBeVisible();
+          await expect(
+            dialog
+              .getByRole("alert")
+              .filter({ hasText: MULTIPLE_ROLES_COPY.CONTEXT_CHANGED })
+              .first(),
+          ).toBeVisible();
+        } else {
+          await expect(dialog).toHaveCount(0);
+          await expect(employees.searchBox).toBeVisible();
+        }
+        expect(await (await actor.send(HTTP_METHODS.GET, API_PATHS.MY_USER)).json()).toMatchObject({
+          role: FINANCE,
           assignedRoles: [FINANCE],
-        })
-      ).status(),
-    ).toBe(200);
-    await refreshVisibility(page);
-    await expect(
-      page.getByRole("button", {
-        name: new RegExp(user.firstName),
-        includeHidden: true,
-      }),
-    ).toBeDisabled();
-    await delayed.releaseAndWaitForApplication();
-    await expect(dialog).toBeVisible();
-    await expect(
-      dialog
-        .getByRole("alert")
-        .filter({
-          hasText: MULTIPLE_ROLES_COPY.CONTEXT_CHANGED,
-        })
-        .first(),
-    ).toBeVisible();
-    expect(await (await actor.send(HTTP_METHODS.GET, API_PATHS.MY_USER)).json()).toMatchObject({
-      role: FINANCE,
-      assignedRoles: [FINANCE],
+        });
+      } finally {
+        delayed.release();
+      }
     });
-  } finally {
-    delayed.release();
-  }
-});
+  });
+}
 
 for (const status of [400, 403, 500]) {
   test(`a ${status} switch failure reports the error, retains the role, and allows recovery`, async ({

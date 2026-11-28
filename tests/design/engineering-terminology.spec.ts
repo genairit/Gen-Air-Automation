@@ -45,10 +45,12 @@ test("engineering labels preserve role codes, switching permissions, and mobile 
 }) => {
   const employees = createEmployeesPage(page);
   await employees.goto();
-  await expect(employees.roleCheckbox(USER_ROLES.ENGINEER)).toHaveAccessibleName(
+  await expect(employees.roleTab(USER_ROLES.ENGINEER)).toBeVisible();
+  await employees.openCreate();
+  await employees.openRoles();
+  await expect(employees.roleOption(USER_ROLES.ENGINEER)).toHaveAccessibleName(
     USER_ROLE_LABELS[USER_ROLES.ENGINEER],
   );
-  await expect(employees.roleTab(USER_ROLES.ENGINEER)).toBeVisible();
 
   const user = await seedMultiRoleUser(api, [USER_ROLES.SYSTEM_ADMIN, USER_ROLES.ENGINEER]);
   const actor = await openPageAs(user);
