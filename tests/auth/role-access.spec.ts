@@ -33,7 +33,12 @@ test.describe(`${USER_ROLES.SALES_AGENT} without grants`, () => {
     await page.goto(ROUTES.BOARD);
 
     await expect(page.getByText(PERMISSION_COPY.DENIED, { exact: false })).toBeVisible();
-    await expect(createBoardPage(page).searchBox).toHaveCount(0);
+    await expect(createBoardPage(page).card).toHaveCount(0);
+    await expect(
+      page.locator("main header").getByRole("button", {
+        name: new RegExp(TEST_USERS[USER_ROLES.SALES_AGENT].firstName),
+      }),
+    ).toBeVisible();
   });
 });
 
