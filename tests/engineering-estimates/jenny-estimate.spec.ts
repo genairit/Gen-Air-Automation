@@ -190,7 +190,7 @@ test("An engineer creates a standalone estimate and manages catalogue items with
   await expectLargeHeading(page.getByRole("heading", { name: NEW_ESTIMATE, exact: true }), 32);
   await expect(estimateList).toBeHidden();
   await expect(start).toBeHidden();
-  await expect(jennyName).toHaveValue("טיוטה זמנית של ג׳ני");
+  await expect(jenny.dialog).toBeHidden();
   await expect(nameInput).toBeFocused();
   await expect(create).toBeDisabled();
   await nameInput.fill("   ");
