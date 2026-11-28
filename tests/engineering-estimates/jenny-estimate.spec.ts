@@ -385,7 +385,7 @@ test("A narrow RTL project tab, create form and detail keep the name and status 
   await expect(
     page.getByRole("navigation").getByRole("button", { name: ESTIMATE_TAB, exact: true }),
   ).toHaveCount(0);
-  await expect(list.getByRole("heading", { name, exact: true })).toBeVisible();
+  await expect(list.getByRole("heading")).toHaveCount(0);
   await expect(list).toHaveCSS("direction", "rtl");
   await expect(list.getByText(name, { exact: true })).toBeVisible();
   const status = list.getByText("טיוטה", { exact: true });
