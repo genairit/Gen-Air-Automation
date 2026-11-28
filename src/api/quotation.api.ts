@@ -1,5 +1,6 @@
 import type { TGenAirApi } from "./gen-air-api.ts";
 import type { APIResponse } from "@playwright/test";
+import { seedStandaloneProject } from "./seed-data.ts";
 import { isRecord } from "../utilities/guard.utility.ts";
 import { HTTP_METHODS } from "../constants/http.constant.ts";
 import { QUOTATION } from "../constants/quotation.constant.ts";
@@ -174,8 +175,13 @@ export const quotationWrite = (quote: IQuotationDocument): IQuotationWrite => ({
     })),
   })),
 });
-export const createQuotation = async (api: TGenAirApi, customerId: string) =>
-  quotationDocument(await api.send(HTTP_METHODS.POST, "/quotation", { customerId }));
+export const createQuotation = async (api: TGenAirApi, customerId: string, projectId?: string) => {
+  const primaryProjectId =
+    projectId ?? (await seedStandaloneProject(api, await api.getCustomer(customerId))).id;
+  return quotationDocument(
+    await api.send(HTTP_METHODS.POST, "/quotation", { customerId, projectId: primaryProjectId }),
+  );
+};
 export const saveQuotation = async (api: TGenAirApi, id: string, input: IQuotationWrite) =>
   quotationDocument(await api.send(HTTP_METHODS.PUT, `/quotation/${id}`, input));
 

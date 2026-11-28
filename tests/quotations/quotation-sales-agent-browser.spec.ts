@@ -12,8 +12,9 @@ import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { createQuotationPage } from "../../src/pages/quotation.page.ts";
 import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
-import { seedUser, buildCustomerInput } from "../../src/api/seed-data.ts";
+import { ROUTE_PATTERNS } from "../../src/constants/route-patterns.constant.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
+import { seedUser, buildCustomerInput, seedStandaloneProject } from "../../src/api/seed-data.ts";
 
 const PICKER = "סוכן מכירות (אופציונלי)";
 
@@ -36,10 +37,35 @@ test("quotation creator selects an engineer, changes to admin and clears it", as
   const second = await seedUser(api, USER_ROLES.SYSTEM_ADMIN);
   const quote = createQuotationPage(page);
 
-  await page.goto("/quotations");
-  await quote.button("הצעה חדשה").click();
-  await quote.chooseEntity("לקוח *", customer.name);
+  const project = await seedStandaloneProject(api, customer);
+  await page.goto(`/projects/${project.id}/quotations/new`);
+  await expect(page.getByRole("combobox", { name: "לקוח *" })).toHaveCount(0);
   const agentPicker = page.getByRole("combobox", { name: PICKER }).first();
+  await agentPicker.click();
+  const agentSearch = quote.entitySearch(PICKER);
+  await agentSearch.fill(first.firstName);
+  const agentOption = page.getByRole("option", { name: new RegExp(first.firstName) });
+  await expect(agentOption).toBeVisible();
+  const employeeNumber = (await agentOption.textContent())?.split("·").at(-1)?.trim() ?? "";
+  expect(employeeNumber).not.toBe("");
+  await agentSearch.fill("missing-agent-name");
+  await expect(page.getByRole("option", { name: "אין אפשרויות" })).toBeVisible();
+  await agentSearch.fill(employeeNumber);
+  await expect(agentOption).toContainText(employeeNumber);
+  await agentSearch.press("ArrowDown");
+  await agentSearch.press("Enter");
+  await expect(page.getByRole("combobox", { name: PICKER }).first()).toHaveValue(
+    new RegExp(first.firstName),
+  );
+  await quote.button("יצירת הצעה").click();
+  await expect(page).toHaveURL(ROUTE_PATTERNS.QUOTATION);
+  const id = new URL(page.url()).pathname.split("/").at(-1)!;
+  expect(
+    (await quotationDocument(await api.send(HTTP_METHODS.GET, `/quotation/${id}`))).salesAgentId,
+  ).toBe(first.id);
+
+  await page.reload();
+  await createQuotationPage(page).showDetails();
   const clientPicker = page.getByRole("combobox", { name: "לקוח *" }).first();
   const [agentBox, clientBox] = await Promise.all([
     quotationBox(agentPicker),
@@ -60,31 +86,6 @@ test("quotation creator selects an engineer, changes to admin and clears it", as
         .evaluate((element, key) => getComputedStyle(element)[key], property),
     );
   }
-  await agentPicker.click();
-  const agentSearch = quote.entitySearch(PICKER);
-  await agentSearch.fill(first.firstName);
-  const agentOption = page.getByRole("option", { name: new RegExp(first.firstName) });
-  await expect(agentOption).toBeVisible();
-  const employeeNumber = (await agentOption.textContent())?.split("·").at(-1)?.trim() ?? "";
-  expect(employeeNumber).not.toBe("");
-  await agentSearch.fill("missing-agent-name");
-  await expect(page.getByRole("option", { name: "אין אפשרויות" })).toBeVisible();
-  await agentSearch.fill(employeeNumber);
-  await expect(agentOption).toContainText(employeeNumber);
-  await agentSearch.press("ArrowDown");
-  await agentSearch.press("Enter");
-  await expect(page.getByRole("combobox", { name: PICKER }).first()).toHaveValue(
-    new RegExp(first.firstName),
-  );
-  await quote.button("יצירת הצעה").click();
-  await expect(page).toHaveURL(/\/quotations\/[\w-]+$/);
-  const id = new URL(page.url()).pathname.split("/").at(-1)!;
-  expect(
-    (await quotationDocument(await api.send(HTTP_METHODS.GET, `/quotation/${id}`))).salesAgentId,
-  ).toBe(first.id);
-
-  await page.reload();
-  await createQuotationPage(page).showDetails();
   await expect(page.getByRole("combobox", { name: PICKER }).first()).toHaveValue(
     new RegExp(first.firstName),
   );
@@ -138,10 +139,12 @@ test("quotation editor hides employee selection from a quotation-only user while
     paymentTerms: PAYMENT_TERMS.PREPAID,
   });
   const agent = await seedUser(api, USER_ROLES.ENGINEER);
+  const project = await seedStandaloneProject(api, customer);
   const created = await quotationDocument(
     await api.send(HTTP_METHODS.POST, "/quotation", {
       customerId: customer.id,
       salesAgentId: agent.id,
+      projectId: project.id,
     }),
   );
   await withRolePermissions(
@@ -166,10 +169,12 @@ test("quotation editor preserves a former agent name and retries a failed agent 
 }) => {
   const customer = await api.createCustomer(buildCustomerInput());
   const agent = await seedUser(api, USER_ROLES.ENGINEER);
+  const project = await seedStandaloneProject(api, customer);
   const created = await quotationDocument(
     await api.send(HTTP_METHODS.POST, "/quotation", {
       customerId: customer.id,
       salesAgentId: agent.id,
+      projectId: project.id,
     }),
   );
   expect(

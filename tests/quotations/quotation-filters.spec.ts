@@ -1,33 +1,18 @@
-import { seedCustomer } from "../../src/api/seed-data.ts";
-import { API_PATHS } from "../../src/constants/api.constant.ts";
 import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
-import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
 
-test("quotation status filters show only matching quotations", async ({ page, api }) => {
-  const customer = await seedCustomer(api);
-  const response = await api.send(HTTP_METHODS.POST, API_PATHS.QUOTATION, {
-    customerId: customer.id,
-  });
-
-  expect(response.status()).toBe(HTTP_STATUS.CREATED);
-
-  await page.goto(ROUTES.QUOTATIONS);
-
-  const filters = page.getByRole("group", { name: "סינון הצעות מחיר" });
-  for (const label of ["טיוטה", "בבדיקה", "הזמנה", "מבוטלת"]) {
-    await expect(filters.getByRole("button", { name: new RegExp(label) })).toBeVisible();
+test("old quotation list bookmarks return to the board without a desktop or mobile quotation menu", async ({
+  page,
+}) => {
+  await page.goto(`${ROUTES.QUOTATIONS}?status=draft`);
+  await expect(page).toHaveURL(ROUTES.BOARD);
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const navigation = page
+      .getByRole("navigation")
+      .filter({ has: page.getByRole("button", { name: "תיקים", exact: true }) });
+    await expect(navigation).toBeVisible();
+    await expect(navigation.getByText("הצעות מחיר", { exact: true })).toHaveCount(0);
   }
-  const draft = filters.getByRole("button", { name: /טיוטה/ });
-  const review = filters.getByRole("button", { name: /בבדיקה/ });
-  const quotation = page.getByRole("button", { name: new RegExp(customer.name) });
-
-  await expect(quotation).toBeVisible();
-  await review.click();
-  await expect(review).toHaveAttribute("aria-pressed", "true");
-  await expect(quotation).toHaveCount(0);
-
-  await draft.click();
-  await expect(draft).toHaveAttribute("aria-pressed", "true");
-  await expect(quotation).toBeVisible();
+  await expect(page.getByRole("group", { name: "סינון הצעות מחיר" })).toHaveCount(0);
 });

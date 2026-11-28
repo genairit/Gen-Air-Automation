@@ -128,7 +128,7 @@ export const seedPurchasingProject = async (
     throw new Error(`Breakdown setup failed: ${breakdown.status()}`);
   }
 
-  const initial = await createQuotation(api, customer.id);
+  const initial = await createQuotation(api, customer.id, project.id);
   const draft = await saveQuotation(api, initial.id, {
     ...quotationWrite(initial),
     projectId: project.id,

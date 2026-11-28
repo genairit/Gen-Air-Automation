@@ -34,7 +34,7 @@ const createBuildingQuotation = async (
   customer: Awaited<ReturnType<typeof seedCustomer>>,
 ) => {
   const item = await createCatalogueFixture();
-  const initial = await createQuotation(api, customer.id);
+  const initial = await createQuotation(api, customer.id, buildingId);
   const draft = await saveQuotation(api, initial.id, {
     ...quotationWrite(initial),
     projectId: buildingId,
@@ -163,7 +163,7 @@ test("approved building quotation shares one record with selected apartments and
         : buildApartmentRoute(building.id, projectId),
     );
     await openWorkspaceTab(page, "quotations");
-    const linkedRow = projectQuotationCard(page).getByRole("button", {
+    const linkedRow = projectQuotationCard(page).getByRole("region", {
       name: new RegExp(draft.number),
     });
     await expect(linkedRow).toHaveCount(1);
@@ -178,7 +178,7 @@ test("approved building quotation shares one record with selected apartments and
   }
 });
 
-test("shared quotation excludes unselected apartments and appears once in the quotation list", async ({
+test("shared quotation excludes unselected apartments and appears once in its building tab", async ({
   page,
   api,
 }) => {
@@ -196,7 +196,6 @@ test("shared quotation excludes unselected apartments and appears once in the qu
     expectedApartmentIds: [],
   });
   expect(linked.status()).toBe(200);
-  const quote = createQuotationPage(page);
   for (const projectId of [unselected.id, unrelated.id]) {
     await page.goto(
       buildApartmentRoute(projectId === unrelated.id ? otherBuilding.id : building.id, projectId),
@@ -210,10 +209,11 @@ test("shared quotation excludes unselected apartments and appears once in the qu
     ).toHaveCount(0);
   }
 
-  await page.goto("/quotations");
-  await quote.field("חיפוש לפי מספר, לקוח, פרויקט או חברה").fill(draft.number);
-  await expect(page.getByRole("button", { name: "הכל 1", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: new RegExp(draft.number) })).toHaveCount(1);
+  await page.goto(`/projects/${building.id}`);
+  await openWorkspaceTab(page, "quotations");
+  await expect(
+    projectQuotationCard(page).getByRole("button", { name: new RegExp(draft.number) }),
+  ).toHaveCount(1);
 });
 
 test("partial and complete apartment sharing removal preserve the approved quotation", async ({
@@ -391,7 +391,7 @@ test("select all is a snapshot and reopening a shared quotation keeps links whil
   await quote.returnToEditing();
   await expect(sharing.getByRole("switch", { name: LINK_COPY.SHARING_SWITCH })).toBeDisabled();
   await quote.showDetails();
-  await expect(quote.field("פרויקט (אופציונלי)")).toBeDisabled();
+  await expect(quote.field("פרויקט *")).toBeDisabled();
   await expect(quote.field("לקוח *")).toBeDisabled();
   await page.goto(buildApartmentRoute(building.id, first.id));
   await openWorkspaceTab(page, "quotations");

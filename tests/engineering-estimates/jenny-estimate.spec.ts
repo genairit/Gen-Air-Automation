@@ -756,6 +756,65 @@ const quotationIdentity = async (response: APIResponse): Promise<string> => {
   return value.quotationId;
 };
 
+test("an approved projectless estimate blocks quotation creation until a new revision links a project", async ({
+  api,
+  page,
+}) => {
+  const draft = await estimateResponse(
+    await api.send(HTTP_METHODS.POST, ESTIMATES, { name: "אומדן עצמאי לאישור" }),
+    HTTP_STATUS.CREATED,
+  );
+  const path = `${ESTIMATES}/${draft.id}`;
+  const catalogue = await createCatalogueFixture();
+  const area = {
+    id: randomUUID(),
+    name: "אזור הבדיקה",
+    repeatCount: 1,
+    lines: [{ id: randomUUID(), catalogueItemId: catalogue.id, quantity: "1" }],
+  };
+  await estimateResponse(
+    await api.send(HTTP_METHODS.PATCH, path, {
+      version: draft.version,
+      setupStep: "complete",
+      areas: [area],
+    }),
+    HTTP_STATUS.OK,
+  );
+  await page.goto(estimatePath(draft.id));
+  await page.getByRole("button", { name: "סקיצה ותוצרים" }).click();
+  await chooseOption(
+    page,
+    page.getByRole("combobox", { name: "סוג תוכנית" }),
+    "תשריט מסומן לסקיצה",
+  );
+  await uploadPlan(page, MARKED_PLAN, "image/png", await markedImage(page));
+  await expect(page.getByRole("button", { name: `${MARKED_PLAN} · מסומנת` })).toBeVisible();
+  await chooseOption(
+    page,
+    page.getByRole("combobox", { name: `תשריט לסקיצה: ${area.name}` }),
+    MARKED_PLAN,
+  );
+  await capturePdf(page, SKETCH);
+  await page.getByRole("button", { name: "אישור גרסת הסקיצה" }).click();
+  await expect(page.getByText("מאושר", { exact: true })).toBeVisible();
+  const approved = await readEstimate(api, draft.id);
+  expect(approved).toMatchObject({ projectId: null, quotationId: null });
+  await expect(page.getByRole("button", { name: "יצירת טיוטת הצעת מחיר" })).toBeDisabled();
+  const repair = page.getByRole("status").filter({ hasText: "פתחו גרסה חדשה" });
+  await expect(repair).toBeVisible();
+  expect(
+    (
+      await api.send(HTTP_METHODS.POST, `${path}/quotation`, { version: approved.version })
+    ).status(),
+  ).toBe(HTTP_STATUS.BAD_REQUEST);
+  await repair.locator("..").getByRole("button", { name: "פתיחת גרסה חדשה" }).click();
+  await expect.poll(async () => (await readEstimate(api, draft.id)).status).toBe("draft");
+  expect(await readEstimate(api, draft.id)).toMatchObject({
+    version: approved.version + 1,
+    quotationId: null,
+  });
+});
+
 test("Reviewed revisions yield an exact marked sketch and one approved customer proposal without internal images", async ({
   api,
   page,

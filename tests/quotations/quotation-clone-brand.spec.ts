@@ -13,6 +13,11 @@ import type {
   IQuotationWriteLine,
 } from "../../src/interfaces/quotation.interface.ts";
 
+import {
+  createCatalogueFixture,
+  makeLegacyProjectlessQuotation,
+} from "../../src/environment/quotation-fixtures.ts";
+
 import { randomUUID } from "node:crypto";
 import type { Page } from "@playwright/test";
 import type { TGenAirApi } from "../../src/api/gen-air-api.ts";
@@ -31,7 +36,6 @@ import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
 import { selectMuiOption } from "../../src/pages/mui-select.component.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 import { PAYMENT_TERMS, TASK_TYPES } from "../../src/constants/domain.constant.ts";
-import { createCatalogueFixture } from "../../src/environment/quotation-fixtures.ts";
 import { taskQuotationQuery } from "../../src/environment/task-quotation-fixtures.ts";
 import { createTestDatabaseClient } from "../../src/environment/test-database-client.ts";
 import { seedApartment, seedBuilding, seedCustomer, seedUser } from "../../src/api/seed-data.ts";
@@ -200,6 +204,7 @@ const sourceFixture = async (api: TGenAirApi): Promise<ICloneFixture> => {
     await api.send(HTTP_METHODS.POST, "/quotation", {
       customerId: customer.id,
       salesAgentId: salesAgent.id,
+      projectId: project.id,
     }),
   );
   const source = await saveQuotation(api, initial.id, {
@@ -244,6 +249,24 @@ const cloneInput = (source: IQuotationDocument, targetId: string): ILegacyInput 
   sourceVersion: source.version,
   targetBrand: QUOTATION.OTHER_BRAND,
   mappings: [{ sourceLineId: firstBrandLine(source).id, targetCatalogueItemId: targetId }],
+});
+
+test("both clone commands reject a legacy quotation without a primary project and leave no copy", async ({
+  api,
+}) => {
+  const { source, replacement } = await sourceFixture(api);
+  await makeLegacyProjectlessQuotation(source.id);
+  const before = await quotationIds(api);
+  for (const [path, payload] of [
+    [clonePath(source.id), cloneInput(source, replacement.id)],
+    [recommendedPath(source.id), recommendedInput(source)],
+  ] as const) {
+    expect((await api.send(HTTP_METHODS.POST, path, payload)).status()).toBe(400);
+  }
+  expect(await quotationIds(api)).toEqual(before);
+  expect(
+    await quotationDocument(await api.send(HTTP_METHODS.GET, quotePath(source.id))),
+  ).toMatchObject({ projectId: null, version: source.version });
 });
 
 test("API clone creates a separate draft, preserves General snapshots and project context, and leaves source unchanged", async ({
@@ -315,7 +338,7 @@ test("brand choice and native Enter immediately create an editable draft without
   const editor = createQuotationPage(page);
   await editor.goto(source.id);
   await editor.button("צור העתק לחברה אחרת").click();
-  await expect(page).toHaveURL(new RegExp(`cloneFrom=${source.id}`));
+  await expect(page).toHaveURL(new RegExp(`/quotations/${source.id}/clone$`));
   const create = page.getByRole("button", { name: "צור הצעה חדשה", exact: true });
   await expect(create).toBeDisabled();
   await selectMuiOption(page, page.getByLabel("חברת מיזוג חדשה"), QUOTATION.OTHER_BRAND);
@@ -501,7 +524,7 @@ test("recommended clone preserves staged payment snapshots when the source catal
     paymentSchedule: [{ percent: "100", text: "Before delivery" }],
   });
   await cloneQuery("UPDATE catalogue_items SET status='archived' WHERE id=$1", [sourceItem.id]);
-  await page.goto(`/quotations?cloneFrom=${staged.id}`);
+  await page.goto(`/quotations/${staged.id}/clone`);
   await selectMuiOption(page, page.getByLabel("חברת מיזוג חדשה"), QUOTATION.OTHER_BRAND);
   await page.getByRole("button", { name: "צור הצעה חדשה", exact: true }).click();
   await expect(page).toHaveURL(/\/quotations\/[\w-]+#quotation-detail-heading$/);
@@ -535,7 +558,7 @@ test("multi-brand source hides clone action, direct clone page rejects, and API 
   expect(multi.brands).toHaveLength(2);
   await createQuotationPage(page).goto(multi.id);
   await expect(page.getByRole("button", { name: "צור העתק לחברה אחרת" })).toHaveCount(0);
-  await page.goto(`/quotations?cloneFrom=${multi.id}`);
+  await page.goto(`/quotations/${multi.id}/clone`);
   await expect(page.getByRole("alert")).toContainText("אפשר לשכפל רק הצעה עם חברת מיזוג אחת");
   const response = await api.send(HTTP_METHODS.POST, clonePath(multi.id), {
     sourceVersion: multi.version,
@@ -568,7 +591,7 @@ test("clone action and API require quotation create permission", async ({
         0,
       );
       await engineerPage.goto(`/quotations?cloneFrom=${source.id}`);
-      await expect(engineerPage.getByRole("alert")).toContainText("אין הרשאה לשכפל הצעת מחיר");
+      await expect(engineerPage.getByText("אין הרשאה לפעולה זו", { exact: true })).toBeVisible();
     },
   );
 });
@@ -615,7 +638,7 @@ for (const width of CLONE_SCENARIOS.WIDTHS) {
   }): Promise<void> => {
     const { source } = await sourceFixture(api);
     await page.setViewportSize({ width, height: CLONE_SCENARIOS.HEIGHT });
-    await page.goto(`/quotations?cloneFrom=${source.id}`);
+    await page.goto(`/quotations/${source.id}/clone`);
     const form = page.getByRole("region", { name: "יצירת העתק לחברת מיזוג אחרת", exact: true });
     await expect(form).toHaveCSS("direction", "rtl");
     await selectMuiOption(page, page.getByLabel("חברת מיזוג חדשה"), QUOTATION.OTHER_BRAND);
@@ -646,7 +669,7 @@ test("unmatched replacement reports an actionable focused error and retains the 
   ]);
   const beforeIds = await quotationIds(api);
   const before = await quotationDocument(await api.send(HTTP_METHODS.GET, quotePath(source.id)));
-  await page.goto(`/quotations?cloneFrom=${source.id}`);
+  await page.goto(`/quotations/${source.id}/clone`);
   await selectMuiOption(page, page.getByLabel("חברת מיזוג חדשה"), QUOTATION.OTHER_BRAND);
   await page.getByRole("button", { name: "צור הצעה חדשה", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText(sourceItem.sku);
@@ -850,7 +873,7 @@ for (const recovery of CLONE_SCENARIOS.RECOVERY_STATES) {
 
       await route.fulfill({ response });
     });
-    await page.goto(`/quotations?cloneFrom=${source.id}`);
+    await page.goto(`/quotations/${source.id}/clone`);
     await selectMuiOption(page, page.getByLabel("חברת מיזוג חדשה"), QUOTATION.OTHER_BRAND);
     await page.getByRole("button", { name: "צור הצעה חדשה", exact: true }).click();
     await expect(page.getByRole("alert")).toContainText("לא התקבל אישור ליצירה");
@@ -891,19 +914,23 @@ test("late committed clone response cannot navigate after the user changes route
     await route.fulfill({ response });
     finished.resolve();
   });
-  await page.goto(`/quotations?cloneFrom=${source.id}`);
+  await page.goto(`/quotations/${source.id}/clone`);
   await selectMuiOption(page, page.getByLabel("חברת מיזוג חדשה"), QUOTATION.OTHER_BRAND);
   await page.getByRole("button", { name: "צור הצעה חדשה", exact: true }).click();
   await observed.promise;
-  await page.evaluate((): void => {
-    history.pushState({}, "", "/quotations");
+  const destination = `/projects/${source.projectId}?tab=quotations`;
+  await page.evaluate((path): void => {
+    history.pushState({}, "", path);
     dispatchEvent(new PopStateEvent("popstate"));
-  });
-  await expect(page).toHaveURL(/\/quotations$/);
+  }, destination);
+  await expect(page).toHaveURL(url => url.pathname + url.search === destination);
   release.resolve();
   await finished.promise;
-  await expect(page.getByRole("heading", { name: "הצעות מחיר", exact: true })).toBeVisible();
-  await expect(page).toHaveURL(/\/quotations$/);
+  await expect(page.getByRole("tab", { name: "הצעות מחיר", exact: true })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(page).toHaveURL(url => url.pathname + url.search === destination);
 });
 
 test("stale source asks for refresh before an explicit new creation intent", async ({
@@ -916,7 +943,7 @@ test("stale source asks for refresh before an explicit new creation intent", asy
     inputs.push(route.request().postDataJSON());
     await route.continue();
   });
-  await page.goto(`/quotations?cloneFrom=${source.id}`);
+  await page.goto(`/quotations/${source.id}/clone`);
   await selectMuiOption(page, page.getByLabel("חברת מיזוג חדשה"), QUOTATION.OTHER_BRAND);
   const updated = await saveQuotation(api, source.id, {
     ...quotationWrite(source),
@@ -955,7 +982,7 @@ test("late committed clone response cannot navigate or expose result after logou
     await route.fulfill({ response });
     finished.resolve();
   });
-  await page.goto(`/quotations?cloneFrom=${source.id}`);
+  await page.goto(`/quotations/${source.id}/clone`);
   await selectMuiOption(page, page.getByLabel("חברת מיזוג חדשה"), QUOTATION.OTHER_BRAND);
   await page.getByRole("button", { name: "צור הצעה חדשה", exact: true }).click();
   await observed.promise;

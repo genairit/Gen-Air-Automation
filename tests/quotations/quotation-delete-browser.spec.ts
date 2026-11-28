@@ -14,11 +14,11 @@ import { QUOTATION, QUOTATION_PERMISSIONS } from "../../src/constants/quotation.
 import { quotationDocument, quotationWrite, saveQuotation } from "../../src/api/quotation.api.ts";
 
 for (const status of Object.values(QUOTATION.STATUS)) {
-  test(`top-left trash confirms ${status} deletion and returns to refreshed list`, async ({
+  test(`top-left trash confirms ${status} deletion and returns to the project quotations tab`, async ({
     page,
     api,
   }, testInfo) => {
-    const { quotation, customer } = await seedQuotationForDeletion(api, status);
+    const { quotation } = await seedQuotationForDeletion(api, status);
     const quote = createQuotationPage(page);
     const deletions: string[] = [];
     page.on("request", request => {
@@ -59,9 +59,8 @@ for (const status of Object.values(QUOTATION.STATUS)) {
     );
     await dialog.getByRole("button", { name: "מחק הצעה" }).click();
     expect((await response).status()).toBe(204);
-    await expect(page).toHaveURL(/\/quotations$/);
-    await quote.field("חיפוש לפי מספר, לקוח, פרויקט או חברה").fill(customer.name);
-    await expect(page.getByRole("button", { name: "הכל 0", exact: true })).toBeVisible();
+    await expect(page).toHaveURL(`/projects/${quotation.projectId}?tab=quotations`);
+    await expect(page.getByText("אין עדיין הצעות מחיר בפרויקט זה.", { exact: true })).toBeVisible();
     expect(deletions).toHaveLength(1);
   });
 }
@@ -109,7 +108,7 @@ test("failed delete keeps confirmation open, reload resolves actual stale versio
   await quote.button("מחיקת ההצעה").click();
   await quote.button("מחק הצעה").click();
   expect((await success).status()).toBe(204);
-  await expect(page).toHaveURL(/\/quotations$/);
+  await expect(page).toHaveURL(`/projects/${quotation.projectId}?tab=quotations`);
 });
 
 test("read-only user cannot see deletion while delete-only grant works independently of editing", async ({
@@ -120,7 +119,7 @@ test("read-only user cannot see deletion while delete-only grant works independe
   await withRolePermissions(USER_ROLES.ENGINEER, [QUOTATION_PERMISSIONS.READ], async () => {
     const page = await openPageAs(TEST_USERS[USER_ROLES.ENGINEER]);
     await page.goto(`/quotations/${quotation.id}`);
-    await expect(page.getByText(quotation.number, { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: quotation.number, exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "מחיקת ההצעה", exact: true })).toHaveCount(0);
   });
   await withRolePermissions(
@@ -137,7 +136,7 @@ test("read-only user cannot see deletion while delete-only grant works independe
       );
       await quote.button("מחק הצעה").click();
       expect((await response).status()).toBe(204);
-      await expect(page).toHaveURL(/\/quotations$/);
+      await expect(page).toHaveURL("/");
     },
   );
 });
@@ -181,7 +180,7 @@ test("pending deletion disables confirmation and cancel and dispatches exactly o
     });
     expect(requests).toHaveLength(1);
     held.release();
-    await expect(page).toHaveURL(/\/quotations$/);
+    await expect(page).toHaveURL(`/projects/${quotation.projectId}?tab=quotations`);
     expect((await api.send(HTTP_METHODS.GET, `/quotation/${quotation.id}`)).status()).toBe(404);
   } finally {
     held.release();

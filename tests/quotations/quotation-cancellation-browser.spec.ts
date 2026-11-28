@@ -34,7 +34,7 @@ const actionResponse = (
       response.url().endsWith(`/quotation/${id}/${action}`),
   );
 
-test("approved quotation is an order, cancellation remains searchable and locked, and admin restore retains history", async ({
+test("approved quotation is an order, cancellation remains visible on the project and locked, and admin restore retains history", async ({
   page,
   api,
   openPageAs,
@@ -73,18 +73,10 @@ test("approved quotation is an order, cancellation remains searchable and locked
   expect(saved.number).toBe(quotation.number);
   expect(saved.approvedAt).toBe(quotation.approvedAt);
   expect(saved.approvedById).toBe(quotation.approvedById);
-  await page.goto("/quotations");
-  await quote.field("חיפוש לפי מספר, לקוח, פרויקט או חברה").fill(quotation.number);
-  const filters = page.getByRole("group", { name: "סינון הצעות מחיר" });
-  await expect(filters.getByRole("button", { name: "הכל 1", exact: true })).toBeVisible();
+  await page.goto(`/projects/${quotation.projectId}?tab=quotations`);
   await expect(
-    filters.getByRole("button", { name: `${COPY.CANCELLED} 1`, exact: true }),
-  ).toBeVisible();
-  await expect(filters.getByRole("button", { name: `${COPY.ORDER} 0`, exact: true })).toBeVisible();
-  await filters.getByRole("button", { name: `${COPY.CANCELLED} 1`, exact: true }).click();
-  await expect(page.getByRole("button", { name: new RegExp(quotation.number) })).toHaveCount(1);
-  await filters.getByRole("button", { name: `${COPY.ORDER} 0`, exact: true }).click();
-  await expect(page.getByRole("button", { name: new RegExp(quotation.number) })).toHaveCount(0);
+    page.getByRole("button", { name: new RegExp(quotation.number) }),
+  ).toHaveAccessibleName(new RegExp(COPY.CANCELLED));
   await withRolePermissions(
     USER_ROLES.ENGINEER,
     [QUOTATION_PERMISSIONS.READ, QUOTATION_PERMISSIONS.UPDATE],

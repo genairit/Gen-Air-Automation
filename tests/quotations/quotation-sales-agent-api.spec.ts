@@ -46,6 +46,7 @@ test("eligible engineer or admin can be assigned, changed, cleared and retained 
   const created = await quotationDocument(
     await api.send(HTTP_METHODS.POST, "/quotation", {
       customerId: customer.id,
+      projectId: unassigned.projectId,
       salesAgentId: first.id,
     }),
   );
@@ -163,6 +164,7 @@ test("invalid, unrelated and inaccessible employee IDs are rejected without chan
         (
           await actor.send(HTTP_METHODS.POST, "/quotation", {
             customerId: customer.id,
+            projectId: initial.projectId,
             salesAgentId: eligible.id,
           })
         ).status(),

@@ -6,6 +6,7 @@ import { QUOTATION } from "../../src/constants/quotation.constant.ts";
 import { PAYMENT_TERMS } from "../../src/constants/domain.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { createEmployeesPage } from "../../src/pages/employees.page.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { createCatalogueFixture } from "../../src/environment/quotation-fixtures.ts";
 import { createTestDatabaseClient } from "../../src/environment/test-database-client.ts";
 import { seedCustomer, seedStandaloneProject, seedUser } from "../../src/api/seed-data.ts";
@@ -41,7 +42,7 @@ const expectContained = async (page: Page, row: Locator) => {
 };
 
 for (const viewport of VIEWPORTS) {
-  test(`${viewport.name} quotation, pending-plan and review rows match the workers table surface`, async ({
+  test(`${viewport.name} project quotation cards have a flat surface and open their review and pending plan`, async ({
     api,
     page,
   }, testInfo) => {
@@ -59,7 +60,7 @@ for (const viewport of VIEWPORTS) {
     const customer = await seedCustomer(api);
     const project = await seedStandaloneProject(api, customer);
     const item = await createCatalogueFixture();
-    const initial = await createQuotation(api, customer.id);
+    const initial = await createQuotation(api, customer.id, project.id);
     const quotation = await saveQuotation(api, initial.id, {
       ...quotationWrite(initial),
       projectId: project.id,
@@ -98,47 +99,44 @@ for (const viewport of VIEWPORTS) {
       await database.end();
     }
 
-    await page.goto("/quotations");
-    const quotationRow = page.getByRole("button", { name: new RegExp(quotation.number) });
-    await expect(quotationRow).toBeVisible();
-    expect(await surface(quotationRow)).toEqual(reference);
-    await expectContained(page, quotationRow);
-    await quotationRow.hover();
-    await expect(quotationRow).toHaveCSS("box-shadow", "none");
+    await page.goto(`/projects/${project.id}`);
+    await openWorkspaceTab(page, "quotations");
+    const quotationCard = page.getByRole("region", { name: new RegExp(quotation.number) });
+    const openQuotation = quotationCard.getByRole("button", { name: new RegExp(quotation.number) });
+    await expect(quotationCard).toBeVisible();
+    const style = await surface(quotationCard);
+    expect(parseFloat(style.radius)).toBeGreaterThan(0);
+    expect(style.borderWidth).toBe(reference.borderWidth);
+    expect(style.shadow).toBe(reference.shadow);
+    await expectContained(page, quotationCard);
+    await quotationCard.hover();
+    await expect(quotationCard).toHaveCSS("box-shadow", "none");
     await page.screenshot({
-      path: testInfo.outputPath(`${viewport.name}-quotation-list.png`),
+      path: testInfo.outputPath(`${viewport.name}-project-quotation-card.png`),
       fullPage: true,
     });
 
-    await quotationRow.focus();
-    await expect(quotationRow).toBeFocused();
-    await quotationRow.press("Enter");
-    await expect(page).toHaveURL(new RegExp(`/quotations/${quotation.id}$`));
+    await openQuotation.focus();
+    await expect(openQuotation).toBeFocused();
+    await openQuotation.press("Enter");
+    await expect(page).toHaveURL(new RegExp(`/quotations/${quotation.id}#apartment-sharing$`));
     const reviewResponse = await api.send(HTTP_METHODS.POST, `/quotation/${quotation.id}/review`, {
       version: quotation.version,
       status: QUOTATION.STATUS.REVIEW,
     });
     expect(reviewResponse.status()).toBe(201);
     await page.reload();
-    const lineRow = page.getByRole("row").filter({ hasText: item.sku });
-    await expect(lineRow).toBeVisible();
-    const reviewStyle = await lineRow.evaluate(element => {
-      const cells = [...element.querySelectorAll("td")];
-      const first = getComputedStyle(cells[0]!);
-      const last = getComputedStyle(cells[cells.length - 1]!);
-      return {
-        firstRadius: first.borderStartStartRadius,
-        lastRadius: last.borderStartEndRadius,
-        background: first.backgroundColor,
-        borderWidth: first.borderTopWidth,
-        collapse: getComputedStyle(element.closest("table")!).borderCollapse,
-      };
-    });
-    expect(parseFloat(reviewStyle.firstRadius)).toBeGreaterThan(0);
-    expect(parseFloat(reviewStyle.lastRadius)).toBeGreaterThan(0);
-    expect(reviewStyle.background).not.toBe("rgba(0, 0, 0, 0)");
-    expect(reviewStyle.borderWidth).toBe("1px");
-    expect(reviewStyle.collapse).toBe("separate");
+    const table = page.getByRole("table", { name: "פריטי ההצעה", exact: true });
+    const lineRow = table.getByRole("row").filter({ hasText: item.sku });
+    await expect(lineRow.getByRole("rowheader")).toContainText(item.description);
+    await expect(lineRow.getByRole("cell")).toHaveCount(3);
+    await expect(lineRow.getByRole("spinbutton")).toHaveCount(0);
+    await expect(table).toHaveCSS("border-collapse", "collapse");
+    await expect(table).toHaveCSS("table-layout", "fixed");
+    for (const cell of await lineRow.locator("th, td").all()) {
+      await expect(cell).toHaveCSS("border-block-end-width", "1px");
+      await expect(cell).toHaveCSS("border-block-end-style", "solid");
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
       viewport.width,
     );
@@ -177,21 +175,13 @@ for (const viewport of VIEWPORTS) {
       ).status(),
     ).toBe(201);
 
-    await page.goto("/quotations");
-    await page.getByRole("button", { name: /ממתינות לאישור/ }).click();
-    const pendingRow = page.getByRole("button", { name: new RegExp(quotation.number) });
-    await expect(pendingRow).toBeVisible();
-    expect(await surface(pendingRow)).toEqual(reference);
-    await expectContained(page, pendingRow);
-    await pendingRow.hover();
-    await expect(pendingRow).toHaveCSS("box-shadow", "none");
+    await page.reload();
+    const pendingPlan = page.getByRole("region", { name: "אישור תוכנית לביצוע", exact: true });
+    await expect(pendingPlan.getByText("ממתינה לאישור", { exact: true })).toBeVisible();
+    await expectContained(page, pendingPlan);
     await page.screenshot({
-      path: testInfo.outputPath(`${viewport.name}-pending-plans.png`),
+      path: testInfo.outputPath(`${viewport.name}-quotation-pending-plan.png`),
       fullPage: true,
     });
-    await pendingRow.focus();
-    await expect(pendingRow).toBeFocused();
-    await pendingRow.press("Enter");
-    await expect(page).toHaveURL(new RegExp(`/quotations/${quotation.id}$`));
   });
 }

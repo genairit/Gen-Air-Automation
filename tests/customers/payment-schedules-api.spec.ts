@@ -20,13 +20,13 @@ import {
   setLegacyCustomerOtherPayment,
 } from "../../src/environment/customer-payment-schedule-fixtures.ts";
 
-import { buildCustomerInput } from "../../src/api/seed-data.ts";
 import { API_PATHS } from "../../src/constants/api.constant.ts";
 import { test, expect } from "../../src/fixtures/api.fixture.ts";
 import { PAYMENT_TERMS } from "../../src/constants/domain.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
+import { buildCustomerInput, seedStandaloneProject } from "../../src/api/seed-data.ts";
 import { buildCustomerPath, buildQuotationPath } from "../../src/utilities/api-path.utility.ts";
 
 test("customer payment presets and precise custom schedules persist and immediately snapshot into quotations", async ({
@@ -218,12 +218,15 @@ test("customer and sibling quotation schedules are independent snapshots and swi
   expect(
     await quotationDocument(await api.send(HTTP_METHODS.GET, buildQuotationPath(sibling.id))),
   ).toMatchObject({ paymentSchedule: CUSTOMER_PAYMENT_SCHEDULE.FIRST, paymentTermsNote: "" });
+  const replacementProject = await seedStandaloneProject(api, replacement);
   const switched = await saveQuotation(api, first.id, {
     ...quotationWrite(overridden),
     customerId: replacement.id,
+    projectId: replacementProject.id,
   });
   expect(switched).toMatchObject({
     customerId: replacement.id,
+    projectId: replacementProject.id,
     paymentSchedule: CUSTOMER_PAYMENT_SCHEDULE.QUOTE_OVERRIDE,
     paymentTermsNote: CUSTOMER_PAYMENT_SCHEDULE.NOTE,
   });

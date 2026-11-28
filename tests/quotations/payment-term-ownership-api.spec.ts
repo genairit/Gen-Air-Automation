@@ -1,4 +1,10 @@
 import {
+  seedCustomer,
+  buildCustomerInput,
+  seedStandaloneProject,
+} from "../../src/api/seed-data.ts";
+
+import {
   saveQuotation,
   quotationWrite,
   createQuotation,
@@ -8,7 +14,6 @@ import {
 import { randomUUID } from "node:crypto";
 import { API_PATHS } from "../../src/constants/api.constant.ts";
 import { test, expect } from "../../src/fixtures/api.fixture.ts";
-import { seedCustomer, buildCustomerInput } from "../../src/api/seed-data.ts";
 import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
 import { createTestDatabaseClient } from "../../src/environment/test-database-client.ts";
 import { PAYMENT_DEFAULT_OPTIONS } from "../../src/constants/payment-default.constant.ts";
@@ -92,6 +97,7 @@ test("changing a draft customer preserves explicitly submitted terms, note and e
   const changed = await saveQuotation(api, initial.id, {
     ...quotationWrite(initial),
     customerId: nextCustomer.id,
+    projectId: (await seedStandaloneProject(api, nextCustomer)).id,
     paymentTerms: PAYMENT_DEFAULT_OPTIONS[0].value,
     paymentTermsNote: "Explicit draft agreement",
   });
@@ -103,6 +109,7 @@ test("changing a draft customer preserves explicitly submitted terms, note and e
   const cleared = await saveQuotation(api, changed.id, {
     ...quotationWrite(changed),
     customerId: firstCustomer.id,
+    projectId: initial.projectId,
     paymentTerms: null,
     paymentTermsNote: "",
   });
@@ -137,6 +144,11 @@ test("customer defaults reject invalid terms and notes; quotation creation requi
     );
   }
   expect(
-    (await api.send(HTTP_METHODS.POST, API_PATHS.QUOTATION, { customerId: randomUUID() })).status(),
+    (
+      await api.send(HTTP_METHODS.POST, API_PATHS.QUOTATION, {
+        customerId: randomUUID(),
+        projectId: (await seedStandaloneProject(api, customer)).id,
+      })
+    ).status(),
   ).toBe(HTTP_STATUS.NOT_FOUND);
 });
