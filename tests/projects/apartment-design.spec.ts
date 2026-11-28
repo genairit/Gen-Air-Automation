@@ -364,7 +364,8 @@ test("detail shows linked customer, named parent customer, callable contact and 
   }
   await expect(page.getByText(DATA.PARENT_NOTE, { exact: true })).toBeVisible();
   await openWorkspaceTab(page, "files");
-  await expect(page.getByText(COPY.DRIVE, { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: COPY.DRIVE, exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "נתיב התיקייה", exact: true })).toBeVisible();
   await openWorkspaceTab(page, "history");
   await expect(page.getByText(COPY.TIMELINE, { exact: true })).toBeVisible();
   await openWorkspaceTab(page, "details");
