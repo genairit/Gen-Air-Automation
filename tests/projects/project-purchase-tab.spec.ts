@@ -22,7 +22,7 @@ const COPY = {
 const documentsPath = (id: string) => `/project-boq/${id}/documents`;
 const purchaseRoute = (id: string) => `${buildProjectRoute(id)}?tab=purchase`;
 
-test("project purchase cards show each named document and its own latest estimate without actions", async ({
+test("project purchase cards show each named document and its own latest estimate with a scoped creation action", async ({
   page,
   api,
 }, testInfo) => {
@@ -50,7 +50,7 @@ test("project purchase cards show each named document and its own latest estimat
   await expect(panel.locator("bdi").first()).toContainText("400.00");
   await expect(panel.locator("bdi").last()).toContainText("300.00");
   await expect(panel.getByText("כתב רכש של פרויקט אחר")).toHaveCount(0);
-  await expect(panel.locator("button, a, [role=button], [tabindex]")).toHaveCount(0);
+  await expect(panel.getByRole("button", { name: "יצירת כתב רכש", exact: true })).toBeVisible();
   await panel.getByRole("heading").first().click();
   await expect(page).toHaveURL(purchaseRoute(project.id));
   await page.screenshot({ path: testInfo.outputPath("purchase-desktop.png") });

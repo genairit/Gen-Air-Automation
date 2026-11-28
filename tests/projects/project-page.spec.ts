@@ -42,7 +42,7 @@ test("a standalone project page shows its header, intake, customer, team, tasks 
   await expect(workspaceTab(page, "tasks")).toHaveAttribute("aria-selected", "true");
   await expect(page.getByText(task.title)).toBeVisible();
   await openWorkspaceTab(page, "details");
-  await expect(page.getByText(FAKE_PLACES[0].formattedAddress)).toBeVisible();
+  await expect(page.getByText(FAKE_PLACES[0].formattedAddress).first()).toBeVisible();
   await expect(page.getByText(customer.name)).not.toHaveCount(0);
   await openWorkspaceTab(page, "people");
   await expect(page.getByText(PROJECT_PAGE_COPY.TEAM_TITLE)).toBeVisible();
