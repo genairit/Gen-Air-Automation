@@ -158,5 +158,5 @@ test("project workspace keeps the shell in view and restores the tab on refresh 
     .poll(() => page.evaluate(() => document.documentElement.scrollHeight - innerHeight))
     .toBeLessThanOrEqual(1);
   await expect(workspaceTab(page, "apartments")).toHaveCount(0);
-  await expect(workspaceTab(page, "quotations")).toHaveCount(0);
+  await expect(workspaceTab(page, "quotations")).toBeVisible();
 });
