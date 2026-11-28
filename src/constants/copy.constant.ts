@@ -32,7 +32,12 @@ export const NAVIGATION_COPY = {
 export const BOARD_COPY = {
   NEW_TASK: "משימה חדשה",
   NEW_PROJECT: "פרויקט חדש",
-  TITLE: "ניהול פרויקטים ומשימות",
+  CARD: "פרויקטים",
+  STATUS_FILTER: "סטטוס",
+  TYPE_FILTER: "סוג פרויקט",
+  ALL_STATUSES: "כל הסטטוסים",
+  LOADING: "טוען את לוח הפרויקטים...",
+  NO_RESULTS: "לא נמצאו פרויקטים שמתאימים לחיפוש או לשלב שנבחר",
   SEARCH_PLACEHOLDER: "חיפוש פרויקטים, מזהה או קבלן...",
 } as const;
 
@@ -129,11 +134,13 @@ export const TASKS_COPY = {
 } as const;
 
 export const EMPLOYEES_COPY = {
+  PERSON_COLUMN: "עובד ופרטי קשר",
   ROLE_LABEL: "תפקידים משויכים",
   EDIT_EMPLOYEE: "עריכת עובד",
-  ADD_TITLE: "הוספת עובד / משתמש חדש",
-  ACCOUNT_SECTION: "פרטי חשבון",
-  ACCESS_SECTION: "גישה ותפקידים",
+  ADD_TITLE: "הוספת עובד",
+  INTRO_HEADING: "ניהול עובדים ומשתמשים",
+  INTRO_EYEBROW: "פורטל ניהול משא״ש והרשאות אבטחה",
+  NO_MATCHING_ROLES: "לא נמצאו תפקידים",
   DELETE_EMPLOYEE: "מחיקת עובד",
   NAME_PLACEHOLDER: "לדוגמה: יובל אל",
   PHONE_PLACEHOLDER: "0500000000",
