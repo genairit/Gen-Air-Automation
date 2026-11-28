@@ -413,10 +413,7 @@ test("A narrow RTL project tab, create form and detail keep the name and status 
 
   await list.getByText(name, { exact: true }).click();
   await expectLargeHeading(page.getByRole("heading", { name, exact: true }), 28);
-  await expect(page.getByRole("heading", { name: "פריטים מהקטלוג", exact: true })).toBeVisible();
-  await expect(
-    page.getByRole("combobox", { name: "בחירת פריט מהקטלוג", exact: true }),
-  ).toBeVisible();
+  await expect(createEstimateEditorPage(page).document).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(MOBILE.width);
   await testInfo.attach("manual-estimate-mobile-detail", {
     body: await page.screenshot(),
