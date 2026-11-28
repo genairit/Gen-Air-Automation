@@ -78,7 +78,7 @@ test("Grouped catalogue editing previews quantities and prices before create and
 }, testInfo) => {
   const equipment = await createCatalogueFixture({ price: "25.0000" });
   const duct = await createCatalogueFixture({ price: "10.0000" });
-  const name = `טיוטה חיה ${randomUUID()}`;
+  const name = "טיוטה חיה לבדיקת תצוגה";
   const editor = createEstimateEditorPage(page);
   await page.setViewportSize({ width: 1680, height: 1000 });
   await page.goto(ESTIMATES);
