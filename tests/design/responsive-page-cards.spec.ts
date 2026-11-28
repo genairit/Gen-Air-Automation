@@ -15,6 +15,7 @@ import {
 
 import type { Page, Locator } from "@playwright/test";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
+import { createTaskFormPage } from "../../src/pages/tasks.page.ts";
 import { findCardByTitle } from "../../src/pages/card.component.ts";
 import { FAKE_PLACES } from "../../src/constants/fake-places.constant.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
@@ -151,8 +152,8 @@ for (const viewport of VIEWPORTS) {
       },
       {
         name: "new task",
-        path: ROUTES.NEW_TASK,
-        pairs: [{ first: "שיוך", second: "פרטי המשימה" }],
+        path: buildProjectRoute(project.id),
+        pairs: [],
       },
     ];
 
@@ -162,6 +163,21 @@ for (const viewport of VIEWPORTS) {
         try {
           await scenarioPage.setViewportSize({ width: viewport.width, height: viewport.height });
           await scenarioPage.goto(scenario.path);
+          if (scenario.name === "new task") {
+            const popup = createTaskFormPage(scenarioPage);
+            await popup.open();
+            await expect(popup.form).toBeVisible();
+            await expect(popup.saveButton).toBeInViewport();
+            const size = await popup.form.evaluate(element => ({
+              left: element.getBoundingClientRect().left,
+              right: element.getBoundingClientRect().right,
+              content: element.scrollWidth,
+              width: element.clientWidth,
+            }));
+            expect(size.left).toBeGreaterThanOrEqual(0);
+            expect(size.right).toBeLessThanOrEqual(viewport.width);
+            expect(size.content).toBeLessThanOrEqual(size.width);
+          }
           if (scenario.name === "task") {
             const urgency = findCardByTitle(scenarioPage, "משימה רגילה");
             const details = findCardByTitle(scenarioPage, "פרטי המשימה");

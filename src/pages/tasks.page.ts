@@ -1,33 +1,25 @@
 import {
-  findLinkUnderLabel,
-  findFieldContainer,
-  findListUnderTitle,
-  findLinkTileByLabel,
-} from "./field.component.ts";
-
-import {
   TASK_COPY,
   TASKS_COPY,
   TASK_FORM_COPY,
-  TASK_LINK_COPY,
   TASK_LINK_KIND_COPY,
 } from "../constants/copy.constant.ts";
 
+import type { Page } from "@playwright/test";
 import { findTableRow } from "./table.component.ts";
 import { selectOption } from "./select.component.ts";
-import type { Page, Locator } from "@playwright/test";
-import { findMainContent } from "./layout.component.ts";
+import { createProjectPage } from "./project.page.ts";
 import { ROUTES } from "../constants/routes.constant.ts";
 import { findTab, findCountedTab } from "./tab.component.ts";
-import { buildTaskRoute } from "../utilities/route.utility.ts";
+import { buildStartPattern } from "../utilities/regex.utility.ts";
 import type { TaskLinkKindType } from "../constants/domain.constant.ts";
 import { selectDueDate, parseDateInputValue } from "./date-field.component.ts";
-import { buildStartPattern, buildSequencePattern } from "../utilities/regex.utility.ts";
-
-export interface ITaskLinkChoice {
-  name: string;
-  kind: TaskLinkKindType;
-}
+import { findLinkUnderLabel, findListUnderTitle, findLinkTileByLabel } from "./field.component.ts";
+import {
+  buildTaskRoute,
+  buildProjectRoute,
+  buildApartmentRoute,
+} from "../utilities/route.utility.ts";
 
 export interface ITaskDetailsInput {
   title: string;
@@ -35,31 +27,6 @@ export interface ITaskDetailsInput {
   description: string;
   assigneeName: string;
 }
-
-export interface ITaskFormInput extends ITaskDetailsInput {
-  link: ITaskLinkChoice;
-}
-
-interface ITaskLinkCaption {
-  name: string;
-  context?: string;
-  kind: TaskLinkKindType;
-}
-
-const buildLinkCaptionPattern = (caption: ITaskLinkCaption): RegExp => {
-  const parts = [TASK_LINK_KIND_COPY[caption.kind].LABEL, caption.name, caption.context ?? ""];
-
-  return buildSequencePattern(parts);
-};
-
-export const buildLinkedToTilePattern = (kind: TaskLinkKindType, name: string): RegExp => {
-  const copy = TASK_LINK_KIND_COPY[kind];
-
-  return buildSequencePattern([copy.LINKED_TO, copy.LABEL, name]);
-};
-
-export const findTaskLinkCaption = (scope: Page | Locator, caption: ITaskLinkCaption): Locator =>
-  scope.getByText(buildLinkCaptionPattern(caption));
 
 export const createTasksPage = (page: Page) => {
   const searchBox = page.getByPlaceholder(TASK_COPY.SEARCH_PLACEHOLDER);
@@ -75,52 +42,30 @@ export const createTasksPage = (page: Page) => {
 };
 
 export const createTaskFormPage = (page: Page) => {
-  const form = findMainContent(page);
-  const saveButton = form.getByRole("button", { name: TASK_FORM_COPY.SAVE });
-  const linkKindGroup = form.getByRole("radiogroup", { name: TASK_LINK_COPY.KIND_GROUP });
-  const linkPlaceholder = form.getByText(TASK_LINK_COPY.NO_KIND, { exact: true });
-  const undoButton = form.getByRole("button", { name: TASK_LINK_COPY.UNDO, exact: true });
-  const dismissButton = form.getByRole("button", { name: TASK_LINK_COPY.DISMISS, exact: true });
+  const form = page.getByRole("dialog", { name: /^(משימה חדשה|עריכת משימה)$/ });
+  const saveButton = form.getByRole("button", { name: /^(שמור משימה|שמירת שינויים)$/ });
+  const title = form.getByPlaceholder(TASK_FORM_COPY.TITLE_PLACEHOLDER);
+  const description = form.getByPlaceholder(TASK_FORM_COPY.DESCRIPTION_PLACEHOLDER);
   const assigneePicker = form.getByRole("combobox", {
     name: buildStartPattern(TASK_COPY.ASSIGNEE),
   });
-
-  const goto = () => page.goto(ROUTES.NEW_TASK);
-
-  const linkKindRadio = (kind: TaskLinkKindType) =>
-    linkKindGroup.getByRole("radio", { name: buildStartPattern(TASK_LINK_KIND_COPY[kind].LABEL) });
-
-  const linkSearch = (kind: TaskLinkKindType) =>
-    form.getByPlaceholder(TASK_LINK_KIND_COPY[kind].SEARCH_PLACEHOLDER);
-
-  const linkResults = (kind: TaskLinkKindType) =>
-    form.getByRole("listbox", { name: TASK_LINK_KIND_COPY[kind].LABEL });
-
-  const replaceLinkButton = (kind: TaskLinkKindType) =>
-    form.getByRole("button", { name: TASK_LINK_KIND_COPY[kind].REPLACE });
-
-  const notice = (text: string) => form.getByRole("status").filter({ hasText: text });
-
-  const searchLink = async (link: ITaskLinkChoice) => {
-    await linkSearch(link.kind).fill(link.name);
-
-    return linkResults(link.kind).getByRole("option").filter({ hasText: link.name });
+  const open = async () => {
+    await createProjectPage(page).newTaskButton.click();
+    await page.getByRole("menuitem", { name: /כללי/ }).click();
   };
 
-  const chooseLink = async (link: ITaskLinkChoice) => {
-    await (await searchLink(link)).click();
+  const goto = async (projectId: string, buildingId?: string) => {
+    await page.goto(
+      buildingId ? buildApartmentRoute(buildingId, projectId) : buildProjectRoute(projectId),
+    );
+    await open();
   };
 
   const fillDetails = async (input: ITaskDetailsInput) => {
     await selectOption(page, assigneePicker, input.assigneeName);
-    await form.getByPlaceholder(TASK_FORM_COPY.TITLE_PLACEHOLDER).fill(input.title);
+    await title.fill(input.title);
     await selectDueDate(page, parseDateInputValue(input.dueDate));
-    await form.getByPlaceholder(TASK_FORM_COPY.DESCRIPTION_PLACEHOLDER).fill(input.description);
-  };
-
-  const fill = async (input: ITaskFormInput) => {
-    await chooseLink(input.link);
-    await fillDetails(input);
+    await description.fill(input.description);
   };
 
   const openAssigneeOptions = async () => {
@@ -137,22 +82,13 @@ export const createTaskFormPage = (page: Page) => {
 
   return {
     form,
+    title,
+    description,
     saveButton,
-    undoButton,
-    dismissButton,
-    linkKindGroup,
     assigneePicker,
-    linkPlaceholder,
     goto,
-    fill,
-    notice,
-    linkSearch,
-    chooseLink,
-    searchLink,
+    open,
     fillDetails,
-    linkResults,
-    linkKindRadio,
-    replaceLinkButton,
     openAssigneeOptions,
   };
 };
@@ -162,9 +98,11 @@ export const createTaskPage = (page: Page) => {
   const projectCustomerLink = findLinkUnderLabel(page, TASK_COPY.PROJECT_CUSTOMER);
   const markUrgentButton = page.getByRole("button", { name: TASK_COPY.MARK_URGENT });
   const claimButton = page.getByRole("button", { name: TASK_COPY.CLAIM });
-  const assigneeSelect = findFieldContainer(page, TASK_COPY.ASSIGNEE).getByRole("combobox");
-  const descriptionInput = page.getByPlaceholder(TASK_COPY.DESCRIPTION_PLACEHOLDER);
-  const saveDescriptionButton = page.getByRole("button", { name: TASK_COPY.SAVE_DESCRIPTION });
+  const editButton = page.getByRole("button", { name: "עריכת משימה", exact: true });
+  const editor = createTaskFormPage(page);
+  const assigneeSelect = editor.assigneePicker;
+  const descriptionInput = editor.description;
+  const saveDescriptionButton = editor.saveButton;
 
   const goto = (taskId: string) => page.goto(buildTaskRoute(taskId));
 
@@ -186,14 +124,9 @@ export const createTaskPage = (page: Page) => {
 
   const changeAssignee = (assigneeName: string) => selectOption(page, assigneeSelect, assigneeName);
 
-  const openAssigneeOptions = async () => {
-    await assigneeSelect.click();
-
-    return page.getByRole("option");
-  };
-
   return {
     history,
+    editButton,
     claimButton,
     projectCustomerLink,
     assigneeSelect,
@@ -206,6 +139,6 @@ export const createTaskPage = (page: Page) => {
     statusTab,
     markUrgent,
     changeAssignee,
-    openAssigneeOptions,
+    openAssigneeOptions: editor.openAssigneeOptions,
   };
 };

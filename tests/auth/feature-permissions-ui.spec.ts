@@ -43,29 +43,32 @@ const captureRequests = (page: Page) => {
   return requests;
 };
 
-test("grant changes on focus update controls and navigation without another login", async ({
+test("grant changes on focus update project task creation without another login", async ({
+  api,
   openPageAs,
   apiAs,
 }) => {
   const actor = await apiAs(TEST_USERS[FINANCE]);
   const page = await openPageAs(TEST_USERS[FINANCE]);
-  const board = createBoardPage(page);
-  await board.goto();
-  await expect(board.searchBox).toBeVisible();
-  await expect(board.newTaskButton).toBeDisabled();
+  const project = await seedStandaloneProject(api, await seedCustomer(api));
+  const view = createProjectPage(page);
+  await view.goto(project.id);
+  await expect(view.heading(project.name)).toBeVisible();
+  await expect(view.newTaskButton).toHaveCount(0);
   await withRolePermissions(
     FINANCE,
     [...actor.session.user.permissions, PERMISSIONS.TASKS_CREATE],
     async () => {
       await refreshVisibility(page);
-      await expect(board.newTaskButton).toBeEnabled();
-      await board.newTaskButton.click();
-      await expect(page.getByRole("button", { name: TASK_FORM_COPY.SAVE })).toBeVisible();
+      const form = createTaskFormPage(page);
+      await form.open();
+      await expect(form.saveButton).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(form.form).toHaveCount(0);
     },
   );
-  await page.getByRole("button", { name: NAVIGATION_COPY.BOARD, exact: true }).click();
   await refreshVisibility(page);
-  await expect(board.newTaskButton).toBeDisabled();
+  await expect(view.newTaskButton).toHaveCount(0);
 });
 
 test("a real forbidden write refreshes current grants and removes the stale action", async ({
@@ -91,7 +94,7 @@ test("a real forbidden write refreshes current grants and removes the stale acti
       await view.markUrgent();
       await forbidden;
       await expect(view.markUrgentButton).toHaveCount(0);
-      await expect(view.descriptionInput).toBeVisible();
+      await expect(view.editButton).toBeVisible();
     },
   );
 });
@@ -184,7 +187,7 @@ test("independent task grants keep content editable while assignment and urgency
   apiAs,
   openPageAs,
 }) => {
-  const { task } = await seedTaskScenario(api);
+  const { task, project } = await seedTaskScenario(api);
   const actor = await apiAs(TEST_USERS[ADMIN]);
   const keys = actor.session.user.permissions.filter(
     key =>
@@ -194,16 +197,17 @@ test("independent task grants keep content editable while assignment and urgency
     const page = await openPageAs(TEST_USERS[ADMIN]);
     const view = createTaskPage(page);
     await view.goto(task.id);
-    await expect(view.descriptionInput).toBeEnabled();
-    await expect(view.assigneeSelect).toHaveCount(0);
     await expect(view.markUrgentButton).toHaveCount(0);
+    await view.editButton.click();
+    await expect(view.descriptionInput).toBeEnabled();
+    await expect(view.assigneeSelect).toBeDisabled();
     await view.descriptionInput.fill("QA content remains editable");
-    await view.saveDescriptionButton.click();
+    const form = createTaskFormPage(page);
+    await form.saveButton.click();
     await expect
       .poll(async () => (await api.getTask(task.id)).description)
       .toBe("QA content remains editable");
-    const form = createTaskFormPage(page);
-    await form.goto();
+    await form.goto(project.id);
     const assigneeOptions = await form.openAssigneeOptions();
     await expect(assigneeOptions).toHaveCount(1);
     await expect(assigneeOptions).toHaveText(TASK_FORM_COPY.POOL_OPTION);

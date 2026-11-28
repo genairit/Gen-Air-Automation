@@ -19,6 +19,7 @@ import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { createApartmentPage } from "../../src/pages/apartment.page.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
+import { buildApartmentRoute } from "../../src/utilities/route.utility.ts";
 import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 import { buildImportRow } from "../../src/utilities/apartment-import.utility.ts";
@@ -92,7 +93,7 @@ test("apartment task card scopes tasks and creates General and Planning work del
   await page.getByRole("menuitem", { name: /כללי/ }).click();
   const form = createTaskFormPage(page);
   await expect(form.form.getByText(first.name, { exact: true })).toBeVisible();
-  await expect(form.form.getByText("כללי", { exact: true })).toBeVisible();
+  await expect(form.form.getByRole("combobox", { name: "סוג משימה" })).toHaveValue("כללי");
   await expect(form.form.getByRole("radio", { name: /הצעת מחיר|תכנון/ })).toHaveCount(0);
   const newTitle = createUniqueName("משימת דירה");
   await form.form.getByPlaceholder(TASK_FORM_COPY.TITLE_PLACEHOLDER).fill(newTitle);
@@ -100,7 +101,8 @@ test("apartment task card scopes tasks and creates General and Planning work del
     .getByPlaceholder(TASK_FORM_COPY.DESCRIPTION_PLACEHOLDER)
     .fill("תיאום עבודה בדירה");
   await form.saveButton.click();
-  await expect(page).toHaveURL(/\/tasks\/[a-f0-9-]+$/);
+  await expect(page.getByRole("status").getByRole("link", { name: "פתיחת המשימה" })).toBeVisible();
+  await expect(page).toHaveURL(buildApartmentRoute(building.id, first.id));
   expect((await api.getProjectTasks(first.id)).items).toEqual(
     expect.arrayContaining([
       expect.objectContaining({ title: newTitle, taskType: TASK_TYPES.GENERAL }),
@@ -119,7 +121,8 @@ test("apartment task card scopes tasks and creates General and Planning work del
   await form.form.getByPlaceholder(TASK_FORM_COPY.TITLE_PLACEHOLDER).fill(planningTitle);
   await form.form.getByPlaceholder(TASK_FORM_COPY.DESCRIPTION_PLACEHOLDER).fill("תכנון הדירה");
   await form.saveButton.click();
-  await expect(page).toHaveURL(/\/tasks\/[a-f0-9-]+$/);
+  await expect(page.getByRole("status").getByRole("link", { name: "פתיחת המשימה" })).toBeVisible();
+  await expect(page).toHaveURL(buildApartmentRoute(building.id, first.id));
   expect((await api.getProjectTasks(first.id)).items).toEqual(
     expect.arrayContaining([
       expect.objectContaining({

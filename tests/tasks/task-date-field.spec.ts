@@ -8,13 +8,16 @@ import {
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { createTaskFormPage } from "../../src/pages/tasks.page.ts";
 import { VIEWPORTS } from "../../src/constants/viewport.constant.ts";
+import { seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts";
 
 for (const viewport of [{ width: 1440, height: 1000 }, VIEWPORTS.MOBILE]) {
   test(`task due date uses a rounded Hebrew calendar at ${viewport.width}px`, async ({
     page,
+    api,
   }, testInfo) => {
     await page.setViewportSize(viewport);
-    await createTaskFormPage(page).goto();
+    const project = await seedStandaloneProject(api, await seedCustomer(api));
+    await createTaskFormPage(page).goto(project.id);
     const field = findDueDateField(page);
     await expect(page.locator('input[type="date"]')).toHaveCount(0);
     await expect(field).toHaveValue("");

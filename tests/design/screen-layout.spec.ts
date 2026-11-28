@@ -15,6 +15,7 @@ import {
 } from "../../src/utilities/route.utility.ts";
 
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
+import { createTaskFormPage } from "../../src/pages/tasks.page.ts";
 import { URLS } from "../../src/constants/environment.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
@@ -77,9 +78,9 @@ const readScreens = (scenario: ILayoutScenario) => ({
   customers: { path: ROUTES.CUSTOMERS, text: "לקוח חדש" },
   customer: { path: buildCustomerRoute(scenario.customer.id), text: scenario.customer.name },
   newCustomer: { path: ROUTES.NEW_CUSTOMER, text: "זהות הלקוח" },
-  tasks: { path: ROUTES.TASKS, text: "המשימות שלי" },
+  tasks: { path: ROUTES.TASKS, text: "דחופות" },
   task: { path: buildTaskRoute(scenario.task.id), text: scenario.task.title },
-  newTask: { path: ROUTES.NEW_TASK, text: "פרטי המשימה" },
+  newTask: { path: buildProjectRoute(scenario.project.id), text: "משימה חדשה" },
   employees: { path: ROUTES.EMPLOYEES, text: "ניהול עובדים ומשתמשים" },
   settings: { path: ROUTES.SETTINGS, text: "סטטוסי פרויקט קבועים" },
   login: { path: ROUTES.LOGIN, text: "התחברות למערכת" },
@@ -115,6 +116,9 @@ for (const width of WIDTHS) {
         await page.evaluate(() => localStorage.clear());
       }
       await page.goto(screen.path);
+      if (name === "newTask") {
+        await createTaskFormPage(page).open();
+      }
       await expect(page.getByText(screen.text, { exact: false }).first()).toBeVisible();
       await expect
         .poll(() =>

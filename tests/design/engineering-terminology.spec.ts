@@ -78,7 +78,8 @@ test("task pool and apartment worker copy stays readable while assignment remain
 }) => {
   await page.setViewportSize(VIEWPORTS.MOBILE);
   const form = createTaskFormPage(page);
-  await form.goto();
+  const building = await seedBuilding(api, await seedCustomer(api));
+  await form.goto(building.id);
   await expect(form.form.getByText(COPY.POOL_HINT, { exact: true })).toBeVisible();
   const poolOption = (await form.openAssigneeOptions()).filter({
     hasText: TASK_FORM_COPY.POOL_OPTION,
@@ -97,7 +98,6 @@ test("task pool and apartment worker copy stays readable while assignment remain
   expect(poolBounds.clipped).toBe(false);
   await page.keyboard.press(KEYBOARD_KEYS.ESCAPE);
 
-  const building = await seedBuilding(api, await seedCustomer(api));
   const engineer = await seedUser(api, USER_ROLES.ENGINEER);
   const other = await seedUser(api, USER_ROLES.ENGINEER);
   const apartment = await api.createApartment(building.id, {
@@ -117,7 +117,8 @@ test("task pool and apartment worker copy stays readable while assignment remain
   const task = await seedTask(api, { link: linkToProject(apartment), assigneeId: other.id });
   const taskPage = createTaskPage(page);
   await taskPage.goto(task.id);
-  const options = await taskPage.openAssigneeOptions();
+  await taskPage.editButton.click();
+  const options = await form.openAssigneeOptions();
   await expect(
     options.filter({ hasText: `${formatFullName(other)} · ${COPY.OTHER_ASSIGNEE}` }),
   ).toBeVisible();
