@@ -297,7 +297,7 @@ test("An engineer creates a project estimate and manages catalogue items without
   await expect(draftRow(estimateList, existingName)).toHaveCount(0);
   await expect(draftRow(estimateList, cancelledName)).toHaveCount(0);
   await expect(start).toBeVisible();
-  await expect(estimateList.getByRole("heading")).toHaveCount(0);
+  await expect(estimateList.getByRole("heading", { name, exact: true })).toBeVisible();
   await testInfo.attach("manual-estimate-list-card", {
     body: await page.screenshot(),
     contentType: "image/png",
@@ -413,10 +413,7 @@ test("A narrow RTL project tab, create form and detail keep the name and status 
 
   await list.getByText(name, { exact: true }).click();
   await expectLargeHeading(page.getByRole("heading", { name, exact: true }), 28);
-  await expect(page.getByRole("heading", { name: "פריטים מהקטלוג", exact: true })).toBeVisible();
-  await expect(
-    page.getByRole("combobox", { name: "בחירת פריט מהקטלוג", exact: true }),
-  ).toBeVisible();
+  await expect(createEstimateEditorPage(page).document).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(MOBILE.width);
   await testInfo.attach("manual-estimate-mobile-detail", {
     body: await page.screenshot(),
