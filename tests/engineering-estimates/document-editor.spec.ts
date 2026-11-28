@@ -3,6 +3,7 @@ import { isRecord } from "../../src/utilities/guard.utility.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
+import { seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts";
 import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
 import { createEstimateEditorPage } from "../../src/pages/estimate-editor.page.ts";
 import { createCatalogueFixture } from "../../src/environment/quotation-fixtures.ts";
@@ -81,8 +82,13 @@ test("Grouped catalogue editing previews quantities and prices before create and
   const name = "טיוטה חיה לבדיקת תצוגה";
   const editor = createEstimateEditorPage(page);
   await page.setViewportSize({ width: 1680, height: 1000 });
-  await page.goto(ESTIMATES);
-  await page.getByRole("button", { name: "כתב כמויות חדש", exact: true }).click();
+  const customer = await seedCustomer(api);
+  const project = await seedStandaloneProject(api, customer);
+  await page.goto(`/projects/${project.id}?tab=estimates`);
+  await page
+    .getByRole("tabpanel", { name: "כתבי כמויות", exact: true })
+    .getByRole("button", { name: "יצירת כתב כמויות", exact: true })
+    .click();
   await page.getByRole("textbox", { name: "שם כתב הכמויות" }).fill(name);
   await page.getByRole("button", { name: "הוספת אזור", exact: true }).click();
   await editor.table.getByLabel("שם אזור או טיפוס").fill("דירה טיפוסית");
@@ -151,13 +157,19 @@ test("Grouped catalogue editing previews quantities and prices before create and
 });
 
 test("Mobile editor and document switching keeps draft values and contains horizontal overflow", async ({
+  api,
   page,
 }, testInfo) => {
   const item = await createCatalogueFixture({ price: "25.0000" });
   const editor = createEstimateEditorPage(page);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(ESTIMATES);
-  await page.getByRole("button", { name: "כתב כמויות חדש", exact: true }).click();
+  const customer = await seedCustomer(api);
+  const project = await seedStandaloneProject(api, customer);
+  await page.goto(`/projects/${project.id}?tab=estimates`);
+  await page
+    .getByRole("tabpanel", { name: "כתבי כמויות", exact: true })
+    .getByRole("button", { name: "יצירת כתב כמויות", exact: true })
+    .click();
   await page.getByRole("textbox", { name: "שם כתב הכמויות" }).fill("בדיקת תצוגה בנייד");
   await page.getByRole("button", { name: "הוספת פריט", exact: true }).click();
   await editor.selectCatalogueItem(editor.itemRows.first(), item.sku, item.description);
