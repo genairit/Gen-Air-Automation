@@ -20,9 +20,15 @@ export const openContactRoleControls = async (page: Page, role: ProjectContactRo
   const mobileContacts = page
     .getByRole("group", { name: "צוות ואנשי קשר", exact: true })
     .getByRole("button", { name: "אנשי קשר", exact: true });
-  if (await mobileContacts.isVisible()) await mobileContacts.click();
   const label = PROJECT_CONTACT_ROLE_LABELS[role];
   const disclosure = page.getByRole("button", { name: new RegExp(`^(שייך|ערוך) ${label}$`) });
+  await mobileContacts
+    .or(disclosure)
+    .or(contactRolePicker(page, role))
+    .filter({ visible: true })
+    .first()
+    .waitFor({ state: "visible" });
+  if (await mobileContacts.isVisible()) await mobileContacts.click();
   if (await contactRolePicker(page, role).isVisible()) return;
   await disclosure.waitFor({ state: "visible" });
   await disclosure.click();
