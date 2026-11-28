@@ -80,7 +80,16 @@ test("submitter confirms six saved checks and lead reviews the exact plan inside
   const context = await seedPlanContext(api);
   await createProjectPage(page).goto(context.project.id);
   await openWorkspaceTab(page, "files");
-  await createProjectPage(page).driveFolder("תיקיית משנה").click();
+  const folder = createProjectPage(page).driveFolder("תיקיית משנה");
+  const nextPage = page
+    .getByRole("tabpanel", { name: "קבצים" })
+    .getByRole("button", { name: "הבא", exact: true });
+  await expect(folder.or(nextPage).first()).toBeVisible();
+  while (!(await folder.isVisible())) {
+    await expect(nextPage).toBeEnabled();
+    await nextPage.click();
+  }
+  await folder.click();
   await page.getByRole("button", { name: "הגש תוכנית לביצוע: תוכנית לביצוע.pdf" }).click();
   const dialog = page.getByRole("dialog", { name: "הגשת תוכנית לביצוע" });
   await expect(dialog).toBeVisible();
