@@ -119,10 +119,7 @@ test("a completed employee mutation cannot run its success-close callback after 
   const employees = createEmployeesPage(page);
   await employees.goto();
   await employees.searchBox.fill(employee.email);
-  await employees
-    .findRow(employee.email)
-    .getByRole("button", { name: MULTIPLE_ROLES_COPY.EDIT })
-    .click();
+  await employees.openEdit(employee.email);
   const dialog = page.getByRole("dialog");
   await employees.openRoles();
   await employees.roleOption(FINANCE).click();

@@ -74,8 +74,7 @@ test("admin edits assigned roles without choosing an active role and receives a 
   const employees = createEmployeesPage(page);
   await employees.goto();
   await employees.searchBox.fill(user.email);
-  const row = employees.findRow(user.email);
-  await row.getByRole("button", { name: MULTIPLE_ROLES_COPY.EDIT }).click();
+  await employees.openEdit(user.email);
   const dialog = page.getByRole("dialog");
   await employees.openRoles();
   await expect(employees.roleOptions).toHaveCount(ASSIGNABLE_USER_ROLE_VALUES.length);
@@ -97,10 +96,7 @@ test("admin edits assigned roles without choosing an active role and receives a 
     employees.findRow(user.email).getByText(USER_ROLE_LABELS[FINANCE], { exact: true }),
   ).toBeVisible();
 
-  await employees
-    .findRow(user.email)
-    .getByRole("button", { name: MULTIPLE_ROLES_COPY.EDIT })
-    .click();
+  await employees.openEdit(user.email);
   await employees.openRoles();
   await employees.roleOption(ENGINEER).click();
   await employees.closeRoles();
@@ -118,10 +114,7 @@ test("empty assignments block saving and a server rejection retains the edit and
   const employees = createEmployeesPage(page);
   await employees.goto();
   await employees.searchBox.fill(user.email);
-  await employees
-    .findRow(user.email)
-    .getByRole("button", { name: MULTIPLE_ROLES_COPY.EDIT })
-    .click();
+  await employees.openEdit(user.email);
   const dialog = page.getByRole("dialog");
   const engineer = employees.roleOption(ENGINEER);
   const finance = employees.roleOption(FINANCE);
@@ -197,10 +190,7 @@ test("removing the final administrator is rejected visibly and retains the unsav
     const employees = createEmployeesPage(page);
     await employees.goto();
     await employees.searchBox.fill(api.session.user.email);
-    await employees
-      .findRow(api.session.user.email)
-      .getByRole("button", { name: MULTIPLE_ROLES_COPY.EDIT })
-      .click();
+    await employees.openEdit(api.session.user.email);
     const dialog = page.getByRole("dialog");
     const admin = employees.roleOption(ADMIN);
     const finance = employees.roleOption(FINANCE);

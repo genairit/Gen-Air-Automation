@@ -54,7 +54,7 @@ for (const [size, viewport] of Object.entries({
     expect(await readHorizontalOverflow(page)).toBe(0);
     await page.screenshot({ path: testInfo.outputPath(`employee-list-${size}.png`) });
 
-    await employees.createButton.click();
+    await employees.openCreate();
     await expect(employees.form).toHaveAccessibleName(EMPLOYEES_COPY.ADD_TITLE);
     await expect(employees.nameInput).toBeFocused();
     for (const field of [
@@ -87,7 +87,7 @@ test("role search supports keyboard selection, chip overflow and cancellation di
 }, testInfo) => {
   const employees = createEmployeesPage(page);
   await employees.goto();
-  await employees.createButton.click();
+  await employees.openCreate();
   await employees.nameInput.fill("עובדת בדיקה");
   await employees.rolePicker.fill("unmatched search");
   await expect(page.getByText(EMPLOYEES_COPY.NO_MATCHING_ROLES)).toBeVisible();
@@ -119,7 +119,7 @@ test("role search supports keyboard selection, chip overflow and cancellation di
   await page.keyboard.press(KEYBOARD_KEYS.ESCAPE);
   await expect(employees.form).toHaveCount(0);
   await expect(employees.createButton).toBeFocused();
-  await employees.createButton.click();
+  await employees.openCreate();
   await expect(employees.nameInput).toHaveValue("");
   await employees.openRoles();
   await expect(employees.roleOption(USER_ROLES.ENGINEER)).toHaveAttribute("aria-selected", "true");
@@ -133,7 +133,7 @@ test("create form blocks empty roles and keeps entered values after a request re
 }) => {
   const employees = createEmployeesPage(page);
   await employees.goto();
-  await employees.createButton.click();
+  await employees.openCreate();
   await employees.openRoles();
   await employees.roleOption(USER_ROLES.ENGINEER).click();
   await employees.closeRoles();
@@ -165,9 +165,7 @@ test("edit preloads the employee profile, preserves roles and updates the origin
   const employees = createEmployeesPage(page);
   await employees.goto();
   await employees.searchBox.fill(user.email);
-  const openEdit = (email: string) =>
-    employees.findRow(email).getByRole("button", { name: EMPLOYEES_COPY.EDIT_EMPLOYEE }).click();
-  await openEdit(user.email);
+  await employees.openEdit(user.email);
   await expect(employees.form).toHaveAccessibleName(EMPLOYEES_COPY.EDIT_EMPLOYEE);
   await expect(employees.nameInput).toHaveValue(`${user.firstName} ${user.lastName}`);
   await expect(employees.emailInput).toHaveValue(user.email);
@@ -202,7 +200,7 @@ test("edit preloads the employee profile, preserves roles and updates the origin
   await expect(employees.form).toHaveCount(0);
   await page.reload();
   await employees.searchBox.fill(updatedEmail);
-  await openEdit(updatedEmail);
+  await employees.openEdit(updatedEmail);
   await expect(employees.nameInput).toHaveValue("מיכל לוי");
   await expect(employees.phoneInput).toHaveValue(phone);
   const stored = await api.send(HTTP_METHODS.GET, buildUserPath(user.id));

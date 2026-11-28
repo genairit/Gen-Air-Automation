@@ -5,9 +5,9 @@ import {
   ASSIGNABLE_USER_ROLE_VALUES,
 } from "../constants/user-role.constant.ts";
 
-import type { Page } from "@playwright/test";
 import { findTableRow } from "./table.component.ts";
 import { findCountedTab } from "./tab.component.ts";
+import { expect, type Page } from "@playwright/test";
 import { ROUTES } from "../constants/routes.constant.ts";
 import { EMPLOYEES_COPY } from "../constants/copy.constant.ts";
 import { KEYBOARD_KEYS } from "../constants/keyboard.constant.ts";
@@ -43,6 +43,16 @@ export const createEmployeesPage = (page: Page) => {
 
   const findRow = (text: string) => findTableRow(page, text);
 
+  const openCreate = async () => {
+    await createButton.click();
+    await expect(nameInput).toBeFocused();
+  };
+
+  const openEdit = async (email: string) => {
+    await findRow(email).getByRole("button", { name: EMPLOYEES_COPY.EDIT_EMPLOYEE }).click();
+    await expect(nameInput).toBeFocused();
+  };
+
   const roleTab = (role: UserRoleType) => findCountedTab(page, USER_ROLE_PLURAL_LABELS[role]);
 
   const fillEmployee = async (input: IEmployeeFormInput) => {
@@ -64,7 +74,7 @@ export const createEmployeesPage = (page: Page) => {
   };
 
   const addEmployee = async (input: IEmployeeFormInput) => {
-    await createButton.click();
+    await openCreate();
     await fillEmployee(input);
     await addButton.click();
   };
@@ -73,6 +83,8 @@ export const createEmployeesPage = (page: Page) => {
     findRow(text).getByRole("button", { name: EMPLOYEES_COPY.DELETE_EMPLOYEE }).click();
 
   return {
+    openCreate,
+    openEdit,
     searchBox,
     addButton,
     passwordInput,

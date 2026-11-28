@@ -67,7 +67,7 @@ test("the role picker offers only assignable roles", async ({ page }) => {
   await employeesPage.goto();
 
   await expect(employeesPage.roleTab(USER_ROLES.SALES_AGENT)).toHaveCount(0);
-  await employeesPage.createButton.click();
+  await employeesPage.openCreate();
   await employeesPage.openRoles();
   await expect(employeesPage.roleOptions).toHaveCount(ASSIGNABLE_USER_ROLE_VALUES.length);
   await expect(employeesPage.roleOption(USER_ROLES.SALES_AGENT)).toHaveCount(0);
@@ -90,7 +90,7 @@ test("employee creation requires matching chosen password and the new account ca
   };
 
   await employeesPage.goto();
-  await employeesPage.createButton.click();
+  await employeesPage.openCreate();
   await expect(employeesPage.passwordInput).toBeVisible();
   await expect(employeesPage.passwordConfirmationInput).toBeVisible();
   await employeesPage.fillEmployee({
