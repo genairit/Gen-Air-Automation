@@ -132,11 +132,13 @@ export const TASKS_COPY = {
 } as const;
 
 export const EMPLOYEES_COPY = {
+  PERSON_COLUMN: "עובד ופרטי קשר",
   ROLE_LABEL: "תפקידים משויכים",
   EDIT_EMPLOYEE: "עריכת עובד",
-  ADD_TITLE: "הוספת עובד / משתמש חדש",
-  ACCOUNT_SECTION: "פרטי חשבון",
-  ACCESS_SECTION: "גישה ותפקידים",
+  ADD_TITLE: "הוספת עובד",
+  INTRO_HEADING: "ניהול עובדים ומשתמשים",
+  INTRO_EYEBROW: "פורטל ניהול משא״ש והרשאות אבטחה",
+  NO_MATCHING_ROLES: "לא נמצאו תפקידים",
   DELETE_EMPLOYEE: "מחיקת עובד",
   NAME_PLACEHOLDER: "לדוגמה: יובל אל",
   PHONE_PLACEHOLDER: "0500000000",

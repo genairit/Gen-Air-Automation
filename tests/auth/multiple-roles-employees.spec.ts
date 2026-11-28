@@ -74,12 +74,13 @@ test("admin edits assigned roles without choosing an active role and receives a 
   const employees = createEmployeesPage(page);
   await employees.goto();
   await employees.searchBox.fill(user.email);
-  const row = employees.findRow(user.email);
-  await row.getByRole("button", { name: MULTIPLE_ROLES_COPY.EDIT }).click();
+  await employees.openEdit(user.email);
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByRole("checkbox")).toHaveCount(ASSIGNABLE_USER_ROLE_VALUES.length);
+  await employees.openRoles();
+  await expect(employees.roleOptions).toHaveCount(ASSIGNABLE_USER_ROLE_VALUES.length);
   await expect(dialog.getByRole("radio")).toHaveCount(0);
-  await dialog.getByRole("checkbox", { name: USER_ROLE_LABELS[FINANCE], exact: true }).check();
+  await employees.roleOption(FINANCE).click();
+  await employees.closeRoles();
   await expect(dialog.getByRole("radio")).toHaveCount(0);
   await dialog.getByRole("button", { name: MULTIPLE_ROLES_COPY.SAVE }).click();
   await expect(dialog).toHaveCount(0);
@@ -95,11 +96,10 @@ test("admin edits assigned roles without choosing an active role and receives a 
     employees.findRow(user.email).getByText(USER_ROLE_LABELS[FINANCE], { exact: true }),
   ).toBeVisible();
 
-  await employees
-    .findRow(user.email)
-    .getByRole("button", { name: MULTIPLE_ROLES_COPY.EDIT })
-    .click();
-  await dialog.getByRole("checkbox", { name: USER_ROLE_LABELS[ENGINEER], exact: true }).uncheck();
+  await employees.openEdit(user.email);
+  await employees.openRoles();
+  await employees.roleOption(ENGINEER).click();
+  await employees.closeRoles();
   await expect(dialog.getByRole("radio")).toHaveCount(0);
   await dialog.getByRole("button", { name: MULTIPLE_ROLES_COPY.SAVE }).click();
   await expect(dialog).toHaveCount(0);
@@ -114,18 +114,19 @@ test("empty assignments block saving and a server rejection retains the edit and
   const employees = createEmployeesPage(page);
   await employees.goto();
   await employees.searchBox.fill(user.email);
-  await employees
-    .findRow(user.email)
-    .getByRole("button", { name: MULTIPLE_ROLES_COPY.EDIT })
-    .click();
+  await employees.openEdit(user.email);
   const dialog = page.getByRole("dialog");
-  const engineer = dialog.getByRole("checkbox", { name: USER_ROLE_LABELS[ENGINEER], exact: true });
-  const finance = dialog.getByRole("checkbox", { name: USER_ROLE_LABELS[FINANCE], exact: true });
+  const engineer = employees.roleOption(ENGINEER);
+  const finance = employees.roleOption(FINANCE);
   const save = dialog.getByRole("button", { name: MULTIPLE_ROLES_COPY.SAVE });
-  await engineer.uncheck();
+  await employees.openRoles();
+  await engineer.click();
+  await employees.closeRoles();
   await expect(dialog.getByRole("alert")).toContainText(MULTIPLE_ROLES_COPY.REQUIRED);
   await expect(save).toBeDisabled();
-  await finance.check();
+  await employees.openRoles();
+  await finance.click();
+  await employees.closeRoles();
   await page.route(buildBrowserApiPattern(buildUserPath(user.id)), route =>
     route.fulfill({
       status: 409,
@@ -137,8 +138,9 @@ test("empty assignments block saving and a server rejection retains the edit and
   await expect(
     dialog.getByRole("alert").filter({ hasText: "QA simulated role-assignment conflict" }),
   ).toBeVisible();
-  await expect(finance).toBeChecked();
-  await expect(engineer).not.toBeChecked();
+  await employees.openRoles();
+  await expect(finance).toHaveAttribute("aria-selected", "true");
+  await expect(engineer).toHaveAttribute("aria-selected", "false");
   await page.unroute(buildBrowserApiPattern(buildUserPath(user.id)));
   const stored = await api.send(HTTP_METHODS.GET, buildUserPath(user.id));
   expect(await stored.json()).toMatchObject({ role: ENGINEER, assignedRoles: [ENGINEER] });
@@ -152,7 +154,7 @@ test("revoked active administrator loses employee actions after focus without an
   const page = await openPageAs(user);
   const employees = createEmployeesPage(page);
   await employees.goto();
-  await expect(employees.addButton).toBeVisible();
+  await expect(employees.createButton).toBeVisible();
   expect(
     (
       await api.send(HTTP_METHODS.PATCH, buildUserPath(user.id), {
@@ -161,14 +163,14 @@ test("revoked active administrator loses employee actions after focus without an
     ).status(),
   ).toBe(200);
   await refreshVisibility(page);
-  await expect(employees.addButton).toHaveCount(0);
+  await expect(employees.createButton).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: MULTIPLE_ROLES_COPY.EDIT, exact: true }),
   ).toHaveCount(0);
   await expect(page.getByRole("button", { name: new RegExp(user.firstName) })).toBeDisabled();
   await page.goto(ROUTES.EMPLOYEES);
   await expect(employees.searchBox).toBeVisible();
-  await expect(employees.addButton).toHaveCount(0);
+  await expect(employees.createButton).toHaveCount(0);
 });
 
 test("removing the final administrator is rejected visibly and retains the unsaved choices", async ({
@@ -188,15 +190,14 @@ test("removing the final administrator is rejected visibly and retains the unsav
     const employees = createEmployeesPage(page);
     await employees.goto();
     await employees.searchBox.fill(api.session.user.email);
-    await employees
-      .findRow(api.session.user.email)
-      .getByRole("button", { name: MULTIPLE_ROLES_COPY.EDIT })
-      .click();
+    await employees.openEdit(api.session.user.email);
     const dialog = page.getByRole("dialog");
-    const admin = dialog.getByRole("checkbox", { name: USER_ROLE_LABELS[ADMIN], exact: true });
-    const finance = dialog.getByRole("checkbox", { name: USER_ROLE_LABELS[FINANCE], exact: true });
-    await finance.check();
-    await admin.uncheck();
+    const admin = employees.roleOption(ADMIN);
+    const finance = employees.roleOption(FINANCE);
+    await employees.openRoles();
+    await finance.click();
+    await admin.click();
+    await employees.closeRoles();
     const rejected = page.waitForResponse(
       response =>
         new URL(response.url()).pathname ===
@@ -210,8 +211,9 @@ test("removing the final administrator is rejected visibly and retains the unsav
         hasText: "At least one active system administrator must remain",
       }),
     ).toBeVisible();
-    await expect(finance).toBeChecked();
-    await expect(admin).not.toBeChecked();
+    await employees.openRoles();
+    await expect(finance).toHaveAttribute("aria-selected", "true");
+    await expect(admin).toHaveAttribute("aria-selected", "false");
     expect(await (await api.send(HTTP_METHODS.GET, API_PATHS.MY_USER)).json()).toMatchObject({
       role: ADMIN,
       assignedRoles: [ADMIN],
