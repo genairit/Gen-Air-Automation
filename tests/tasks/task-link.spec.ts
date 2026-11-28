@@ -186,9 +186,7 @@ test("project entry point retains selected project and offers explicit task type
   const projectPage = createProjectPage(page);
   await projectPage.goto(project.id);
   await expect(page.getByText("אין משימות עדיין", { exact: true })).toBeVisible();
-  await expect(
-    page.getByText(PROJECT_STATUS_NAMES.NOT_STARTED, { exact: true }).first(),
-  ).toBeVisible();
+  await expect(projectPage.stagePicker).toHaveValue(PROJECT_STATUS_NAMES.NOT_STARTED);
   await projectPage.newTaskButton.click();
   await expect(page.getByRole("menuitem", { name: /הצעת מחיר/ })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: /תכנון/ })).toBeVisible();
