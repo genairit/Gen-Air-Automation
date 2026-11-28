@@ -491,15 +491,16 @@ test("team edit controls follow server permissions for engineering and project m
   const apartment = await createApartment(api, building, customer);
   for (const role of [USER_ROLES.ENGINEER, USER_ROLES.PROJECT_MANAGER]) {
     const page = await openPageAs(TEST_USERS[role]);
-    await page.getByRole("button", { name: "ניהול צוות הדירה", exact: true }).click();
-    const team = createApartmentDesignPage(page).teamCard();
     await page.goto(buildApartmentRoute(building.id, apartment.id));
     await openWorkspaceTab(page, "people");
-    const override = team.getByRole("button", { name: COPY.OVERRIDE, exact: true });
+    const manage = page.getByRole("button", { name: "ניהול צוות הדירה", exact: true });
     if (role === USER_ROLES.ENGINEER) {
-      await expect(override).toHaveCount(0);
+      await expect(manage).toHaveCount(0);
       continue;
     }
+    await manage.click();
+    const team = createApartmentDesignPage(page).teamCard();
+    const override = team.getByRole("button", { name: COPY.OVERRIDE, exact: true });
     await expect(override).toBeVisible();
     await override.click();
     await expect(team.getByRole("button", { name: COPY.SAVE_TEAM })).toBeVisible();
