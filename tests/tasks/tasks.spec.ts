@@ -7,29 +7,22 @@ import {
   seedStandaloneProject,
 } from "../../src/api/seed-data.ts";
 
-import {
-  TASK_STATUSES,
-  TASK_LINK_KINDS,
-  TASK_STATUS_NAMES,
-} from "../../src/constants/domain.constant.ts";
-
 import { devices } from "@playwright/test";
 import type { Page, Locator } from "@playwright/test";
-import { ROUTES } from "../../src/constants/routes.constant.ts";
-import { createBoardPage } from "../../src/pages/board.page.ts";
 import { TASK_COPY } from "../../src/constants/copy.constant.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { createProjectPage } from "../../src/pages/project.page.ts";
 import { formatFullName } from "../../src/utilities/user.utility.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
+import { buildProjectRoute } from "../../src/utilities/route.utility.ts";
 import { expectSingleResultRow } from "../../src/pages/table.component.ts";
 import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { getAuthStatePath } from "../../src/utilities/auth-state.utility.ts";
 import { assignTaskBypassingApi } from "../../src/environment/legacy-data.ts";
 import { isTaskUpdateResponse } from "../../src/utilities/response.utility.ts";
-import { ROUTE_PATTERNS } from "../../src/constants/route-patterns.constant.ts";
 import { readTabCount, expectTabSelected } from "../../src/pages/tab.component.ts";
 import { USER_ROLES, USER_ROLE_VALUES } from "../../src/constants/user-role.constant.ts";
+import { TASK_STATUSES, TASK_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
 import { getUpcomingDate, toDateInputValue } from "../../src/pages/date-field.component.ts";
 import { createTaskPage, createTasksPage, createTaskFormPage } from "../../src/pages/tasks.page.ts";
 
@@ -37,9 +30,9 @@ const { defaultBrowserType: _browserType, ...PHONE } = devices["Pixel 7"];
 
 const ENGINEER = TEST_USERS[USER_ROLES.ENGINEER];
 
-const NON_ENGINEER_USERS = USER_ROLE_VALUES.filter(role => role !== USER_ROLES.ENGINEER).map(
-  role => TEST_USERS[role],
-);
+const NON_ENGINEER_USERS = USER_ROLE_VALUES.filter(
+  role => role !== USER_ROLES.ENGINEER && role !== USER_ROLES.ENGINEERING_LEAD,
+).map(role => TEST_USERS[role]);
 
 const HISTORY_ENTRIES_AFTER_ONE_CHANGE = 2;
 
@@ -81,23 +74,23 @@ test("create a task for an engineer and see it in their tasks and on its project
   const customer = await seedCustomer(api);
   const project = await seedStandaloneProject(api, customer);
   const formPage = createTaskFormPage(page);
-  const boardPage = createBoardPage(page);
   const projectPage = createProjectPage(page);
   const title = createUniqueName(NEW_TASK.titlePrefix);
 
-  await boardPage.goto();
-  await boardPage.newTaskButton.click();
-  await formPage.fill({
+  await formPage.goto(project.id);
+  await formPage.fillDetails({
     title,
     dueDate: NEW_TASK.dueDate,
-    link: { kind: TASK_LINK_KINDS.PROJECT, name: project.name },
     description: NEW_TASK.description,
     assigneeName: formatFullName(ENGINEER),
   });
   await expect(formPage.assigneePicker).toHaveValue(formatFullName(ENGINEER));
   await formPage.saveButton.click();
 
-  await expect(page).toHaveURL(ROUTE_PATTERNS.TASK);
+  const createdLink = page.getByRole("status").getByRole("link", { name: "פתיחת המשימה" });
+  await expect(createdLink).toBeVisible();
+  await expect(page).toHaveURL(buildProjectRoute(project.id));
+  await createdLink.click();
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
 
   await projectPage.goto(project.id);
@@ -107,29 +100,32 @@ test("create a task for an engineer and see it in their tasks and on its project
   await expect(await findInMyTasks(await openPageAs(ENGINEER), title)).toBeVisible();
 });
 
-test("the task form refuses to save without the required fields", async ({ page }) => {
+test("the task form refuses to save without the required fields", async ({ page, api }) => {
   const formPage = createTaskFormPage(page);
 
-  await formPage.goto();
+  const project = await seedStandaloneProject(api, await seedCustomer(api));
+  await formPage.goto(project.id);
   await formPage.saveButton.click();
 
-  await expect(page).toHaveURL(ROUTES.NEW_TASK);
+  await expect(formPage.form.getByText("שדה חובה", { exact: true }).first()).toBeVisible();
+  expect((await api.getProjectTasks(project.id)).items).toEqual([]);
 });
 
 test("the new-task and task-page assignee pickers list engineers only", async ({ page, api }) => {
   const engineer = await seedUser(api, USER_ROLES.ENGINEER);
   const secretary = await seedUser(api, USER_ROLES.SECRETARY);
   const nonEngineers = [secretary, ...NON_ENGINEER_USERS];
-  const { task } = await seedTaskScenario(api);
+  const { task, project } = await seedTaskScenario(api);
   const formPage = createTaskFormPage(page);
   const taskPage = createTaskPage(page);
 
-  await formPage.goto();
+  await formPage.goto(project.id);
 
   await expectEngineerOptionsOnly(await formPage.openAssigneeOptions(), engineer, nonEngineers);
 
   await taskPage.goto(task.id);
 
+  await taskPage.editButton.click();
   await expectEngineerOptionsOnly(await taskPage.openAssigneeOptions(), engineer, nonEngineers);
 });
 
@@ -178,13 +174,15 @@ test("reassign a task to another engineer", async ({ page, api }) => {
   const taskPage = createTaskPage(page);
 
   await taskPage.goto(task.id);
+  await taskPage.editButton.click();
   await taskPage.changeAssignee(formatFullName(secondEngineer));
 
   await expect(taskPage.assigneeSelect).toHaveValue(formatFullName(secondEngineer));
+  await createTaskFormPage(page).saveButton.click();
   await expect.poll(async () => (await api.getTask(task.id)).assigneeId).toBe(secondEngineer.id);
 
   await page.reload();
-
+  await taskPage.editButton.click();
   await expect(taskPage.assigneeSelect).toHaveValue(formatFullName(secondEngineer));
 });
 
@@ -193,6 +191,7 @@ test("edit a task description", async ({ page, api }) => {
   const taskPage = createTaskPage(page);
 
   await taskPage.goto(task.id);
+  await taskPage.editButton.click();
   await taskPage.descriptionInput.fill(UPDATED_DESCRIPTION);
 
   const taskUpdate = page.waitForResponse(isTaskUpdateResponse(task.id));
@@ -203,7 +202,7 @@ test("edit a task description", async ({ page, api }) => {
 
   await page.reload();
 
-  await expect(taskPage.descriptionInput).toHaveValue(UPDATED_DESCRIPTION);
+  await expect(page.getByText(UPDATED_DESCRIPTION, { exact: true })).toBeVisible();
 });
 
 test("a task that keeps a legacy installer assignee can still be edited", async ({ page, api }) => {
@@ -213,6 +212,7 @@ test("a task that keeps a legacy installer assignee can still be edited", async 
 
   await assignTaskBypassingApi(task.id, legacyAssignee.id);
   await taskPage.goto(task.id);
+  await taskPage.editButton.click();
   await taskPage.descriptionInput.fill(UPDATED_DESCRIPTION);
 
   const taskUpdate = page.waitForResponse(isTaskUpdateResponse(task.id));
@@ -223,7 +223,7 @@ test("a task that keeps a legacy installer assignee can still be edited", async 
 
   await page.reload();
 
-  await expect(taskPage.descriptionInput).toHaveValue(UPDATED_DESCRIPTION);
+  await expect(page.getByText(UPDATED_DESCRIPTION, { exact: true })).toBeVisible();
   expect((await api.getTask(task.id)).assigneeId).toBe(legacyAssignee.id);
 });
 

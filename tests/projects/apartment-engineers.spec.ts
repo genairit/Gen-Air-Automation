@@ -8,7 +8,6 @@ import {
   seedStandaloneProject,
 } from "../../src/api/seed-data.ts";
 
-import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { escapeRegex } from "../../src/utilities/regex.utility.ts";
 import { findCardByTitle } from "../../src/pages/card.component.ts";
@@ -148,7 +147,7 @@ test("apartment engineer is recommended for task assignment and urgent recipient
     engineerUserId: engineer.id,
   });
   const form = createTaskFormPage(page);
-  await page.goto(`${ROUTES.NEW_TASK}?projectId=${apartment.id}`);
+  await form.goto(apartment.id, building.id);
   const recommended = (await form.openAssigneeOptions()).filter({
     hasText: `${formatFullName(engineer)} · העובד ההנדסי של הדירה`,
   });
@@ -156,15 +155,13 @@ test("apartment engineer is recommended for task assignment and urgent recipient
   await recommended.click();
   await form.form.getByRole("radio", { name: /דחופה/ }).click();
   await expect(
-    findCardByTitle(page, "דחיפות").getByText(
-      `בשמירה תישלח התראת Push אל ${formatFullName(engineer)}`,
-      { exact: true },
-    ),
+    form.form.getByText(`בשמירה תישלח התראת Push אל ${formatFullName(engineer)}`, { exact: true }),
   ).toBeVisible();
 
   const task = await seedTask(api, { link: linkToProject(apartment) });
   const taskPage = createTaskPage(page);
   await taskPage.goto(task.id);
+  await taskPage.editButton.click();
   await expect(
     (await taskPage.openAssigneeOptions()).filter({
       hasText: `${formatFullName(engineer)} · העובד ההנדסי של הדירה`,
@@ -172,7 +169,7 @@ test("apartment engineer is recommended for task assignment and urgent recipient
   ).toBeVisible();
 
   const standalone = await seedStandaloneProject(api, customer);
-  await page.goto(`${ROUTES.NEW_TASK}?projectId=${standalone.id}`);
+  await form.goto(standalone.id);
   await expect(
     (await form.openAssigneeOptions()).filter({ hasText: formatFullName(engineer) }),
   ).toBeVisible();

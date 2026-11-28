@@ -66,7 +66,7 @@ test("lead can be assigned as an engineer and appears in the engineering count a
   expect((await api.getTask(task.id)).assigneeId).toBe(lead.id);
 
   const taskForm = createTaskFormPage(page);
-  await taskForm.goto();
+  await taskForm.goto(project.id);
   await expect(
     (await taskForm.openAssigneeOptions()).filter({ hasText: lead.firstName }),
   ).toBeVisible();

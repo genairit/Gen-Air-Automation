@@ -72,7 +72,7 @@ test("a new project is counted under its status and found by search", async ({ p
   await boardPage.statusFilter.press("ArrowDown");
   await expect(page.getByRole("listbox")).toBeVisible();
   await boardPage.statusFilter.press("Tab");
-  await expect(boardPage.newTaskButton).toBeFocused();
+  await expect(boardPage.newProjectButton).toBeFocused();
   await expect(page.getByRole("listbox")).toHaveCount(0);
   await boardPage.statusFilter.click();
   await expect(page.getByRole("option")).toHaveCount(Object.keys(PROJECT_STATUS_NAMES).length + 1);

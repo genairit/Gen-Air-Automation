@@ -51,9 +51,12 @@ export const toDateDisplayValue = (date: Date): string => {
 export const findDueDateField = (page: Page): Locator =>
   page.getByRole("textbox", { name: /^תאריך יעד/ });
 
+export const findDateCalendar = (page: Page): Locator =>
+  page.locator(".MuiPopover-paper").filter({ has: page.getByRole("grid") });
+
 export const selectDueDate = async (page: Page, date: Date): Promise<void> => {
   await findDueDateField(page).click();
-  const calendar = page.locator(".MuiPopover-paper");
+  const calendar = findDateCalendar(page);
   const targetMonth = MONTH_FORMAT.format(date);
   const today = getIsraelCalendarDate();
   const monthsAhead =
