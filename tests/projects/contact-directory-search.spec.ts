@@ -22,6 +22,11 @@ import {
 } from "../../src/utilities/contact-search.utility.ts";
 
 import {
+  contactRolePicker,
+  openContactRoleControls,
+} from "../../src/pages/project-contact-roles.page.ts";
+
+import {
   PROJECT_CONTACT_ROLES,
   PROJECT_CONTACT_ROLE_LABELS,
 } from "../../src/constants/project-contact-role.constant.ts";
@@ -37,12 +42,20 @@ import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { CONTACT_SEARCH } from "../../src/constants/contact-search.constant.ts";
 import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
 import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
-import { contactRolePicker } from "../../src/pages/project-contact-roles.page.ts";
 import { createApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { buildProjectRoute, buildApartmentRoute } from "../../src/utilities/route.utility.ts";
 import { seedBuilding, seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts";
 
 const ARCHITECT = PROJECT_CONTACT_ROLES.ARCHITECT;
+
+const openAdditionalContacts = async (page: Parameters<typeof createProjectFormPage>[0]) => {
+  const mobileContacts = page
+    .getByRole("group", { name: "צוות ואנשי קשר", exact: true })
+    .getByRole("button", { name: "אנשי קשר", exact: true });
+  if (await mobileContacts.isVisible()) await mobileContacts.click();
+  await page.getByRole("button", { name: "ניהול אנשי קשר נוספים", exact: true }).click();
+  return page.getByRole("dialog", { name: "ניהול אנשי קשר נוספים", exact: true });
+};
 
 test("project create contact pickers stay empty on focus and debounce one normalized query while preserving selection", async ({
   page,
@@ -158,6 +171,7 @@ test("role search aborts stale lookups and prevents keyboard selection of old re
   const requests = monitorDirectorySearch(page);
   await page.goto(buildProjectRoute(project.id));
   await openWorkspaceTab(page, "people");
+  await openContactRoleControls(page, ARCHITECT);
   try {
     await contactRolePicker(page, ARCHITECT).click();
     const search = activeRoleSearch(page, ARCHITECT);
@@ -187,6 +201,7 @@ test("role search aborts stale lookups and prevents keyboard selection of old re
       .poll(() => readRoleLinks(api, project.id))
       .toContainEqual(expect.objectContaining({ contactId: second.id, role: ARCHITECT }));
     await page.reload();
+    await openContactRoleControls(page, ARCHITECT);
     await expect(contactRolePicker(page, ARCHITECT)).toHaveValue(second.name);
     expect(requests.queries.every(query => query.trim().length > 0)).toBe(true);
   } finally {
@@ -231,7 +246,7 @@ test("current directory errors retry explicitly and clearing cancels pending res
   const requests = monitorDirectorySearch(page);
   await page.goto(buildProjectRoute(project.id));
   await openWorkspaceTab(page, "people");
-  const section = projectContactsSection(page);
+  const section = await openAdditionalContacts(page);
   const search = contactSearchInput(section);
   await search.fill(incoming.name);
   await expect(section.getByRole("alert").first()).toBeVisible();
@@ -267,6 +282,8 @@ test("current directory errors retry explicitly and clearing cancels pending res
     await expect(
       section.getByRole("button", { name: CONTACT_SEARCH.LINK, exact: true }),
     ).toHaveCount(0);
+    await section.getByRole("button", { name: "סיום", exact: true }).click();
+    await openContactRoleControls(page, ARCHITECT);
     await expect(contactRolePicker(page, ARCHITECT)).toHaveValue(selected.name);
     expect(await readRoleLinks(api, project.id)).toContainEqual(
       expect.objectContaining({ contactId: selected.id }),
@@ -315,7 +332,7 @@ test("empty-query inline contact saves retain errors and refresh links without l
   });
   await page.goto(buildProjectRoute(project.id));
   await openWorkspaceTab(page, "people");
-  const section = projectContactsSection(page);
+  const section = await openAdditionalContacts(page);
   await contactSearchInput(section).fill("   ");
   await section.getByRole("button", { name: CONTACT_SEARCH.CREATE, exact: true }).click();
   await findFieldByTitle(section, CONTACT_SEARCH.NAME).fill(name);
@@ -342,6 +359,7 @@ test("empty-query inline contact saves retain errors and refresh links without l
   await section.getByRole("button", { name: CONTACT_SEARCH.SAVE, exact: true }).click();
   await expect(section.getByText(`${name} מעודכן`, { exact: false })).toBeVisible();
   await page.reload();
+  await openAdditionalContacts(page);
   await expect(section.getByText(`${name} מעודכן`, { exact: false })).toBeVisible();
   expect(requests.queries).toEqual([]);
   requests.dispose();
@@ -371,8 +389,13 @@ test("apartment mobile search and read-only views preserve contacts without an i
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(buildApartmentRoute(building.id, apartment.id));
   await openWorkspaceTab(page, "people");
-  const section = projectContactsSection(page);
+  await openContactRoleControls(page, ARCHITECT);
   await expect(contactRolePicker(page, ARCHITECT)).toHaveValue(contact.name);
+  await page
+    .getByRole("dialog", { name: PROJECT_CONTACT_ROLE_LABELS[ARCHITECT], exact: true })
+    .getByRole("button", { name: "סיום", exact: true })
+    .click();
+  const section = await openAdditionalContacts(page);
   const search = contactSearchInput(section);
   await search.focus();
   await freezeSearchClock(page);
@@ -390,6 +413,10 @@ test("apartment mobile search and read-only views preserve contacts without an i
   const viewerRequests = monitorDirectorySearch(viewer);
   await viewer.goto(buildApartmentRoute(building.id, apartment.id));
   await openWorkspaceTab(viewer, "people");
+  const viewerContacts = viewer
+    .getByRole("group", { name: "צוות ואנשי קשר", exact: true })
+    .getByRole("button", { name: "אנשי קשר", exact: true });
+  if (await viewerContacts.isVisible()) await viewerContacts.click();
   await expect(viewer.getByText(contact.name, { exact: true })).toBeVisible();
   await expect(contactSearchInput(projectContactsSection(viewer))).toHaveCount(0);
   await expect(
@@ -423,6 +450,7 @@ test("role lookup errors and retry remain keyboard accessible inside the open au
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(buildProjectRoute(project.id));
   await openWorkspaceTab(page, "people");
+  await openContactRoleControls(page, ARCHITECT);
   await contactRolePicker(page, ARCHITECT).click();
   const search = activeRoleSearch(page, ARCHITECT);
   await search.fill(contact.name);
@@ -437,10 +465,12 @@ test("role lookup errors and retry remain keyboard accessible inside the open au
   await search.fill(contact.name);
   await expect(retry).toBeVisible();
   expect(await retry.evaluate(button => button.closest('[role="listbox"]') === null)).toBe(true);
-  const dialog = page.getByRole("dialog", {
-    name: PROJECT_CONTACT_ROLE_LABELS[ARCHITECT],
-    exact: true,
-  });
+  const dialog = page
+    .getByRole("dialog", {
+      name: PROJECT_CONTACT_ROLE_LABELS[ARCHITECT],
+      exact: true,
+    })
+    .last();
   const error = dialog.getByRole("alert");
   await expect(error).toBeVisible();
   await expect(error).toContainText(CONTACT_SEARCH.LONG_FAILED_SEARCH);

@@ -76,7 +76,7 @@ test("project folders show their empty or non-empty status and list their files"
   await projectPage.goto(project.id);
   await openWorkspaceTab(page, "files");
 
-  await expect(page.getByText(PROJECT_PAGE_COPY.FOLDERS_TITLE)).toBeVisible();
+  await expect(projectPage.driveCard).toBeVisible();
   await expect(
     folderWithFiles.getByRole("img", { name: DRIVE_COPY.FOLDER_HAS_FILES }),
   ).toBeVisible();
@@ -97,6 +97,7 @@ test("upload a supported file to the project Drive", async ({ page, api }) => {
 
   await projectPage.goto(project.id);
   await openWorkspaceTab(page, "files");
+  await page.getByRole("button", { name: "העלאת קבצים", exact: true }).click();
   await projectPage.uploadInput.setInputFiles(VALID_PDF);
 
   await expect.poll(() => uploads.some(body => body.includes(VALID_PDF.name))).toBe(true);
@@ -112,6 +113,7 @@ test("a file that breaks the upload policy is rejected before upload", async ({ 
 
   await projectPage.goto(project.id);
   await openWorkspaceTab(page, "files");
+  await page.getByRole("button", { name: "העלאת קבצים", exact: true }).click();
   await projectPage.uploadInput.setInputFiles(BLOCKED_FILE);
 
   await expect(page.getByText(DRIVE_COPY.UNSUPPORTED_FILE)).toBeVisible();
@@ -155,28 +157,13 @@ for (const [kind, createScenario] of Object.entries(DRIVE_SCENARIOS)) {
       await openWorkspaceTab(page, "files");
       const card = projectPage.driveCard;
       await expect(card).toHaveCount(1);
-      await expect(card.getByText(DRIVE_COPY.SUBTITLE)).toBeVisible();
-      await expect(card.getByText(DRIVE_COPY.FOLDER_HAS_FILES, { exact: true })).toBeVisible();
-      await expect(projectPage.driveLogo).toHaveCount(1);
-      await expect(projectPage.driveLogo).toBeVisible();
-      await expect(projectPage.driveLogo).toHaveAttribute(
-        "src",
-        /\/gdrive(?:-[a-zA-Z0-9_-]+)?\.png(?:\?.*)?$/,
-      );
-      await expect(projectPage.driveLogo).toHaveJSProperty("complete", true);
-      await expect
-        .poll(() =>
-          projectPage.driveLogo.evaluate(image => (image as HTMLImageElement).naturalWidth),
-        )
-        .toBeGreaterThan(0);
-      await expect(card.getByRole("link", { name: DRIVE_COPY.OPEN_FOLDER })).toHaveAttribute(
-        "href",
-        `https://drive.google.com/drive/folders/${ROOT_FOLDER_ID}`,
-      );
-      await expect(card.getByRole("link", { name: DRIVE_COPY.OPEN_FOLDER })).toHaveAttribute(
-        "target",
-        "_blank",
-      );
+      await expect(card.getByRole("navigation", { name: "נתיב התיקייה" })).toBeVisible();
+      await expect(
+        card.getByRole("link", { name: DRIVE_COPY.BROWSER_OPEN_FOLDER }),
+      ).toHaveAttribute("href", `https://drive.google.com/drive/folders/${ROOT_FOLDER_ID}`);
+      await expect(
+        card.getByRole("link", { name: DRIVE_COPY.BROWSER_OPEN_FOLDER }),
+      ).toHaveAttribute("target", "_blank");
       const filesPanel = page.getByRole("tabpanel", { name: "קבצים", exact: true });
       await expect(
         filesPanel.getByRole("region", { name: PROJECT_PAGE_COPY.FOLDERS_TITLE }),
@@ -196,14 +183,14 @@ for (const [kind, createScenario] of Object.entries(DRIVE_SCENARIOS)) {
           .getByRole("img", { name: DRIVE_COPY.EMPTY_FOLDER }),
       ).toBeVisible();
       await fullFolder.click();
-      await expect(fullFolder).toHaveAttribute("aria-expanded", "true");
+      await expect(projectPage.driveFolder(MOCK_DRIVE_FOLDERS.EMPTY.name)).toHaveCount(0);
       const nestedFolder = projectPage.driveFolder(MOCK_NESTED_FOLDER.name);
       await expect(
         nestedFolder.getByRole("img", { name: DRIVE_COPY.FOLDER_HAS_FILES }),
       ).toBeVisible();
       await nestedFolder.click();
       const fileLinks = card.getByRole("link", { name: MOCK_DRIVE_FILE.name, exact: true });
-      await expect(fileLinks).toHaveCount(2);
+      await expect(fileLinks).toHaveCount(1);
       for (const link of await fileLinks.all()) {
         await expect(link).toHaveAttribute("href", MOCK_DRIVE_FILE.webViewLink);
         await expect(link).toHaveAttribute("target", "_blank");
@@ -217,7 +204,12 @@ for (const [kind, createScenario] of Object.entries(DRIVE_SCENARIOS)) {
         fullPage: true,
       });
       if (scenario.hasUploads) {
+        await page.getByRole("button", { name: "העלאת קבצים", exact: true }).click();
         await expect(projectPage.uploadInput).toHaveCount(1);
+        await page
+          .getByRole("dialog", { name: "העלאת קבצים", exact: true })
+          .getByRole("button", { name: "סיום", exact: true })
+          .click();
         await openWorkspaceTab(page, "history");
         await expect(page.getByText(PROJECT_PAGE_COPY.TIMELINE_TITLE)).toBeVisible();
         await expect(card).toBeHidden();
@@ -278,7 +270,7 @@ for (const role of USER_ROLE_VALUES) {
       await projectRefresh;
       await expect(projectPage.driveCard.getByText(DRIVE_COPY.MISSING_TITLE)).toHaveCount(0);
       await expect(
-        projectPage.driveCard.getByRole("link", { name: DRIVE_COPY.OPEN_FOLDER }),
+        projectPage.driveCard.getByRole("link", { name: DRIVE_COPY.BROWSER_OPEN_FOLDER }),
       ).toBeVisible();
       expect(missing.requests.contents).toBeGreaterThan(1);
       expect(missing.requests.provisions).toEqual([HTTP_METHODS.POST]);
@@ -328,7 +320,7 @@ for (const failure of [
     });
     await button.click();
     await expect(
-      projectPage.driveCard.getByRole("link", { name: DRIVE_COPY.OPEN_FOLDER }),
+      projectPage.driveCard.getByRole("link", { name: DRIVE_COPY.BROWSER_OPEN_FOLDER }),
     ).toBeVisible();
     await expect(projectPage.driveCard.getByText(failure.message)).toHaveCount(0);
   });
