@@ -99,7 +99,7 @@ for (const kind of ["standalone", "building", "apartment"] as const) {
   }
 }
 
-test("folder navigation replaces the current list and upload inherits the current folder", async ({
+test("folder accordions preserve sibling folders and inline upload can target a nested destination", async ({
   page,
   api,
 }) => {
@@ -109,14 +109,17 @@ test("folder navigation replaces the current list and upload inherits the curren
   await ui.goto(project.id);
   await openWorkspaceTab(page, "files");
   await ui.driveFolder(MANAGEMENT_FOLDERS.SOURCE.name).click();
-  await expect(ui.driveFolder(MANAGEMENT_FOLDERS.TARGET.name)).toHaveCount(0);
+  await expect(ui.driveFolder(MANAGEMENT_FOLDERS.TARGET.name)).toBeVisible();
   await ui.driveFolder(MANAGEMENT_FOLDERS.NESTED.name).click();
   await expect(
     ui.driveCard.getByRole("link", { name: MANAGEMENT_FILE.name, exact: true }),
   ).toHaveAttribute("href", MANAGEMENT_FILE.webViewLink);
-  await page.getByRole("button", { name: "העלאת קבצים", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "העלאת קבצים", exact: true });
-  await expect(dialog).toContainText(MANAGEMENT_FOLDERS.NESTED.name);
+  await expect(ui.uploadInput).toHaveCount(1);
+  await ui.driveCard.getByRole("button", { name: "בחירת תיקייה", exact: true }).click();
+  const dialog = page.getByRole("dialog").last();
+  await dialog.getByRole("button", { name: MANAGEMENT_FOLDERS.SOURCE.name, exact: true }).click();
+  await dialog.getByRole("button", { name: MANAGEMENT_FOLDERS.NESTED.name, exact: true }).click();
+  await dialog.getByRole("button", { name: "בחר תיקייה זו", exact: true }).click();
   await ui.uploadInput.setInputFiles({
     name: "תוכנית.pdf",
     mimeType: "application/pdf",
@@ -124,19 +127,10 @@ test("folder navigation replaces the current list and upload inherits the curren
   });
   await expect.poll(() => mock.requests.uploads.length).toBe(1);
   expect(mock.requests.uploads[0].folderId).toBe(MANAGEMENT_FOLDERS.NESTED.id);
-  await dialog.getByRole("button", { name: "סיום", exact: true }).click();
-  await page
-    .getByRole("navigation", { name: "נתיב התיקייה" })
-    .getByRole("button", { name: "תיקיית הפרויקט", exact: true })
-    .click();
-  await expect(ui.driveFolder(MANAGEMENT_FOLDERS.TARGET.name)).toBeVisible();
 });
 
 for (const width of [1280, 390]) {
-  test(`file pagination exposes every file while keeping the list compact at ${width}px`, async ({
-    page,
-    api,
-  }, info) => {
+  test(`inline Drive file list retains every record at ${width}px`, async ({ page, api }, info) => {
     await page.setViewportSize({ width, height: 800 });
     const project = await seedStandaloneProject(api, await seedCustomer(api));
     await page.route(`**/api/project-drive/${project.id}/contents**`, route =>
@@ -155,24 +149,17 @@ for (const width of [1280, 390]) {
     const ui = createProjectPage(page);
     await ui.goto(project.id);
     await openWorkspaceTab(page, "files");
-    await expect(ui.driveCard.getByRole("link", { name: "פריט 0.pdf", exact: true })).toBeVisible();
-    await ui.driveCard.getByRole("button", { name: "הבא", exact: true }).click();
-    await expect(ui.driveCard.getByRole("link", { name: "פריט 3.pdf", exact: true })).toBeVisible();
-    await expect(ui.driveCard.getByRole("link", { name: "פריט 0.pdf", exact: true })).toHaveCount(
-      0,
-    );
-    await ui.driveCard.getByRole("button", { name: "הבא", exact: true }).click();
-    await expect(ui.driveCard.getByRole("link", { name: "פריט 7.pdf", exact: true })).toBeVisible();
-    if (width === 1280) {
-      expect(
-        await page
-          .getByRole("tabpanel", { name: "קבצים", exact: true })
-          .evaluate(el => el.scrollHeight - el.clientHeight),
-      ).toBeLessThanOrEqual(1);
-      expect(
-        await page.evaluate(() => document.documentElement.scrollHeight - innerHeight),
-      ).toBeLessThanOrEqual(1);
-    }
+    for (let i = 0; i < 8; i++)
+      await expect(
+        ui.driveCard.getByRole("link", { name: `פריט ${i}.pdf`, exact: true }),
+      ).toBeVisible();
+    await expect(ui.driveCard.getByRole("button", { name: "הבא", exact: true })).toHaveCount(0);
+    await ui.driveCard
+      .getByRole("button", { name: "בחר קבצים מהמחשב", exact: true })
+      .scrollIntoViewIfNeeded();
+    await expect(
+      ui.driveCard.getByRole("button", { name: "בחר קבצים מהמחשב", exact: true }),
+    ).toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );

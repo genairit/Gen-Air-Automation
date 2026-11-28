@@ -385,10 +385,11 @@ test("A narrow RTL project tab, create form and detail keep the name and status 
   await expect(
     page.getByRole("navigation").getByRole("button", { name: ESTIMATE_TAB, exact: true }),
   ).toHaveCount(0);
-  await expect(list.getByRole("heading")).toHaveCount(0);
+  await expect(list.getByRole("heading", { name, exact: true })).toBeVisible();
   await expect(list).toHaveCSS("direction", "rtl");
   await expect(list.getByText(name, { exact: true })).toBeVisible();
   const status = list.getByText("טיוטה", { exact: true });
+  await row.scrollIntoViewIfNeeded();
   await expect(status).toBeInViewport({ ratio: 1 });
   await expect(row).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(MOBILE.width);
@@ -412,7 +413,10 @@ test("A narrow RTL project tab, create form and detail keep the name and status 
 
   await list.getByText(name, { exact: true }).click();
   await expectLargeHeading(page.getByRole("heading", { name, exact: true }), 28);
-  await expect(createEstimateEditorPage(page).document).toBeVisible();
+  await expect(page.getByRole("heading", { name: "פריטים מהקטלוג", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("combobox", { name: "בחירת פריט מהקטלוג", exact: true }),
+  ).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(MOBILE.width);
   await testInfo.attach("manual-estimate-mobile-detail", {
     body: await page.screenshot(),
