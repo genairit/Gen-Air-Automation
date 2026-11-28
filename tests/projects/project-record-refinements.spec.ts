@@ -76,7 +76,7 @@ for (const kind of ["standalone", "building", "apartment"] as const) {
         await expect(page.getByText(title, { exact: true })).toBeVisible();
       await page.screenshot({ path: info.outputPath(`people-${kind}-${width}.png`) });
       await page.getByRole("tab", { name: "כתבי כמויות", exact: true }).click();
-      const card = page.getByRole("button", { name: `${name} · טיוטה`, exact: true });
+      const card = page.getByRole("region", { name: `${name} · טיוטה`, exact: true });
       await expect(card.getByRole("heading", { name, exact: true })).toBeVisible();
       await expect(card.locator("time")).toHaveAttribute("datetime", metadata.updatedAt);
       await expect(card).toContainText("פתח כתב כמויות");
