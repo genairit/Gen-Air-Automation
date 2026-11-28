@@ -692,8 +692,11 @@ test("Reviewed revisions yield an exact marked sketch and one approved customer 
     plans: [expect.objectContaining({ id: expect.any(String), name: MARKED_PLAN, marked: true })],
   });
 
+  await page.getByRole("button", { name: "עריכת כתב כמויות", exact: true }).click();
   await page.getByRole("button", { name: "שאלות לבירור" }).click();
   await page.getByRole("button", { name: question.options[0] }).click();
+  await page.getByRole("button", { name: "שמירת שינויים", exact: true }).click();
+  await expect(page.getByRole("button", { name: "עריכת כתב כמויות", exact: true })).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: question.options[0] })).toBeVisible();
   const current = await readEstimate(api, fixture.id);
   expect(
