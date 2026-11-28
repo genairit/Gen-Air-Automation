@@ -372,6 +372,7 @@ test("payment stages replace fixed terms, survive reload and require confirmatio
   page,
   api,
 }) => {
+  await page.setViewportSize({ width: 1800, height: 1100 });
   const customer = await api.createCustomer({
     ...buildCustomerInput(),
     paymentTerms: PAYMENT_TERMS.PREPAID,
@@ -401,7 +402,6 @@ test("payment stages replace fixed terms, survive reload and require confirmatio
   await expect(quote.field("מועד / אבן דרך").nth(0)).toHaveValue("Deposit");
   await expect(quote.field("מועד / אבן דרך").nth(1)).toHaveValue("Delivery");
   await quote.transition("סיימתי, לבדיקה");
-  await page.getByRole("tab", { name: "מסמך", exact: true }).click();
   const terms = page.getByRole("region", { name: "מסמך ההצעה" });
   await expect(terms.getByRole("heading", { name: "תנאי תשלום", exact: true })).toBeVisible();
   for (const stage of [/30(?:\.0+)?% — Deposit/, /70(?:\.0+)?% — Delivery/]) {
