@@ -45,7 +45,9 @@ export interface IQuotationSection {
   id: string;
   title: string;
   brand: string | null;
+  floorId?: string | null;
   items: IQuotationLine[];
+  floorName?: string | null;
   systemType: QuotationSystemType;
 }
 export interface IQuotationWarning {
@@ -119,6 +121,8 @@ export interface IQuotationWriteSection extends Pick<
   "id" | "title" | "systemType"
 > {
   brand?: string | null;
+  floorId?: string | null;
+  floorName?: string | null;
   items: IQuotationWriteLine[];
 }
 export interface IQuotationWrite extends Pick<

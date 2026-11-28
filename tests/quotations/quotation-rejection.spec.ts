@@ -155,6 +155,7 @@ test("reviewer rejects in the page and engineer sees the correction, edits, and 
   await engineerQuote.goto(quotation.id);
   await expect(engineerQuote.button("דחייה עם סיבה")).toHaveCount(0);
   await expect(engineerPage.getByRole("alert").getByText(reason, { exact: true })).toBeVisible();
+  await createQuotationPage(engineerPage).showDetails();
   await engineerPage.getByText("פרטים נוספים", { exact: true }).click();
   const timeline = engineerPage
     .getByRole("list")
@@ -198,11 +199,14 @@ test("quotation header keeps a top-left trash action, simpler context and two fo
     const trash = quote.button("מחיקת ההצעה");
     await expect(trash).toBeVisible();
     const box = await quotationBox(trash);
-    const heading = await quotationBox(page.getByRole("heading", { name: quotation.number }));
+    const heading = await quotationBox(
+      page.getByRole("heading", { name: quotation.number, exact: true }),
+    );
     expect(box.width).toBeGreaterThanOrEqual(44);
     expect(box.height).toBeGreaterThanOrEqual(44);
     expect(box.x).toBeLessThan(heading.x);
     await expect(page.locator("span[data-active]")).toHaveCount(0);
+    await quote.showDetails();
     await expect(page.getByText("פרטים נוספים", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "בדיקה ואישור" })).toBeVisible();
     expect(

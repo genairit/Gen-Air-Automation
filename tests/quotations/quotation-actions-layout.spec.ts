@@ -49,7 +49,9 @@ for (const width of WIDTHS) {
       await expect(action).toBeVisible();
     }
     await expect(page.locator("span[data-active]")).toHaveCount(0);
-    const heading = await visibleBox(page.getByRole("heading", { name: quotation.number }));
+    const heading = await visibleBox(
+      page.getByRole("heading", { name: quotation.number, exact: true }),
+    );
     const trashBox = await visibleBox(trash);
     expect(trashBox.x).toBeLessThan(heading.x);
     expect(trashBox.width).toBeGreaterThanOrEqual(44);

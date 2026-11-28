@@ -237,6 +237,7 @@ test("saved browser review publishes through real broker and one existing histor
   await expect(page.getByText("הקובץ הועבר לארכיון", { exact: true })).toBeVisible({
     timeout: PUBLICATION_QA.ARCHIVE_MS,
   });
+  await createQuotationPage(page).showDetails();
   await page.getByText("פרטים נוספים", { exact: true }).click();
   await expect(page.getByRole("heading", { name: "היסטוריית המסמך", exact: true })).toHaveCount(1);
   const timeline = page.getByRole("list").filter({ has: page.getByText(/^החזרה לעריכה ·/) });
@@ -328,6 +329,7 @@ test("read-only quotation viewer sees published state and existing history witho
         page.getByRole("heading", { name: quotation.number, exact: true }),
       ).toBeVisible();
       await expect(page.getByText(COPY.published, { exact: true })).toBeVisible();
+      await createQuotationPage(page).showDetails();
       await page.getByText("פרטים נוספים", { exact: true }).click();
       await expect(
         page.getByRole("heading", { name: LIFECYCLE_COPY.HISTORY, exact: true }),

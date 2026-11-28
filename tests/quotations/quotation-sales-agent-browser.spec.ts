@@ -84,6 +84,7 @@ test("quotation creator selects an engineer, changes to admin and clears it", as
   ).toBe(first.id);
 
   await page.reload();
+  await createQuotationPage(page).showDetails();
   await expect(page.getByRole("combobox", { name: PICKER }).first()).toHaveValue(
     new RegExp(first.firstName),
   );
@@ -95,6 +96,7 @@ test("quotation creator selects an engineer, changes to admin and clears it", as
   await chooseSalesAgent(page, second.firstName);
   expect((await changed).status()).toBe(200);
   await page.reload();
+  await createQuotationPage(page).showDetails();
   await expect(page.getByRole("combobox", { name: PICKER }).first()).toHaveValue(
     new RegExp(second.firstName),
   );
@@ -111,6 +113,7 @@ test("quotation creator selects an engineer, changes to admin and clears it", as
   await agentPicker.locator("../..").getByRole("button", { name: "נקה בחירה" }).click();
   expect((await cleared).status()).toBe(200);
   await page.reload();
+  await createQuotationPage(page).showDetails();
   await expect(page.getByRole("combobox", { name: PICKER }).first()).toHaveValue("");
   expect(
     (await quotationDocument(await api.send(HTTP_METHODS.GET, `/quotation/${id}`))).salesAgentId,
@@ -147,6 +150,7 @@ test("quotation editor hides employee selection from a quotation-only user while
     async () => {
       const page = await openPageAs(TEST_USERS[USER_ROLES.ENGINEER]);
       await page.goto(`/quotations/${created.id}`);
+      await createQuotationPage(page).showDetails();
       await expect(page.getByRole("combobox", { name: PICKER }).first()).toBeDisabled();
       await expect(page.getByRole("combobox", { name: PICKER }).first()).toHaveValue(
         new RegExp(agent.firstName),
@@ -176,6 +180,7 @@ test("quotation editor preserves a former agent name and retries a failed agent 
     ).status(),
   ).toBe(200);
   await page.goto(`/quotations/${created.id}`);
+  await createQuotationPage(page).showDetails();
   const picker = page.getByRole("combobox", { name: PICKER }).first();
   await expect(picker).toHaveValue(new RegExp(`${agent.firstName}.*לא זמין`));
   await picker.focus();
@@ -184,6 +189,7 @@ test("quotation editor preserves a former agent name and retries a failed agent 
 
   await page.route("**/quotation/sales-agents", route => route.fulfill({ status: 500 }));
   await page.reload();
+  await createQuotationPage(page).showDetails();
   await expect(page.getByRole("alert")).toBeVisible();
   await page.unroute("**/quotation/sales-agents");
   await page.getByRole("button", { name: "נסה שוב" }).click();

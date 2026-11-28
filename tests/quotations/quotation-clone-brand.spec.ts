@@ -338,6 +338,10 @@ test("brand choice and native Enter immediately create an editable draft without
   expect(copy.status).toBe(QUOTATION.STATUS.DRAFT);
   expect(copy.sections[1]?.items[0]?.description).toBe(source.sections[1]?.items[0]?.description);
   await expect(page.getByRole("heading", { name: copy.number, exact: true })).toBeFocused();
+  await page
+    .getByRole("button", { name: /^עריכת פריט / })
+    .first()
+    .click();
   await editor.fill("מיקום", "Editable cloned room");
   expect(
     (await quotationDocument(await api.send(HTTP_METHODS.GET, quotePath(copy.id)))).sections[0]

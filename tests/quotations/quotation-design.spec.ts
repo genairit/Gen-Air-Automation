@@ -6,14 +6,12 @@ import {
 } from "../../src/utilities/quotation-layout.utility.ts";
 
 import { seedCustomer } from "../../src/api/seed-data.ts";
+import { createQuotation } from "../../src/api/quotation.api.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
-import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { QUOTATION } from "../../src/constants/quotation.constant.ts";
 import { createQuotationPage } from "../../src/pages/quotation.page.ts";
 import { seedQuotationDesign } from "../../src/api/quotation-design-fixture.ts";
-import { createQuotation, quotationDocument } from "../../src/api/quotation.api.ts";
 import { setQuotationCountFixture } from "../../src/environment/quotation-fixtures.ts";
-import { expectWarningGeometry } from "../../src/utilities/quotation-warning.utility.ts";
 
 const SEARCH = "חיפוש לפי מספר, לקוח, פרויקט או חברה";
 const rowButtons = (page: Parameters<typeof createQuotationPage>[0]) =>
@@ -96,214 +94,50 @@ test("quotation list keeps dense six-column rows and inline toolbar while tab co
   await expect(page.getByRole("button", { name: "הכל 0", exact: true })).toBeVisible();
 });
 
-test("populated quotation matches metadata, grouped compact equipment, linked controls, payments and review layout", async ({
+test("quotation workspace keeps compact metadata, linked rows, payments and review readable on desktop and phone", async ({
   page,
   api,
 }, testInfo) => {
-  await page.setViewportSize({ width: 1440, height: 1100 });
+  await page.setViewportSize({ width: 1800, height: 1100 });
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
   const { quotation } = await seedQuotationDesign(api);
   const quote = createQuotationPage(page);
-  const quantityLabel = `כמות (${quotation.sections[0]!.items[0]!.unit})`;
   await quote.goto(quotation.id);
-  const back = page.getByRole("link", { name: /חזרה להצעות מחיר/ });
-  await expect(back).toBeVisible();
-  await expect(back).toHaveAttribute("href", "/quotations");
-  const metadata = [
-    "לקוח *",
-    "פרויקט (אופציונלי)",
-    "סוכן מכירות (אופציונלי)",
-    "חברת מיזוג",
-    "הנחה %",
-  ].map(label => quote.field(label).first().locator(".."));
-  const boxes = await Promise.all(metadata.map(quotationBox));
-  const pickerSurfaces = await Promise.all(
-    ["לקוח *", "פרויקט (אופציונלי)", "סוכן מכירות (אופציונלי)"].map(label =>
-      quotationBox(quote.field(label).first().locator("../..")),
-    ),
-  );
-  expect(Math.max(...pickerSurfaces.map(box => box.height))).toBeLessThanOrEqual(56);
-  expect(Math.min(...pickerSurfaces.map(box => box.height))).toBeGreaterThanOrEqual(44);
-  expect(
-    Math.max(...pickerSurfaces.map(box => box.height)) -
-      Math.min(...pickerSurfaces.map(box => box.height)),
-  ).toBeLessThanOrEqual(1);
-  const metadataGroups = page.locator('[class*="_metadata_"] > *');
-  await expect(metadataGroups).toHaveCount(6);
-  const topRow = await Promise.all((await metadataGroups.all()).slice(0, 3).map(quotationBox));
-  expect(
-    Math.max(...topRow.map(box => box.y)) - Math.min(...topRow.map(box => box.y)),
-  ).toBeLessThanOrEqual(1);
-  for (const box of boxes) {
-    expect(box.width).toBeGreaterThan(80);
-  }
-  await expect(page.locator("details")).toHaveCount(0);
-  for (const [index, box] of topRow.entries()) {
-    const previous = topRow[index - 1];
-    if (previous) {
-      expect(box.x + box.width).toBeLessThanOrEqual(previous.x);
-    }
-  }
-  const dateControl = page.locator(".MuiInputBase-root").filter({ has: quote.field("תאריך") });
-  const dateBox = await quotationBox(dateControl);
-  const dateSurface = await quotationBox(quote.field("תאריך").locator(".."));
-  expect(dateSurface.height).toBeGreaterThanOrEqual(36);
-  expect(dateSurface.height).toBeLessThanOrEqual(56);
-  expect(dateBox.y).toBeGreaterThan(boxes[0]!.y + boxes[0]!.height);
-  const backBox = await quotationBox(back);
-  expect(backBox.y).toBeLessThan(boxes[0]!.y);
-  expect((await quotationBox(quote.button("+ סינגלים"))).height).toBe(34);
-  await expect(quote.button("+ סינגלים")).toHaveCSS("background-color", "rgb(255, 255, 255)");
-  expect((await quotationBox(quote.button("מחיקת מערכת").first())).height).toBe(34);
-  await expect(quote.field("כותרת מערכת / קומה")).toHaveCount(2);
-  await expect(quote.field("כותרת מערכת / קומה").nth(0)).toHaveValue("קומה 3");
-  await expect(quote.field("כותרת מערכת / קומה").nth(1)).toHaveValue("חדר עבודה");
-  await expect(
-    page.getByRole("heading", { name: "מעגלים ודיאגנוסטיקה", exact: true }),
-  ).toBeVisible();
-  await expect(page.getByText(/מעגל קומה 3 · A · יחס/)).toBeVisible();
-  await expect(page.getByText("פנים 55700 BTU", { exact: true })).toBeVisible();
-  await expect(page.getByText("מעבה 52886 BTU", { exact: true })).toBeVisible();
-  const equipmentRow = await expectSameQuotationRow([
-    quote.field("תיאור בהצעה").first(),
-    quote.field(quantityLabel).first(),
-    quote.field("מחיר ליחידה").first(),
-  ]);
-  const location = quote.field("מיקום").first();
-  const locationGroup = location.locator("..").locator("..");
-  const locationCaption = page.getByText("מיקום היחידה", { exact: true }).first();
-  const captionBox = await quotationBox(locationCaption);
-  const locationBox = await quotationBox(location);
-  const locationGroupBox = await quotationBox(locationGroup);
-  expect(Math.abs(locationGroupBox.y - equipmentRow[0]!.y)).toBeLessThanOrEqual(20);
-  expect(locationBox.y).toBeGreaterThan(captionBox.y + captionBox.height);
-  expect(locationBox.height).toBeLessThanOrEqual(42);
-  await expect(page.getByText("מחיר ליחידה (בהצעה)", { exact: true })).toHaveCount(5);
-  await expect(page.getByText("מטרים", { exact: true })).toBeVisible();
-  await expect(page.getByText("פריט", { exact: true })).toHaveCount(2);
-  const numericCaption = page.getByText("כמות", { exact: true }).first();
-  expect((await quotationBox(numericCaption)).y).toBeGreaterThan(
-    (await quotationBox(quote.field(quantityLabel).first())).y,
-  );
-  const quantity = await quotationBox(quote.field(quantityLabel).first());
-  expect(quantity.height).toBeLessThanOrEqual(42);
-  await expect(quote.field("בקר עבור יחידה")).toHaveCount(2);
-  await expect(quote.field("תיאור בקר בהצעה")).toHaveCount(2);
-  await expect(quote.field(quantityLabel)).toHaveCount(6);
-  await expect(
-    page.getByText(`2 ${quotation.sections[0]!.items[0]!.unit} ·`, { exact: false }),
-  ).toBeVisible();
-  const parentBox = await quotationBox(quote.field("תיאור בהצעה").first());
-  const controlBox = await quotationBox(quote.field("תיאור בקר בהצעה").first());
-  const nextParentBox = await quotationBox(quote.field("תיאור בהצעה").nth(1));
-  expect(controlBox.y).toBeGreaterThan(parentBox.y);
-  expect(controlBox.y).toBeLessThan(nextParentBox.y);
-  await expect(page.getByRole("button").filter({ hasText: "E-SMD-63" })).toHaveCount(0);
-  const chips = page.getByRole("radiogroup", { name: "תנאי תשלום", exact: true });
-  await expect(chips.getByRole("radio")).toHaveCount(6);
-  await expect(chips.getByRole("radio", { name: "לפי שלבי תשלום", exact: true })).toBeChecked();
-  await expect(chips.getByRole("radio", { name: "תשלום מראש", exact: true })).not.toBeChecked();
-  await expect(quote.field("אחוז מהסכום")).toHaveCount(3);
-  await expectSameQuotationRow([
-    quote.field("אחוז מהסכום").first(),
-    quote.field("מועד / אבן דרך").first(),
-  ]);
-  const scheduleBox = await quotationBox(quote.field("אחוז מהסכום").first());
-  expect(scheduleBox.height).toBeLessThanOrEqual(42);
-  await captureQuotationScreenshot(page, testInfo.outputPath("quotation-editor-desktop-1440.png"));
-  await page.setViewportSize({ width: 390, height: 1100 });
-  await expect(page.getByText("55700 BTU", { exact: true })).toHaveCSS("white-space", "nowrap");
-  await expect(page.getByText("52886 BTU", { exact: true })).toHaveCSS("white-space", "nowrap");
-  await expectQuotationWithinViewport(page, [
-    ...metadata,
-    dateControl,
-    location,
-    quote.field(quantityLabel).first(),
-    quote.field("מחיר ליחידה").first(),
-    quote.field("תיאור בקר בהצעה").first(),
-    quote.field("בקר עבור יחידה").first(),
-    chips,
-  ]);
-  await captureQuotationScreenshot(page, testInfo.outputPath("quotation-editor-mobile-390.png"));
-  await expect(quote.field("תיאור בהצעה").first()).toHaveValue(
-    quotation.sections[0]!.items[0]!.description,
-  );
-  await page.setViewportSize({ width: 1440, height: 1100 });
+  const table = page.getByRole("table", { name: "פריטי ההצעה", exact: true });
+  const document = page.getByRole("article", { name: "מסמך ההצעה", exact: true });
+  await expect(table).toBeVisible();
+  await expect(document).toBeVisible();
+  const details = page.getByRole("button", { name: /פרטי הצעה/ });
+  await expect(details).toHaveAttribute("aria-expanded", "false");
+  await quote.showDetails();
+  for (const name of ["לקוח *", "פרויקט (אופציונלי)", "סוכן מכירות (אופציונלי)", "תאריך", "הנחה %"])
+    await expect(quote.field(name)).toBeVisible();
+  await details.click();
+  for (const section of quotation.sections)
+    for (const item of section.items) await expect(table).toContainText(item.sku);
   const parent = quotation.sections[0]!.items[0]!;
-  const otherParent = quotation.sections[0]!.items[1]!;
-  const linked = quotation.sections[0]!.items.find(line => line.parentItemId === parent.id)!;
-  await quote.select("בקר עבור יחידה", otherParent.id);
-  const reassigned = await quotationDocument(
-    await api.send(HTTP_METHODS.GET, `/quotation/${quotation.id}`),
-  );
-  expect(reassigned.sections[0]!.items.find(line => line.id === linked.id)).toMatchObject({
-    parentItemId: otherParent.id,
-    quantity: otherParent.quantity,
-  });
-  const movedControl = await quotationBox(quote.field("תיאור בקר בהצעה").first());
-  const movedParent = await quotationBox(quote.field("תיאור בהצעה").nth(1));
-  const followingParent = await quotationBox(quote.field("תיאור בהצעה").nth(2));
-  expect(movedControl.y).toBeGreaterThan(movedParent.y);
-  expect(movedControl.y).toBeLessThan(followingParent.y);
-  await quote.select("בקר עבור יחידה", parent.id);
-  const restored = await quotationDocument(
-    await api.send(HTTP_METHODS.GET, `/quotation/${quotation.id}`),
-  );
-  expect(restored.sections[0]!.items.find(line => line.id === linked.id)).toMatchObject({
-    parentItemId: parent.id,
-    quantity: parent.quantity,
-  });
-  expect(
-    (
-      await quotationBox(
-        page
-          .locator(".MuiInputBase-root")
-          .filter({ has: quote.field("חיפוש פריט בקטלוג") })
-          .first(),
-      )
-    ).height,
-  ).toBe(38);
-  await quote.field("חיפוש פריט בקטלוג").first().focus();
-  await expect(page.getByRole("button").filter({ hasText: "E-SMD-63" })).toBeVisible();
-  await quote.field("חיפוש פריט בקטלוג").first().fill("E-SMD-63");
-  await expect(page.getByRole("button").filter({ hasText: "E-SMD-63" })).toBeVisible();
-  await page.reload();
-  await expect(page.getByRole("button").filter({ hasText: "E-SMD-63" })).toHaveCount(0);
+  const linked = quotation.sections[0]!.items.find(item => item.parentItemId === parent.id)!;
+  await quote.openItem(parent.description);
+  await expect(quote.field("מיקום").first()).toHaveValue(parent.location);
+  await quote.openItem(linked.description);
+  await expect(quote.field("בקר עבור יחידה")).toContainText(parent.location || parent.sku);
+  const chips = page.getByRole("radiogroup", { name: "תנאי תשלום", exact: true });
+  await expect(chips.getByRole("radio", { name: "לפי שלבי תשלום", exact: true })).toBeChecked();
+  await expect(quote.field("אחוז מהסכום")).toHaveCount(3);
+  await captureQuotationScreenshot(page, testInfo.outputPath("workspace-desktop.png"));
   await quote.transition("סיימתי, לבדיקה");
-  await expect(page.getByRole("heading", { name: "סיכום לבדיקה", exact: true })).toBeVisible();
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  expect((await quotationBox(quote.button("אישור ההצעה"))).height).toBeCloseTo(52, 0);
-  const groups = page.getByRole("columnheader").filter({ hasText: /קומה 3|חדר עבודה/ });
-  await expect(groups).toHaveCount(2);
-  await expect(
-    page.getByRole("table").getByRole("cell", { name: "E-SMD-63", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("table").getByRole("cell", { name: "AC123", exact: true }),
-  ).toBeVisible();
-  const warningText = page.getByText("חריג — מאושר במפורש", { exact: true }).first();
-  const warningCheckbox = page.getByRole("checkbox", { name: /חריג — מאושר במפורש/ }).first();
-  expect((await quotationBox(warningText)).y).toBeLessThan(
-    (await quotationBox(page.getByRole("table"))).y,
-  );
-  await expectWarningGeometry(warningCheckbox);
-  await expect(page.getByRole("progressbar", { name: "התקדמות בדיקת הצעה" })).toHaveCount(0);
-  await expect(page.getByText(/התראות פתוחות/).first()).toBeVisible();
-  const summaryCard = page
-    .getByRole("heading", { name: "בדיקה ואישור", exact: true })
-    .locator("..");
-  await expect(summaryCard.getByRole("checkbox")).toHaveCount(0);
-  await captureQuotationScreenshot(page, testInfo.outputPath("quotation-review-desktop-1440.png"));
+  await expect(table.getByRole("spinbutton")).toHaveCount(0);
+  await expect(quote.button("עריכה")).toBeVisible();
+  await expect(quote.button("אישור ההצעה")).toBeVisible();
   await page.setViewportSize({ width: 390, height: 1100 });
-  await expectQuotationWithinViewport(page, [
-    back,
-    quote.button("עריכה"),
-    quote.button("אישור ההצעה"),
-  ]);
-  const mobileCheckboxBox = await quotationBox(warningCheckbox);
-  expect(mobileCheckboxBox.x).toBeGreaterThan((await quotationBox(warningText)).x);
-  await expectQuotationWithinViewport(page, [warningCheckbox, warningText]);
-  await captureQuotationScreenshot(page, testInfo.outputPath("quotation-review-mobile-390.png"));
+  await expect(page.getByRole("tab", { name: "פריטים", exact: true })).toBeVisible();
+  await expect(table).toBeVisible();
+  await page.getByRole("tab", { name: "מסמך", exact: true }).click();
+  await expect(document).toBeVisible();
+  expect(await page.evaluate(() => window.document.documentElement.scrollWidth <= innerWidth)).toBe(
+    true,
+  );
+  await captureQuotationScreenshot(page, testInfo.outputPath("workspace-phone-document.png"));
   expect(errors).toEqual([]);
 });

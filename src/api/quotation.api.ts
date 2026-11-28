@@ -33,6 +33,9 @@ const isSection = (value: unknown) =>
   isRecord(value) &&
   strings(value, ["id", "title"]) &&
   nullableStrings(value, ["brand"]) &&
+  [value.floorId, value.floorName].every(
+    field => field === undefined || field === null || typeof field === "string",
+  ) &&
   Object.values(QUOTATION.SYSTEM).some(system => system === value.systemType) &&
   Array.isArray(value.items) &&
   value.items.every(isLine);
@@ -156,6 +159,8 @@ export const quotationWrite = (quote: IQuotationDocument): IQuotationWrite => ({
     title: section.title,
     systemType: section.systemType,
     brand: section.brand,
+    floorId: section.floorId ?? null,
+    floorName: section.floorName ?? null,
     items: section.items.map(item => ({
       id: item.id,
       catalogueItemId: item.catalogueItemId,
