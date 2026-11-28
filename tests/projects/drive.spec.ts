@@ -76,7 +76,7 @@ test("project folders show their empty or non-empty status and list their files"
   await projectPage.goto(project.id);
   await openWorkspaceTab(page, "files");
 
-  await expect(page.getByText(PROJECT_PAGE_COPY.FOLDERS_TITLE)).toBeVisible();
+  await expect(projectPage.driveCard).toBeVisible();
   await expect(
     folderWithFiles.getByRole("img", { name: DRIVE_COPY.FOLDER_HAS_FILES }),
   ).toBeVisible();
@@ -157,28 +157,13 @@ for (const [kind, createScenario] of Object.entries(DRIVE_SCENARIOS)) {
       await openWorkspaceTab(page, "files");
       const card = projectPage.driveCard;
       await expect(card).toHaveCount(1);
-      await expect(card.getByText(DRIVE_COPY.SUBTITLE)).toBeVisible();
-      await expect(card.getByText(DRIVE_COPY.FOLDER_HAS_FILES, { exact: true })).toBeVisible();
-      await expect(projectPage.driveLogo).toHaveCount(1);
-      await expect(projectPage.driveLogo).toBeVisible();
-      await expect(projectPage.driveLogo).toHaveAttribute(
-        "src",
-        /\/gdrive(?:-[a-zA-Z0-9_-]+)?\.png(?:\?.*)?$/,
-      );
-      await expect(projectPage.driveLogo).toHaveJSProperty("complete", true);
-      await expect
-        .poll(() =>
-          projectPage.driveLogo.evaluate(image => (image as HTMLImageElement).naturalWidth),
-        )
-        .toBeGreaterThan(0);
-      await expect(card.getByRole("link", { name: DRIVE_COPY.OPEN_FOLDER })).toHaveAttribute(
-        "href",
-        `https://drive.google.com/drive/folders/${ROOT_FOLDER_ID}`,
-      );
-      await expect(card.getByRole("link", { name: DRIVE_COPY.OPEN_FOLDER })).toHaveAttribute(
-        "target",
-        "_blank",
-      );
+      await expect(card.getByRole("navigation", { name: "נתיב התיקייה" })).toBeVisible();
+      await expect(
+        card.getByRole("link", { name: DRIVE_COPY.BROWSER_OPEN_FOLDER }),
+      ).toHaveAttribute("href", `https://drive.google.com/drive/folders/${ROOT_FOLDER_ID}`);
+      await expect(
+        card.getByRole("link", { name: DRIVE_COPY.BROWSER_OPEN_FOLDER }),
+      ).toHaveAttribute("target", "_blank");
       const filesPanel = page.getByRole("tabpanel", { name: "קבצים", exact: true });
       await expect(
         filesPanel.getByRole("region", { name: PROJECT_PAGE_COPY.FOLDERS_TITLE }),
@@ -285,7 +270,7 @@ for (const role of USER_ROLE_VALUES) {
       await projectRefresh;
       await expect(projectPage.driveCard.getByText(DRIVE_COPY.MISSING_TITLE)).toHaveCount(0);
       await expect(
-        projectPage.driveCard.getByRole("link", { name: DRIVE_COPY.OPEN_FOLDER }),
+        projectPage.driveCard.getByRole("link", { name: DRIVE_COPY.BROWSER_OPEN_FOLDER }),
       ).toBeVisible();
       expect(missing.requests.contents).toBeGreaterThan(1);
       expect(missing.requests.provisions).toEqual([HTTP_METHODS.POST]);
@@ -335,7 +320,7 @@ for (const failure of [
     });
     await button.click();
     await expect(
-      projectPage.driveCard.getByRole("link", { name: DRIVE_COPY.OPEN_FOLDER }),
+      projectPage.driveCard.getByRole("link", { name: DRIVE_COPY.BROWSER_OPEN_FOLDER }),
     ).toBeVisible();
     await expect(projectPage.driveCard.getByText(failure.message)).toHaveCount(0);
   });

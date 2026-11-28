@@ -204,6 +204,7 @@ export const PROJECT_PAGE_COPY = {
 export const DRIVE_COPY = {
   SUBTITLE: "לחיצה על שם הקובץ פותחת אותו ב-Google Drive",
   OPEN_FOLDER: "פתח תיקייה ב-Drive",
+  BROWSER_OPEN_FOLDER: "פתח ב-Drive",
   PREPARE_FOLDER: "צור תיקיית פרויקט",
   PREPARING_FOLDER: "מכין את תיקיית הפרויקט…",
   MISSING_TITLE: "תיקיית הפרויקט עדיין לא נוצרה",
