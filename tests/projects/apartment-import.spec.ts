@@ -12,6 +12,7 @@ import { createProjectPage } from "../../src/pages/project.page.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { readBuildingApartments } from "../../src/api/apartment-import.api.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { APARTMENT_IMPORT } from "../../src/constants/apartment-import.constant.ts";
 import { scopedApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { seedBuilding, seedCustomer, buildCustomerInput } from "../../src/api/seed-data.ts";
@@ -23,6 +24,7 @@ test("selecting XLSX imports international customer and contact numbers and refr
   const building = await seedBuilding(api, await seedCustomer(api));
   const project = createProjectPage(page);
   await project.goto(building.id);
+  await openWorkspaceTab(page, "apartments");
   await page.getByRole("button", { name: APARTMENT_IMPORT.OPEN, exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText("אין שלב תצוגה מקדימה", { exact: false })).toBeVisible();
@@ -92,6 +94,7 @@ test("invalid template displays actionable error and retry without a preview ste
 }, testInfo) => {
   const building = await seedBuilding(api, await seedCustomer(api));
   await createProjectPage(page).goto(building.id);
+  await openWorkspaceTab(page, "apartments");
   await page.getByRole("button", { name: APARTMENT_IMPORT.OPEN, exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.locator('input[type="file"]').setInputFiles({
@@ -123,6 +126,7 @@ test("official template, requiredness help, visible processing and100 real rows 
   const building = await seedBuilding(api, await seedCustomer(api));
   const project = createProjectPage(page);
   await project.goto(building.id);
+  await openWorkspaceTab(page, "apartments");
   await page.getByRole("button", { name: APARTMENT_IMPORT.OPEN, exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(
@@ -214,6 +218,7 @@ test("client rejects unsupported file and real partial results show conflict lab
   const existingInput = buildCustomerInput();
   const existing = await api.createCustomer(existingInput);
   await createProjectPage(page).goto(building.id);
+  await openWorkspaceTab(page, "apartments");
   await page.getByRole("button", { name: APARTMENT_IMPORT.OPEN, exact: true }).click();
   const dialog = page.getByRole("dialog");
   const uploads: string[] = [];
@@ -288,6 +293,7 @@ test("engineering user sees customer contacts read-only and cannot open apartmen
   await expect(page.getByRole("button", { name: "צור איש קשר", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "בחר מהמדריך", exact: true })).toHaveCount(0);
   await createProjectPage(page).goto(building.id);
+  await openWorkspaceTab(page, "apartments");
   await expect(page.getByRole("button", { name: APARTMENT_IMPORT.OPEN, exact: true })).toHaveCount(
     0,
   );

@@ -33,7 +33,12 @@ test.describe(`${USER_ROLES.SALES_AGENT} without grants`, () => {
     await page.goto(ROUTES.BOARD);
 
     await expect(page.getByText(PERMISSION_COPY.DENIED, { exact: false })).toBeVisible();
-    await expect(createBoardPage(page).searchBox).toHaveCount(0);
+    await expect(createBoardPage(page).card).toHaveCount(0);
+    await expect(
+      page.locator("main header").getByRole("button", {
+        name: new RegExp(TEST_USERS[USER_ROLES.SALES_AGENT].firstName),
+      }),
+    ).toBeVisible();
   });
 });
 
@@ -135,13 +140,13 @@ for (const role of APP_ACCESS_ROLES) {
       await expect(page.getByText(TASKS_COPY.REMOVED_MANAGERS_NOTE)).toHaveCount(0);
     });
 
-    test("employees page shows the add-employee form only when allowed", async ({ page }) => {
+    test("employees page offers creation only when allowed", async ({ page }) => {
       await page.goto(ROUTES.EMPLOYEES);
 
       await expect(page.getByPlaceholder(EMPLOYEES_COPY.SEARCH_PLACEHOLDER)).toBeVisible();
       await expectVisibility(
         access.canManageUsers,
-        page.getByRole("button", { name: EMPLOYEES_COPY.ADD_EMPLOYEE }),
+        page.getByRole("button", { name: EMPLOYEES_COPY.ADD_TITLE, exact: true }),
       );
     });
 

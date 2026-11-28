@@ -19,6 +19,7 @@ import { findCardByTitle } from "../../src/pages/card.component.ts";
 import { FAKE_PLACES } from "../../src/constants/fake-places.constant.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { ROUTES, ROUTE_SEGMENTS } from "../../src/constants/routes.constant.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 
 interface ICardPair {
   first: string;
@@ -29,6 +30,7 @@ interface ICardPair {
 interface IPageScenario {
   path: string;
   name: string;
+  tab?: "details";
   pairs: ICardPair[];
 }
 
@@ -110,18 +112,21 @@ for (const viewport of VIEWPORTS) {
       },
       {
         name: "standalone project",
+        tab: "details",
         path: buildProjectRoute(project.id),
         pairs: [{ first: "כתובת", second: "לקוח ופרטי הנכס" }],
       },
       {
         name: "building",
+        tab: "details",
         path: buildProjectRoute(building.id),
         pairs: [{ first: "נתונים שעוברים לכל הדירות", second: "לקוח ופרטי הנכס" }],
       },
       {
         name: "apartment",
+        tab: "details",
         path: buildApartmentRoute(building.id, apartment.id),
-        pairs: [{ first: "נתוני הדירה", second: "הנמכה כללית לתאורה" }],
+        pairs: [{ first: "לקוח קצה — דירה זו", second: "נתונים מהפרויקט האב" }],
       },
       {
         name: "task",
@@ -139,15 +144,12 @@ for (const viewport of VIEWPORTS) {
       {
         name: "new project",
         path: ROUTES.NEW_PROJECT,
-        pairs: [{ first: "כתובת הפרויקט", second: "לקוח הפרויקט" }],
+        pairs: [],
       },
       {
         name: "new apartment",
         path: buildApartmentRoute(building.id, ROUTE_SEGMENTS.NEW),
-        pairs: [
-          { first: "פרטי הדירה", second: "לקוח הדירה *" },
-          { first: "צוות הדירה", second: "הנמכה כללית לתאורה" },
-        ],
+        pairs: [{ first: "פרטי הדירה", second: "לקוח הדירה *" }],
       },
       {
         name: "new task",
@@ -162,6 +164,22 @@ for (const viewport of VIEWPORTS) {
         try {
           await scenarioPage.setViewportSize({ width: viewport.width, height: viewport.height });
           await scenarioPage.goto(scenario.path);
+          if (scenario.tab) await openWorkspaceTab(scenarioPage, scenario.tab);
+          if (scenario.name === "new project") {
+            const form = createProjectFormPage(scenarioPage);
+            await expect(form.addressInput).toBeVisible();
+            await expect(form.customerSearch).toBeVisible();
+            await expectCardsFit(scenarioPage, form.addressInput, form.customerSearch);
+          }
+          if (scenario.name === "new apartment") {
+            await openWorkspaceTab(scenarioPage, "people");
+            await expect(scenarioPage.getByText("צוות הדירה", { exact: true })).toBeVisible();
+            await openWorkspaceTab(scenarioPage, "technical");
+            await expect(
+              scenarioPage.getByText("הנמכה כללית לתאורה", { exact: true }),
+            ).toBeVisible();
+            await openWorkspaceTab(scenarioPage, "details");
+          }
           if (scenario.name === "task") {
             const urgency = findCardByTitle(scenarioPage, "משימה רגילה");
             const details = findCardByTitle(scenarioPage, "פרטי המשימה");
@@ -178,7 +196,10 @@ for (const viewport of VIEWPORTS) {
           }
           for (const pair of scenario.pairs) {
             const first = findCardByTitle(scenarioPage, pair.first).first();
-            const second = findCardByTitle(scenarioPage, pair.second).first();
+            const second =
+              scenario.name === "new apartment"
+                ? scenarioPage.locator("[data-apartment-customer]").filter({ hasText: pair.second })
+                : findCardByTitle(scenarioPage, pair.second).first();
             await expect(first).toBeVisible();
             await expect(second).toBeVisible();
             await expectCardsFit(scenarioPage, first, second);

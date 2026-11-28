@@ -4,6 +4,7 @@ import { createProjectPage } from "../../src/pages/project.page.ts";
 import { findCardByTitle } from "../../src/pages/card.component.ts";
 import { buildApartmentRoute } from "../../src/utilities/route.utility.ts";
 import { PROJECT_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { readTabCount, expectTabSelected } from "../../src/pages/tab.component.ts";
 import { seedBuilding, seedCustomer, seedApartment } from "../../src/api/seed-data.ts";
 import { createApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
@@ -24,13 +25,14 @@ test("add an apartment to a building and see it listed and counted", async ({ pa
   const formPage = createApartmentFormPage(page);
 
   await projectPage.goto(building.id);
+  await openWorkspaceTab(page, "apartments");
   await projectPage.addApartmentButton.click();
   const customer = await seedCustomer(api);
   const number = createApartmentNumber();
   await formPage.fill({ ...NEW_APARTMENT, number, customerName: customer.name });
   await formPage.submitButton.click();
 
-  await expect(page).toHaveURL(new RegExp(`/projects/${building.id}$`));
+  await expect(page).toHaveURL(new RegExp(`/projects/${building.id}\\?tab=apartments$`));
 
   await expect(projectPage.findApartmentRow(formatApartmentName(number))).toBeVisible();
   await expect
@@ -49,6 +51,7 @@ test("an apartment page shows its team and the values inherited from the buildin
   await apartmentPage.goto(building.id, apartment.id);
 
   await expect(page.getByText(apartment.code)).toBeVisible();
+  await openWorkspaceTab(page, "people");
   await expect(findCardByTitle(page, "צוות הדירה")).toBeVisible();
   await expect(page.getByText(SEED_VALUES.CUSTOMER_CONTACT_NAME, { exact: true })).toHaveCount(0);
   await expect(page.getByRole("link", { name: formatBuildingLink(building.name) })).toBeVisible();
@@ -66,6 +69,7 @@ test("change an apartment stage independently of its building", async ({ page, a
   await expectTabSelected(apartmentPage.stageTab(PROJECT_STATUS_NAMES.IN_PROGRESS));
 
   await projectPage.goto(building.id);
+  await openWorkspaceTab(page, "apartments");
 
   await expect
     .poll(() => readTabCount(projectPage.statusTab(PROJECT_STATUS_NAMES.IN_PROGRESS)))
@@ -79,7 +83,11 @@ test("save notes on an apartment", async ({ page, api }) => {
   const apartmentPage = createApartmentPage(page);
 
   await apartmentPage.goto(building.id, apartment.id);
+  await openWorkspaceTab(page, "details");
   await apartmentPage.notesInput.fill(APARTMENT_NOTE);
+  await openWorkspaceTab(page, "tasks");
+  await openWorkspaceTab(page, "details");
+  await expect(apartmentPage.notesInput).toHaveValue(APARTMENT_NOTE);
   await apartmentPage.saveNotesButton.click();
 
   await expect(apartmentPage.saveNotesButton).toBeDisabled();
@@ -101,7 +109,7 @@ test("move between apartments of the same building", async ({ page, api }) => {
   await expect(page).toHaveURL(buildApartmentRoute(building.id, secondApartment.id));
 });
 
-test("opening an apartment row from the building goes to the apartment page", async ({
+test("returning from an apartment restores the building list search and stage filter", async ({
   page,
   api,
 }) => {
@@ -110,7 +118,18 @@ test("opening an apartment row from the building goes to the apartment page", as
   const projectPage = createProjectPage(page);
 
   await projectPage.goto(building.id);
+  await openWorkspaceTab(page, "apartments");
+  await projectPage.statusTab(PROJECT_STATUS_NAMES.NOT_STARTED).click();
+  await projectPage.apartmentSearch.fill(apartment.name);
   await projectPage.findApartmentRow(apartment.name).getByText(apartment.name).click();
 
   await expect(page).toHaveURL(buildApartmentRoute(building.id, apartment.id));
+  await page.getByRole("link", { name: formatBuildingLink(building.name) }).click();
+  await expect(page.getByRole("tab", { name: "דירות", exact: true })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(projectPage.apartmentSearch).toHaveValue(apartment.name);
+  await expectTabSelected(projectPage.statusTab(PROJECT_STATUS_NAMES.NOT_STARTED));
+  await expect(projectPage.findApartmentRow(apartment.name)).toBeVisible();
 });
