@@ -144,11 +144,10 @@ test("reviewer rejects in the page and engineer sees the correction, edits, and 
   await expect(dialog).toHaveCount(0);
   await expect(leadPage.getByText("נדרש תיקון", { exact: true }).first()).toBeVisible();
   await expect(leadPage.getByRole("alert").getByText(reason, { exact: true })).toBeVisible();
-  await leadPage.goto("/quotations");
-  await leadQuote.field("חיפוש לפי מספר, לקוח, פרויקט או חברה").fill(quotation.number);
-  await expect(leadPage.getByRole("button").filter({ hasText: quotation.number })).toContainText(
-    "נדרש תיקון",
-  );
+  await leadPage.goto(`/projects/${quotation.projectId}?tab=quotations`);
+  await expect(
+    leadPage.getByRole("button", { name: new RegExp(quotation.number) }),
+  ).toHaveAccessibleName(/נדרש תיקון/);
 
   const engineerPage = await openPageAs(TEST_USERS[USER_ROLES.ENGINEER]);
   const engineerQuote = createQuotationPage(engineerPage);

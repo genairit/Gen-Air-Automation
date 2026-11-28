@@ -7,6 +7,7 @@ import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { QUOTATION } from "../../src/constants/quotation.constant.ts";
 import { NAVIGATION_COPY } from "../../src/constants/copy.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
+import { createQuotationPage } from "../../src/pages/quotation.page.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
 import { createDeferred } from "../../src/utilities/deferred.utility.ts";
@@ -70,15 +71,14 @@ for (const width of [1440, 390]) {
     const id = new URL(page.url()).pathname.split("/").at(-1)!;
     const quote = await quotationDocument(await api.send(HTTP_METHODS.GET, `/quotation/${id}`));
     expect(quote.status).toBe(QUOTATION.STATUS.DRAFT);
+    await createQuotationPage(page).showDetails();
     await expect(
       page
         .getByText("ההצעה משויכת למשימה. פרטי ההקשר נשמרים בהתאם למשימה.", { exact: true })
         .first(),
     ).toBeVisible();
     await expect(page.getByRole("combobox", { name: "לקוח *", exact: true })).toBeDisabled();
-    await expect(
-      page.getByRole("combobox", { name: "פרויקט (אופציונלי)", exact: true }),
-    ).toBeDisabled();
+    await expect(page.getByRole("combobox", { name: "פרויקט *", exact: true })).toBeDisabled();
     const back = page.getByRole("link", { name: new RegExp(`משימה: ${task.title}`) });
     await expect(back).toBeVisible();
     await back.click();
@@ -295,7 +295,7 @@ test("explicit secondary quotations render compact primary-first mobile rows and
   await expect(page.getByRole("link", { name: new RegExp(`משימה: ${task.title}`) })).toBeVisible();
 });
 
-test("a readable saved quotation remains openable after its task project is deleted", async ({
+test("a live task quotation protects its project from deletion and remains openable", async ({
   api,
   page,
 }) => {
@@ -304,7 +304,7 @@ test("a readable saved quotation remains openable after its task project is dele
   const quote = await quotationDocument(
     await api.send(HTTP_METHODS.GET, `/quotation/${saved.quotationId}`),
   );
-  await taskQuotationQuery("UPDATE projects SET deleted_at=NOW() WHERE id=$1", [project.id]);
+  expect((await api.send(HTTP_METHODS.DELETE, `/project/${project.id}`)).status()).toBe(409);
   await createTaskPage(page).goto(task.id);
   const section = page.getByRole("region", { name: "הצעת מחיר משויכת", exact: true });
   await expect(section.getByRole("button", { name: "יצירת הצעת מחיר", exact: true })).toHaveCount(

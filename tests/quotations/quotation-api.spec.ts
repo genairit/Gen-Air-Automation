@@ -62,11 +62,12 @@ test("customer defaults are copied, notes empty, independent quotations retain i
     ...buildCustomerInput(),
     paymentTerms: PAYMENT_TERMS.PREPAID,
   });
-  const first = await createQuotation(api, customer.id);
-  const second = await createQuotation(api, customer.id);
+  const project = await seedStandaloneProject(api, customer);
+  const first = await createQuotation(api, customer.id, project.id);
+  const second = await createQuotation(api, customer.id, project.id);
   expect(first.paymentTerms).toBe(PAYMENT_TERMS.PREPAID);
   expect(first.paymentTermsNote).toBe("");
-  expect(first.projectId).toBeNull();
+  expect(first.projectId).toBe(project.id);
   expect(first.status).toBe(QUOTATION.STATUS.DRAFT);
   expect(second.id).not.toBe(first.id);
   expect(second.number).not.toBe(first.number);
@@ -621,7 +622,7 @@ test("discovery supports cursor pagination, search, status and defensive query l
     expect((await api.send(HTTP_METHODS.GET, path)).status()).toBe(400);
 });
 
-test("optional project linkage enforces selected customer and preserves independent quote identity", async ({
+test("mandatory project linkage enforces selected customer and preserves independent quote identity", async ({
   api,
 }) => {
   const customer = await seedCustomer(api);
@@ -642,12 +643,34 @@ test("optional project linkage enforces selected customer and preserves independ
       })
     ).status(),
   ).toBe(400);
-  const standalone = await saveQuotation(api, quote.id, {
-    ...quotationWrite(linked),
-    projectId: null,
-  });
-  expect(standalone.projectId).toBeNull();
-  expect(standalone.id).toBe(quote.id);
+  const { projectId, ...withoutProject } = quotationWrite(linked);
+  expect(projectId).toBe(project.id);
+  for (const invalid of [{}, { projectId: null }, { projectId: "" }]) {
+    expect(
+      (
+        await api.send(HTTP_METHODS.POST, QUOTATION.PATH, { customerId: customer.id, ...invalid })
+      ).status(),
+    ).toBe(400);
+    expect(
+      (
+        await api.send(HTTP_METHODS.PUT, `/quotation/${quote.id}`, {
+          ...withoutProject,
+          ...invalid,
+        })
+      ).status(),
+    ).toBe(400);
+  }
+  expect(
+    (
+      await api.send(HTTP_METHODS.POST, QUOTATION.PATH, {
+        customerId: other.id,
+        projectId: project.id,
+      })
+    ).status(),
+  ).toBe(400);
+  expect(
+    await quotationDocument(await api.send(HTTP_METHODS.GET, `/quotation/${quote.id}`)),
+  ).toEqual(linked);
 });
 
 test("live feature grants gate quotation read, update, approval and catalogue separately", async ({

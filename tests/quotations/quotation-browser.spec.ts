@@ -41,7 +41,7 @@ const openDetails = async (page: Parameters<typeof createQuotationPage>[0]) => {
 const getQuote = async (api: Parameters<typeof createQuotation>[0], id: string) =>
   quotationDocument(await api.send(HTTP_METHODS.GET, `/quotation/${id}`));
 
-test("customer-first creation, optional project, local payments and RTL desktop/mobile persist", async ({
+test("project-linked creation, recipient, local payments and RTL desktop/mobile persist", async ({
   page,
   api,
 }, testInfo) => {
@@ -51,21 +51,19 @@ test("customer-first creation, optional project, local payments and RTL desktop/
   });
   const project = await seedStandaloneProject(api, customer);
   const quote = createQuotationPage(page);
-  await page.goto("/quotations");
-  await quote.button("הצעה חדשה").click();
-  await expect(quote.button("יצירת הצעה")).toBeDisabled();
-  await quote.chooseEntity("לקוח *", customer.name);
+  await page.goto(`/projects/${project.id}?tab=quotations`);
+  await quote.button("הצעת מחיר חדשה").click();
+  await expect(page.getByText(`${project.name} · ${customer.name}`, { exact: true })).toBeVisible();
   await quote.button("יצירת הצעה").click();
-  await expect(page).toHaveURL(/\/quotations\/[\w-]+$/);
+  await expect(page).toHaveURL(/\/quotations\/[0-9a-f-]{36}$/i);
   const id = new URL(page.url()).pathname.split("/").at(-1)!;
   await quote.showDetails();
-  await expect(quote.field("פרויקט (אופציונלי)")).toHaveValue("");
+  await expect(quote.field("פרויקט *")).toHaveValue(project.name);
   await expect(page.getByRole("radio", { name: "תשלום מראש", exact: true })).toBeChecked();
   await expect(quote.field(NOTE)).toHaveValue("");
   await quote.fill(NOTE, "Quotation terms only");
   await openDetails(page);
   await quote.fill(NOTES, "Internal information");
-  await quote.selectEntity("פרויקט (אופציונלי)", project.name);
   expect(
     (
       await api.send(HTTP_METHODS.PATCH, `/customer/${customer.id}`, {
@@ -82,7 +80,7 @@ test("customer-first creation, optional project, local payments and RTL desktop/
   await page.reload();
   await expect(page.getByRole("radio", { name: "תשלום מראש", exact: true })).toBeChecked();
   await quote.showDetails();
-  await expect(quote.field("פרויקט (אופציונלי)")).toHaveValue(project.name);
+  await expect(quote.field("פרויקט *")).toHaveValue(project.name);
   expect((await getQuote(api, id)).projectId).toBe(project.id);
   await expect(quote.field(NOTE)).toHaveValue("Quotation terms only");
   expect((await getQuote(api, id)).internalNotes).toBe("Internal information");
@@ -98,11 +96,9 @@ test("customer-first creation, optional project, local payments and RTL desktop/
   await page.screenshot({ path: testInfo.outputPath("quotation-mobile.png"), fullPage: true });
   await expect(page.getByRole("button", { name: "ייצוא PDF" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Priority|Drive/ })).toHaveCount(0);
-  await page.goto("/quotations");
-  await quote.field("חיפוש לפי מספר, לקוח, פרויקט או חברה").fill(customer.name);
-  await expect(
-    page.getByRole("button").filter({ hasText: (await getQuote(api, id)).number }),
-  ).toBeVisible();
+  await page.goto(`/projects/${project.id}?tab=quotations`);
+  const saved = await getQuote(api, id);
+  await expect(page.getByRole("button", { name: new RegExp(saved.number) })).toBeVisible();
 });
 
 test("catalogue filters, repeated independent snapshots, section ordering and server decimal totals", async ({
@@ -536,9 +532,9 @@ test("read-only role sees saved quotation without creation, mutation or approval
     async () => {
       const page = await openPageAs(TEST_USERS[USER_ROLES.ENGINEER]);
       const quote = createQuotationPage(page);
-      await page.goto("/quotations");
-      await expect(page.getByRole("heading", { name: "הצעות מחיר" })).toBeVisible();
-      await expect(quote.button("הצעה חדשה")).toHaveCount(0);
+      await page.goto(`/projects/${initial.projectId}?tab=quotations`);
+      await expect(page.getByRole("button", { name: new RegExp(initial.number) })).toBeVisible();
+      await expect(quote.button("הצעת מחיר חדשה")).toHaveCount(0);
       await quote.goto(initial.id);
       await openDetails(page);
       await expect(quote.field(NOTES)).toBeDisabled();
@@ -660,15 +656,18 @@ test("VRF circuits, included controls, linked accessory quantities and removal s
   expect((await getQuote(api, initial.id)).sections[0]!.items).toHaveLength(0);
 });
 
-test("missing quotation read grant denies direct editor and hides navigation", async ({
+test("missing quotation read grant hides project quotations and denies the direct editor", async ({
   api,
   openPageAs,
 }) => {
   const initial = await createQuotation(api, (await seedCustomer(api)).id);
   await withRolePermissions(USER_ROLES.ENGINEER, [PERMISSIONS.PROJECTS_READ], async () => {
     const page = await openPageAs(TEST_USERS[USER_ROLES.ENGINEER]);
+    await page.goto(`/projects/${initial.projectId}?tab=quotations`);
+    await expect(page.getByRole("tab", { name: "פרטים", exact: true })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "הצעות מחיר", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: new RegExp(initial.number) })).toHaveCount(0);
     await page.goto(`/quotations/${initial.id}`);
-    await expect(page.getByRole("button", { name: "הצעות מחיר", exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: initial.number })).toHaveCount(0);
     await expect(page.getByRole("textbox", { name: NOTES, exact: true })).toHaveCount(0);
     await expect(page.getByText("אין הרשאה לפעולה זו", { exact: true })).toBeVisible();

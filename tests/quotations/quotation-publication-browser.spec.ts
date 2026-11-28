@@ -389,12 +389,12 @@ test("project quotation details display actual published state and safe file nav
   await openWorkspaceTab(page, "quotations");
   const region = page.getByRole("region", { name: "הצעות מחיר", exact: true });
   await expect(region).toBeVisible();
-  const row = region.getByRole("button", { name: new RegExp(quotation.number) });
-  await expect(row).toHaveCount(1);
-  await expect(row.getByText(COPY.published, { exact: true })).toBeVisible();
-  await expect(row).toContainText(`גרסה ${publication.sourceVersion}`);
-  await expect(row).toContainText(publication.destinationLabel ?? "Missing destination");
-  const link = row.getByRole("link", { name: "פתיחת הקובץ (בחלון חדש)", exact: true });
+  const card = region.getByRole("region", { name: new RegExp(quotation.number) });
+  await expect(card).toHaveCount(1);
+  await expect(card.getByText(COPY.published, { exact: true })).toBeVisible();
+  await expect(card).toContainText(`גרסה ${publication.sourceVersion}`);
+  await expect(card).toContainText(publication.destinationLabel ?? "Missing destination");
+  const link = card.getByRole("link", { name: "פתיחת הקובץ (בחלון חדש)", exact: true });
   await expect(link).toHaveAttribute("href", publication.fileUrl ?? "Missing file");
   await expect(link).toHaveAttribute("rel", "noopener noreferrer");
   await expect(link).toHaveAttribute("target", "_blank");
@@ -403,6 +403,9 @@ test("project quotation details display actual published state and safe file nav
     fullPage: true,
     animations: "disabled",
   });
+  const openQuotation = card.getByRole("button", { name: new RegExp(quotation.number) });
+  await openQuotation.press("Enter");
+  await expect(page).toHaveURL(new RegExp(`/quotations/${quotation.id}#apartment-sharing$`));
 });
 
 test("account switch discards a delayed retry result and keeps the next account summary", async ({

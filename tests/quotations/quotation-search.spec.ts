@@ -15,7 +15,7 @@ import { isCustomer } from "../../src/utilities/entity-guard.utility.ts";
 import { createQuotation, quotationDocument } from "../../src/api/quotation.api.ts";
 
 const CUSTOMER = "לקוח *";
-const PROJECT = "פרויקט (אופציונלי)";
+const PROJECT = "פרויקט *";
 const NO_RESULTS = "אין אפשרויות";
 const readQuotation = async (api: Parameters<typeof createQuotation>[0], id: string) =>
   quotationDocument(await api.send(HTTP_METHODS.GET, `/quotation/${id}`));
@@ -51,7 +51,9 @@ test("direct customer search preserves typed queries across loading and empty re
   const targetIndex = ordered.findIndex(row => row.id !== customer.id);
   expect(targetIndex).toBeGreaterThanOrEqual(0);
   const target = ordered[targetIndex]!;
-  const initial = await createQuotation(api, customer.id);
+  const targetProject = await seedStandaloneProject(api, target);
+  const originalProject = await seedStandaloneProject(api, customer);
+  const initial = await createQuotation(api, customer.id, originalProject.id);
   const quote = createQuotationPage(page);
   const duplicateWarnings: string[] = [];
   page.on("console", message => {
@@ -82,7 +84,11 @@ test("direct customer search preserves typed queries across loading and empty re
     expect((await searched).status()).toBe(200);
     const options = page.getByRole("option", { name: customer.name, exact: true });
     await expect(options).toHaveCount(2);
-    await quote.saved(() => options.nth(targetIndex).click());
+    await options.nth(targetIndex).click();
+    await quote.showDetails();
+    await expect(quote.field(PROJECT)).toHaveValue("");
+    expect((await readQuotation(api, initial.id)).customerId).toBe(customer.id);
+    await quote.selectEntity(PROJECT, targetProject.name);
     expect((await readQuotation(api, initial.id)).customerId).toBe(target.id);
     expect(duplicateWarnings).toEqual([]);
     const saved = await readQuotation(api, initial.id);
@@ -112,7 +118,7 @@ test("direct customer search preserves typed queries across loading and empty re
   }
 });
 
-test("project search stays customer scoped, retains active typing, selects with keyboard and clears the optional link durably", async ({
+test("project search stays customer scoped, retains active typing, selects with keyboard and keeps the required link across reloads", async ({
   page,
   api,
 }, testInfo) => {
@@ -120,7 +126,8 @@ test("project search stays customer scoped, retains active typing, selects with 
   const project = await seedStandaloneProject(api, customer);
   const foreignCustomer = await seedCustomer(api);
   const foreignProject = await seedStandaloneProject(api, foreignCustomer);
-  const initial = await createQuotation(api, customer.id);
+  const originalProject = await seedStandaloneProject(api, customer);
+  const initial = await createQuotation(api, customer.id, originalProject.id);
   const quote = createQuotationPage(page);
   await quote.goto(initial.id);
   await quote.showDetails();
@@ -152,16 +159,22 @@ test("project search stays customer scoped, retains active typing, selects with 
   await expect(field).toHaveValue(project.name);
   expect((await readQuotation(api, initial.id)).version).toBe(saved.version);
   await field.focus();
-  await quote.saved(() => page.getByRole("button", { name: "נקה בחירה", exact: true }).click());
-  expect((await readQuotation(api, initial.id)).projectId).toBeNull();
+  await expect(page.getByRole("button", { name: "נקה בחירה", exact: true })).toHaveCount(0);
   await page.reload();
   await quote.showDetails();
-  await expect(quote.field(PROJECT)).toHaveValue("");
-  await quote.selectEntity(CUSTOMER, foreignCustomer.name);
+  await expect(quote.field(PROJECT)).toHaveValue(project.name);
+  expect((await readQuotation(api, initial.id)).projectId).toBe(project.id);
+  await quote.chooseEntity(CUSTOMER, foreignCustomer.name);
   await quote.showDetails();
   await quote.field(PROJECT).click();
   await expect(page.getByRole("option", { name: foreignProject.name, exact: true })).toBeVisible();
   await expect(page.getByRole("option", { name: project.name, exact: true })).toHaveCount(0);
+  await quote.saved(() =>
+    page.getByRole("option", { name: foreignProject.name, exact: true }).click(),
+  );
+  const moved = await readQuotation(api, initial.id);
+  expect(moved.projectId).toBe(foreignProject.id);
+  expect(moved.customerId).toBe(foreignCustomer.id);
   await page.screenshot({
     path: testInfo.outputPath("customer-scoped-project-search.png"),
     fullPage: true,

@@ -45,7 +45,7 @@ export const createSupplierPurchasingProject = async (api: TGenAirApi) => {
   if (breakdown.status() !== 200) {
     throw new Error("Could not create fixture breakdown");
   }
-  const initial = await createQuotation(api, customer.id);
+  const initial = await createQuotation(api, customer.id, project.id);
   const draft = await saveQuotation(api, initial.id, {
     ...quotationWrite(initial),
     projectId: project.id,

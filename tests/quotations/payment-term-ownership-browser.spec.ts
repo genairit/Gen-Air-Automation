@@ -8,8 +8,6 @@ import {
   CUSTOMER_PAYMENT_SCHEDULE,
 } from "../../src/constants/customer-payment-schedule.constant.ts";
 
-import { buildCustomerInput } from "../../src/api/seed-data.ts";
-import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { PAYMENT_TERMS } from "../../src/constants/domain.constant.ts";
 import { createQuotationPage } from "../../src/pages/quotation.page.ts";
@@ -18,6 +16,7 @@ import { readLastPathSegment } from "../../src/utilities/route.utility.ts";
 import { ROUTE_PATTERNS } from "../../src/constants/route-patterns.constant.ts";
 import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
 import { quotationDocument, createQuotation } from "../../src/api/quotation.api.ts";
+import { buildCustomerInput, seedStandaloneProject } from "../../src/api/seed-data.ts";
 import { PAYMENT_DEFAULT_COPY as COPY } from "../../src/constants/payment-default.constant.ts";
 import { buildCustomerPath, buildQuotationPath } from "../../src/utilities/api-path.utility.ts";
 import { createCustomerPaymentDefaultPage } from "../../src/pages/customer-payment-default.page.ts";
@@ -39,9 +38,11 @@ test("quotation copies customer custom stages, protects local overrides on custo
   const unset = await api.createCustomer(buildCustomerInput());
   const quote = createQuotationPage(page);
   const payment = createCustomerPaymentDefaultPage(page);
-  await page.goto(ROUTES.QUOTATIONS);
-  await quote.button(COPY.NEW_QUOTE).click();
-  await quote.chooseEntity(COPY.QUOTE_CUSTOMER, customer.name);
+  const project = await seedStandaloneProject(api, customer);
+  const replacementProject = await seedStandaloneProject(api, replacement);
+  const unsetProject = await seedStandaloneProject(api, unset);
+  await page.goto(`/projects/${project.id}/quotations/new`);
+  await expect(page.getByText(customer.name, { exact: false }).last()).toBeVisible();
   await quote.button(COPY.CREATE_QUOTE).click();
   await expect(page).toHaveURL(ROUTE_PATTERNS.QUOTATION);
   const id = readLastPathSegment(page.url());
@@ -52,7 +53,9 @@ test("quotation copies customer custom stages, protects local overrides on custo
   await quote.fill(COPY.QUOTE_NOTE, CUSTOMER_PAYMENT_SCHEDULE.NOTE);
   await quote.saved(() => payment.percent().fill("30"));
   await quote.saved(() => payment.percent(1).fill("70"));
-  await quote.selectEntity(COPY.QUOTE_CUSTOMER, replacement.name);
+  await quote.showDetails();
+  await quote.chooseEntity(COPY.QUOTE_CUSTOMER, replacement.name);
+  await quote.selectEntity("פרויקט *", replacementProject.name);
   await expect(payment.percent()).toHaveValue("30");
   await expect(payment.percent(1)).toHaveValue("70");
   await expect(quote.field(COPY.QUOTE_NOTE)).toHaveValue(CUSTOMER_PAYMENT_SCHEDULE.NOTE);
@@ -80,7 +83,9 @@ test("quotation copies customer custom stages, protects local overrides on custo
   });
   await page.reload();
   await expect(payment.percent()).toHaveValue(CUSTOMER_PAYMENT_SCHEDULE.REPLACEMENT[0].percent);
-  await quote.selectEntity(COPY.QUOTE_CUSTOMER, unset.name);
+  await quote.showDetails();
+  await quote.chooseEntity(COPY.QUOTE_CUSTOMER, unset.name);
+  await quote.selectEntity("פרויקט *", unsetProject.name);
   await expect(page.getByText(CUSTOMER_PAYMENT_COPY.NO_DEFAULT, { exact: true })).toBeVisible();
   await expect(apply).toHaveCount(0);
   await expect(payment.percent()).toHaveValue(CUSTOMER_PAYMENT_SCHEDULE.REPLACEMENT[0].percent);
@@ -109,6 +114,7 @@ test("failed and stale customer-default responses cannot replace quotation stage
     paymentTerms: null,
     paymentSchedule: CUSTOMER_PAYMENT_SCHEDULE.REPLACEMENT,
   });
+  const currentProject = await seedStandaloneProject(api, current);
   const initial = await createQuotation(api, first.id);
   const quote = createQuotationPage(page);
   const payment = createCustomerPaymentDefaultPage(page);
@@ -136,8 +142,12 @@ test("failed and stale customer-default responses cannot replace quotation stage
   });
   try {
     await quote.goto(initial.id);
-    await quote.selectEntity(COPY.QUOTE_CUSTOMER, slow.name);
+    await quote.showDetails();
+    await quote.chooseEntity(COPY.QUOTE_CUSTOMER, slow.name);
     await started.promise;
+    await expect(page.getByRole("dialog", { name: COPY.QUOTE_CUSTOMER, exact: true })).toHaveCount(
+      0,
+    );
     await expect(quote.button(CUSTOMER_PAYMENT_COPY.APPLY)).toHaveCount(0);
     const selectionSaved = page.waitForResponse(
       response =>
@@ -145,10 +155,12 @@ test("failed and stale customer-default responses cannot replace quotation stage
         new URL(response.url()).pathname.endsWith(buildQuotationPath(initial.id)),
     );
     await quote.chooseEntity(COPY.QUOTE_CUSTOMER, current.name);
+    await quote.chooseEntity("פרויקט *", currentProject.name);
     expect((await selectionSaved).status()).toBe(HTTP_STATUS.OK);
     await expect(quote.button(CUSTOMER_PAYMENT_COPY.RETRY)).toBeVisible();
     release.resolve();
     await completed.promise;
+    await quote.showDetails();
     await expect(quote.field(COPY.QUOTE_CUSTOMER)).toHaveValue(current.name);
     await expect(quote.button(CUSTOMER_PAYMENT_COPY.APPLY)).toHaveCount(0);
     await expect(payment.percent()).toHaveValue(CUSTOMER_PAYMENT_SCHEDULE.FIRST[0].percent);

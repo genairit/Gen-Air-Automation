@@ -90,6 +90,20 @@ export const setQuotationCountFixture = async (id: string, status: QuotationStat
   }
 };
 
+export const makeLegacyProjectlessQuotation = async (quotationId: string): Promise<void> => {
+  const database = createTestDatabaseClient();
+  await database.connect();
+  try {
+    const removed = await database.query(
+      "DELETE FROM quotation_projects WHERE quotation_id=$1 AND is_primary",
+      [quotationId],
+    );
+    if (removed.rowCount !== 1) throw new Error("Legacy fixture expected one primary project");
+  } finally {
+    await database.end();
+  }
+};
+
 export const softDeleteQuotationFixture = async (id: string) => {
   const database = createTestDatabaseClient();
   await database.connect();
