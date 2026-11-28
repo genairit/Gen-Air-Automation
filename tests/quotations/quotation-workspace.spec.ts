@@ -161,7 +161,7 @@ test("mixed floors, company systems and General stay identical across live editi
       return content.items.map(item => ("str" in item ? item.str : "")).join(" ");
     }),
   );
-  const text = texts.join(" ");
+  const text = texts.join(" ").replace(/\s+/g, " ");
   for (const expected of [
     "First floor",
     "Lobby system",

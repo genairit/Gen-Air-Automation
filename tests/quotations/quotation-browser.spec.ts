@@ -218,7 +218,11 @@ test("catalogue selection focuses the added quantity and keeps BTU paired on mob
   await expect(quote.field("כמות (יח׳)").last()).toBeFocused();
 
   await page.setViewportSize({ width: 390, height: 844 });
-  const btuPair = page.locator('[class*="btuPair"]').filter({ hasText: "BTU" }).first();
+  const btuPair = page
+    .getByRole("table", { name: "פריטי ההצעה", exact: true })
+    .locator("bdi")
+    .filter({ hasText: "24,000 BTU" })
+    .first();
   await expect(btuPair).toContainText("24,000 BTU");
   await expect(btuPair).toHaveCSS("white-space", "nowrap");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
