@@ -36,6 +36,7 @@ import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { CONTACT_SEARCH } from "../../src/constants/contact-search.constant.ts";
 import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { contactRolePicker } from "../../src/pages/project-contact-roles.page.ts";
 import { createApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { buildProjectRoute, buildApartmentRoute } from "../../src/utilities/route.utility.ts";
@@ -51,6 +52,7 @@ test("project create contact pickers stay empty on focus and debounce one normal
   const requests = monitorDirectorySearch(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await createProjectFormPage(page).goto();
+  await openWorkspaceTab(page, "people");
   const additional = additionalContactSection(page);
   const search = contactSearchInput(additional);
   await search.focus();
@@ -109,6 +111,7 @@ test("additional and role searches share one in-flight lookup without exposing c
   const gate = await delayDirectorySearch({ page, query: contact.name });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await createProjectFormPage(page).goto();
+  await openWorkspaceTab(page, "people");
   const additional = additionalContactSection(page);
   const search = contactSearchInput(additional);
   try {
@@ -154,6 +157,7 @@ test("role search aborts stale lookups and prevents keyboard selection of old re
   const current = await delayDirectorySearch({ page, query: second.name });
   const requests = monitorDirectorySearch(page);
   await page.goto(buildProjectRoute(project.id));
+  await openWorkspaceTab(page, "people");
   try {
     await contactRolePicker(page, ARCHITECT).click();
     const search = activeRoleSearch(page, ARCHITECT);
@@ -226,6 +230,7 @@ test("current directory errors retry explicitly and clearing cancels pending res
   });
   const requests = monitorDirectorySearch(page);
   await page.goto(buildProjectRoute(project.id));
+  await openWorkspaceTab(page, "people");
   const section = projectContactsSection(page);
   const search = contactSearchInput(section);
   await search.fill(incoming.name);
@@ -309,6 +314,7 @@ test("empty-query inline contact saves retain errors and refresh links without l
     await route.continue();
   });
   await page.goto(buildProjectRoute(project.id));
+  await openWorkspaceTab(page, "people");
   const section = projectContactsSection(page);
   await contactSearchInput(section).fill("   ");
   await section.getByRole("button", { name: CONTACT_SEARCH.CREATE, exact: true }).click();
@@ -364,6 +370,7 @@ test("apartment mobile search and read-only views preserve contacts without an i
   const requests = monitorDirectorySearch(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(buildApartmentRoute(building.id, apartment.id));
+  await openWorkspaceTab(page, "people");
   const section = projectContactsSection(page);
   await expect(contactRolePicker(page, ARCHITECT)).toHaveValue(contact.name);
   const search = contactSearchInput(section);
@@ -382,6 +389,7 @@ test("apartment mobile search and read-only views preserve contacts without an i
   const viewer = await openPageAs(TEST_USERS[USER_ROLES.INSTALLER]);
   const viewerRequests = monitorDirectorySearch(viewer);
   await viewer.goto(buildApartmentRoute(building.id, apartment.id));
+  await openWorkspaceTab(viewer, "people");
   await expect(viewer.getByText(contact.name, { exact: true })).toBeVisible();
   await expect(contactSearchInput(projectContactsSection(viewer))).toHaveCount(0);
   await expect(
@@ -414,6 +422,7 @@ test("role lookup errors and retry remain keyboard accessible inside the open au
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(buildProjectRoute(project.id));
+  await openWorkspaceTab(page, "people");
   await contactRolePicker(page, ARCHITECT).click();
   const search = activeRoleSearch(page, ARCHITECT);
   await search.fill(contact.name);

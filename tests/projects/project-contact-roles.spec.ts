@@ -35,6 +35,7 @@ import { FAKE_PLACES } from "../../src/constants/fake-places.constant.ts";
 import { PROJECT_TYPE_NAMES } from "../../src/constants/domain.constant.ts";
 import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { createApartmentDesignPage } from "../../src/pages/apartment-design.page.ts";
 import { createApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { seedBuilding, seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts";
@@ -49,15 +50,18 @@ test("new project always shows three optional roles and persists existing direct
   const contact = await seedRoleContact(api);
   const form = createProjectFormPage(page);
   await form.goto();
+  await openWorkspaceTab(page, "people");
   for (const role of ROLES) {
     await expect(contactRolePicker(page, role)).toBeVisible();
   }
+  await openWorkspaceTab(page, "details");
   await form.fill({
     name: createUniqueName("פרויקט עם תפקידים"),
     place: FAKE_PLACES[1],
     customerName: owner.name,
     projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL,
   });
+  await openWorkspaceTab(page, "people");
   await selectRoleContact(page, PROJECT_CONTACT_ROLES.ARCHITECT, contact.name);
   await form.createButton.click();
   await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}$/);
@@ -66,6 +70,7 @@ test("new project always shows three optional roles and persists existing direct
     expect.objectContaining({ contactId: contact.id, role: PROJECT_CONTACT_ROLES.ARCHITECT }),
   );
   await page.reload();
+  await openWorkspaceTab(page, "people");
   await expect(contactRolePicker(page, PROJECT_CONTACT_ROLES.ARCHITECT)).toHaveValue(contact.name);
 });
 
@@ -88,6 +93,7 @@ test("edit replaces and clears a role while keeping the displaced additional con
     ).toBe(true);
   }
   await page.goto(buildEditProjectRoute(project.id));
+  await openWorkspaceTab(page, "people");
   await expect(contactRolePicker(page, PROJECT_CONTACT_ROLES.CONSULTANT)).toHaveValue(first.name);
   await selectRoleContact(page, PROJECT_CONTACT_ROLES.CONSULTANT, second.name);
   await expect
@@ -141,6 +147,7 @@ test("inline contact creation recovers after a failed role assignment without du
     },
   );
   await page.goto(buildProjectRoute(project.id));
+  await openWorkspaceTab(page, "people");
   await page.getByRole("button", { name: "הוסף אדריכל", exact: true }).click();
   const name = createUniqueName("אדריכל חדש");
   const save = await fillRoleContactEditor(page, PROJECT_CONTACT_ROLES.ARCHITECT, name);
@@ -182,6 +189,7 @@ test("editing a shared role contact shows the warning and retains its role after
     ).toBe(true);
   }
   await page.goto(buildProjectRoute(project.id));
+  await openWorkspaceTab(page, "people");
   await page.getByRole("button", { name: "ערוך פרטי מנהל פרויקט", exact: true }).click();
   await expect(
     page.getByText(PROJECT_CONTACT_ROLE_COPY.SHARED_EDIT, { exact: true }),
@@ -210,11 +218,14 @@ test("apartment creation exposes optional roles and persists the chosen consulta
   const contact = await seedRoleContact(api);
   const form = createApartmentDesignPage(page);
   await form.gotoCreate(building.id);
+  await openWorkspaceTab(page, "people");
   for (const role of ROLES) {
     await expect(contactRolePicker(page, role)).toBeVisible();
   }
+  await openWorkspaceTab(page, "details");
   await form.fillUnit(createApartmentNumber());
   await form.pickCustomer(owner.name);
+  await openWorkspaceTab(page, "people");
   await selectRoleContact(page, PROJECT_CONTACT_ROLES.CONSULTANT, contact.name);
   const responsePromise = page.waitForResponse(
     response =>
@@ -232,6 +243,7 @@ test("apartment creation exposes optional roles and persists the chosen consulta
     expect.objectContaining({ contactId: contact.id, role: PROJECT_CONTACT_ROLES.CONSULTANT }),
   );
   await page.goto(buildApartmentRoute(building.id, body.id));
+  await openWorkspaceTab(page, "people");
   await expect(contactRolePicker(page, PROJECT_CONTACT_ROLES.CONSULTANT)).toHaveValue(contact.name);
 });
 
@@ -243,6 +255,7 @@ test("read-only mobile view displays empty and populated roles with isolated con
   const page = await openPageAs(TEST_USERS[USER_ROLES.INSTALLER]);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(buildProjectRoute(project.id));
+  await openWorkspaceTab(page, "people");
   const section = findCardByTitle(page, PROJECT_CONTACT_ROLE_COPY.SECTION);
   for (const role of ROLES) {
     await expect(
@@ -296,6 +309,7 @@ test("project submission waits for an in-flight inline contact save", async ({ p
     projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL,
   });
   await expect(form.createButton).toBeEnabled();
+  await openWorkspaceTab(page, "people");
   const intercepted = createDeferred();
   const resume = createDeferred();
   await page.route("**/contact-directory", async route => {

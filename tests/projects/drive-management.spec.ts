@@ -20,6 +20,7 @@ import { ROLE_ACCESS } from "../../src/constants/role-access.constant.ts";
 import { USER_ROLE_VALUES } from "../../src/constants/user-role.constant.ts";
 import { getAuthStatePath } from "../../src/utilities/auth-state.utility.ts";
 import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { DRIVE_COPY, PROJECT_PAGE_COPY } from "../../src/constants/copy.constant.ts";
 import { createDriveManagement } from "../../src/pages/drive-management.component.ts";
 import { BASELINE_PERMISSIONS } from "../../src/constants/permission-baseline.constant.ts";
@@ -62,8 +63,10 @@ for (const kind of ["standalone", "building", "apartment"] as const) {
     await (kind === "apartment"
       ? createApartmentPage(page).goto(parent.id, project.id)
       : ui.goto(project.id));
-    await expect(ui.uploadInput).toHaveCount(1);
+    await openWorkspaceTab(page, "history");
     await expect(page.getByText(PROJECT_PAGE_COPY.TIMELINE_TITLE)).toBeVisible();
+    await openWorkspaceTab(page, "files");
+    await expect(ui.uploadInput).toHaveCount(1);
     await page.getByRole("button", { name: COPY.CHOOSE, exact: true }).click();
     await ui.browse(FOLDERS.SOURCE.name);
     await ui.browse(FOLDERS.NESTED.name);
@@ -121,6 +124,7 @@ for (const width of [1440, 390]) {
     const mock = await mockDriveManagement(page, project.id);
     const ui = createDriveManagement(page);
     await ui.goto(project.id);
+    await openWorkspaceTab(page, "files");
     await ui.expandNested();
     await ui.move.click();
     await expect(ui.dialog).toContainText(
@@ -216,6 +220,7 @@ for (const width of [1440, 390]) {
     const other = await seedStandaloneProject(api, await seedCustomer(api));
     await mockDriveManagement(page, other.id);
     await ui.goto(other.id);
+    await openWorkspaceTab(page, "files");
     await expect(ui.driveCard.getByText(COPY.TRASH_SUCCESS)).toHaveCount(0);
   });
 }
@@ -236,6 +241,7 @@ for (const role of USER_ROLE_VALUES) {
         await expect(ui.driveCard).toHaveCount(0);
         return;
       }
+      await openWorkspaceTab(page, "files");
       await ui.expandNested();
       await expect(ui.file).toBeVisible();
       await expect(ui.move).toHaveCount(ROLE_ACCESS[role].canEditProject ? 1 : 0);
@@ -267,6 +273,7 @@ for (const operation of ["move", "trash"] as const) {
       mock.state.mutationStatus = status;
       const ui = createDriveManagement(page);
       await ui.goto(project.id);
+      await openWorkspaceTab(page, "files");
       await ui.expandNested();
       await ui[operation].click();
       const confirm =
@@ -298,6 +305,7 @@ test("picker loading and friendly folder error disable selection; retry and empt
   const mock = await mockDriveManagement(page, project.id);
   const ui = createDriveManagement(page);
   await ui.goto(project.id);
+  await openWorkspaceTab(page, "files");
   await page.getByRole("button", { name: COPY.CHOOSE, exact: true }).click();
   const pending = deferred();
   mock.state.holdContents = pending.promise;
@@ -322,6 +330,7 @@ test("same-folder move is harmless and preserves the file link", async ({ page, 
   const mock = await mockDriveManagement(page, project.id);
   const ui = createDriveManagement(page);
   await ui.goto(project.id);
+  await openWorkspaceTab(page, "files");
   await ui.expandNested();
   await ui.move.click();
   await ui.browse(FOLDERS.SOURCE.name);
@@ -345,6 +354,7 @@ test("a root file moves into a nested destination without changing its identity 
   file.parent = FOLDERS.ROOT;
   const ui = createDriveManagement(page);
   await ui.goto(project.id);
+  await openWorkspaceTab(page, "files");
   await expect(ui.file).toHaveAttribute("href", MANAGEMENT_FILE.webViewLink);
   await ui.move.click();
   await expect(ui.dialog).toContainText(`תיקייה נוכחית: ${COPY.ROOT}`);

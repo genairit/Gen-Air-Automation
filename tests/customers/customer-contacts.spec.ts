@@ -6,6 +6,7 @@ import {
 import { seedCustomer } from "../../src/api/seed-data.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { contactRolePicker } from "../../src/pages/project-contact-roles.page.ts";
 
 test("project form shows the customer primary contact without old customer-owned controls", async ({
@@ -17,6 +18,8 @@ test("project form shows the customer primary contact without old customer-owned
   await form.goto();
   await form.customerSearch.fill(customer.name);
   await page.getByRole("option").filter({ hasText: customer.name }).click();
+  await expect(form.addressInput).toBeVisible();
+  await openWorkspaceTab(page, "people");
   await expect(
     page.getByText(PROJECT_CONTACT_ROLE_COPY.CREATE_SECTION, { exact: true }),
   ).toBeVisible();
@@ -25,5 +28,4 @@ test("project form shows the customer primary contact without old customer-owned
   }
   await expect(form.contactNameInput).toHaveCount(0);
   await expect(form.contactPhoneInput).toHaveCount(0);
-  await expect(form.addressInput).toBeVisible();
 });

@@ -30,6 +30,7 @@ import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { ROUTE_PATTERNS } from "../../src/constants/route-patterns.constant.ts";
 import { PROJECT_DRAFT_VERSIONS } from "../../src/constants/storage.constant.ts";
 import { buildProjectDraftKey } from "../../src/utilities/auth-state.utility.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { expectFieldsAbsent } from "../../src/utilities/response-assertion.utility.ts";
 import { seedUser, seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts";
 import { newDriveRadio, existingDriveRadio } from "../../src/pages/existing-drive-folder.page.ts";
@@ -100,6 +101,7 @@ test("new project searches and links an existing directory contact", async ({ pa
     customerName: customer.name,
     projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL,
   });
+  await openWorkspaceTab(page, "people");
   const picker = findCardByTitle(page, "אנשי קשר נוספים");
   await contactSearchInput(picker).fill(name);
   await picker.getByRole("button", { name: `בחר ${name}` }).click();
@@ -114,9 +116,8 @@ test("the project draft banner no longer advertises retired payment storage", as
   const formPage = createProjectFormPage(page);
   await formPage.goto();
   await formPage.nameInput.fill(createUniqueName(PROJECT_NAME_PREFIXES.DRAFT));
-  await expect(
-    page.getByRole("status").filter({ hasText: PROJECT_FORM_COPY.DRAFT_NOTICE }),
-  ).toBeVisible();
+  await page.getByText("טיוטה מקומית", { exact: true }).click();
+  await expect(page.getByRole("button", { name: PROJECT_FORM_COPY.DISCARD_DRAFT })).toBeVisible();
   await expect(page.getByText(PAYMENT_DEFAULT_PATTERNS.SECTION)).toHaveCount(0);
 });
 
@@ -176,6 +177,7 @@ test("the form offers four optional member slots that each list only their role"
 
   await formPage.goto();
 
+  await openWorkspaceTab(page, "people");
   await expect(formPage.memberSlotPickers).toHaveCount(PROJECT_MEMBER_ROLES.length);
   for (const role of NON_MEMBER_ROLES) {
     await expect(
@@ -221,6 +223,7 @@ test("create a project with every member slot filled and see the team on the edi
     customerName: customer.name,
     projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL,
   });
+  await openWorkspaceTab(page, "people");
   for (const member of members) {
     await formPage.chooseMember(member.role, formatFullName(member.user));
   }
@@ -241,6 +244,7 @@ test("create a project with every member slot filled and see the team on the edi
 
   await formPage.gotoEdit(projectId);
 
+  await openWorkspaceTab(page, "people");
   for (const member of members) {
     await expect(formPage.memberSlotPicker(member.role)).toHaveValue(
       new RegExp(escapeRegex(formatFullName(member.user))),

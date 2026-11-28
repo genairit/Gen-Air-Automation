@@ -3,6 +3,7 @@ import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { URLS } from "../../src/constants/environment.constant.ts";
 import { createProjectPage } from "../../src/pages/project.page.ts";
 import { seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { PROJECT_PRIORITY } from "../../src/constants/project-priority.constant.ts";
 import { createTestDatabaseClient } from "../../src/environment/test-database-client.ts";
 
@@ -54,6 +55,7 @@ for (const scenario of PRIORITY_CASES) {
       const projectPage = createProjectPage(page);
 
       await projectPage.goto(project.id);
+      await openWorkspaceTab(page, "details");
       await expect(projectPage.heading(project.name)).toBeVisible();
       await expect(page.getByText(scenario.caption, { exact: true })).toBeVisible();
       await page.reload();
