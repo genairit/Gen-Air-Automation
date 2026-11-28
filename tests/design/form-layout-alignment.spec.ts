@@ -12,6 +12,7 @@ import { findFieldContainer } from "../../src/pages/field.component.ts";
 import { createCustomerFormPage } from "../../src/pages/customers.page.ts";
 import { PROJECT_TYPE_NAMES } from "../../src/constants/domain.constant.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 
 const WIDTHS = [2048, 1280, 390] as const;
 const EPSILON = 3;
@@ -100,24 +101,38 @@ test("new customer own-details cards retain compact rows without a directory pic
   }
 });
 
-test("new project directory contacts and property details share a row only when space permits", async ({
+test("new project shows the selected work area, preserves fields, and keeps actions reachable", async ({
   page,
 }) => {
   const form = createProjectFormPage(page);
   await form.goto();
-  await page.getByText(PROJECT_TYPE_NAMES.PRIVATE_CLIENT, { exact: true }).click();
-  const contacts = additionalContactSection(page);
-  const property = findCardByTitle(page, "פרטי הנכס");
-  await expect(property.getByPlaceholder("לדוגמה: 7")).toBeVisible();
+  await form.chooseProjectType(PROJECT_TYPE_NAMES.PRIVATE_CLIENT);
+  const floor = page.getByPlaceholder("לדוגמה: 7");
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
+    await openWorkspaceTab(page, "technical");
+    await expect(floor).toBeVisible();
+    await floor.fill("3");
+    await openWorkspaceTab(page, "people");
+    await expect(floor).toBeHidden();
+    await expect(contactSearchInput(additionalContactSection(page))).toBeVisible();
+    await openWorkspaceTab(page, "technical");
+    await expect(floor).toHaveValue("3");
     await fitsViewport(page);
-    const [contactsRect, propertyRect] = await Promise.all([bounds(contacts), bounds(property)]);
-    if (width === 2048) sameRow(contactsRect, propertyRect);
-    else stacked(contactsRect, propertyRect);
-    await screenshot(page, "new-project-with-property", width);
+    await expect(form.createButton).toBeVisible();
+    await expect(form.createButton).toBeInViewport();
+    const cancel = page.locator("footer").getByRole("button", { name: "ביטול", exact: true });
+    await expect
+      .poll(() =>
+        cancel.evaluate(element => {
+          const box = element.getBoundingClientRect();
+          const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+          return element.contains(hit);
+        }),
+      )
+      .toBe(true);
+    await screenshot(page, "new-project-technical", width);
   }
-  await expect(contactSearchInput(contacts)).toBeVisible();
 });
 
 test("task urgency remains a compact full-width strip above details", async ({ page, api }) => {

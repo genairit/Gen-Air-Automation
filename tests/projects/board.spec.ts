@@ -15,6 +15,7 @@ import { PROJECT_PAGE_COPY } from "../../src/constants/copy.constant.ts";
 import { buildProjectRoute } from "../../src/utilities/route.utility.ts";
 import { expectSingleResultRow } from "../../src/pages/table.component.ts";
 import { buildProjectStagePath } from "../../src/utilities/api-path.utility.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { PROJECT_TYPE_NAMES, PROJECT_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
 
 const TIMELINE_ENTRIES_AFTER_ONE_CHANGE = 2;
@@ -125,6 +126,7 @@ test("open a project from the board, change its stage in details, and see the st
     .poll(async () => (await api.getProject(project.id)).stage.name)
     .toBe(PROJECT_STATUS_NAMES.IN_PROGRESS);
 
+  await openWorkspaceTab(page, "history");
   const timelineEntries = projectPage.timeline.getByRole("listitem");
 
   await expect(timelineEntries).toHaveCount(TIMELINE_ENTRIES_AFTER_ONE_CHANGE);

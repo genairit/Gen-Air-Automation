@@ -5,6 +5,7 @@ import { createRoleMenu } from "../../src/pages/role-menu.component.ts";
 import { KEYBOARD_KEYS } from "../../src/constants/keyboard.constant.ts";
 import { TASK_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { createTestDatabaseClient } from "../../src/environment/test-database-client.ts";
 import { USER_ROLES, USER_ROLE_LABELS } from "../../src/constants/user-role.constant.ts";
 import { getUpcomingDate, toDateInputValue } from "../../src/pages/date-field.component.ts";
@@ -50,6 +51,7 @@ test("engineer pickers use assigned roles even while the employee is active in f
   await page.keyboard.press(KEYBOARD_KEYS.ESCAPE);
   const projectForm = createProjectFormPage(page);
   await projectForm.goto();
+  await openWorkspaceTab(page, "people");
   const members = await projectForm.openMemberSlot(ENGINEER);
   await expect(members.filter({ hasText: formatFullName(engineer) })).toBeVisible();
   await expect(members.filter({ hasText: formatFullName(financeOnly) })).toHaveCount(0);

@@ -25,12 +25,13 @@ import { TASK_FORM_COPY } from "../../src/constants/copy.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { buildProjectRoute } from "../../src/utilities/route.utility.ts";
-import { contactSearchInput } from "../../src/pages/contact-search.page.ts";
 import { getAuthStatePath } from "../../src/utilities/auth-state.utility.ts";
 import { isTaskCreationRequest } from "../../src/utilities/response.utility.ts";
 import { HTTP_STATUS, HTTP_METHODS } from "../../src/constants/http.constant.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { TASK_TYPES, PROJECT_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
 import { createUniqueEmail, createUniqueName } from "../../src/utilities/test-data.utility.ts";
+import { contactSearchInput, projectContactsSection } from "../../src/pages/contact-search.page.ts";
 import { createTaskFormPage, createTaskPage, createTasksPage } from "../../src/pages/tasks.page.ts";
 
 test("Tasks opens directly on its table and old creation URLs redirect there", async ({
@@ -338,7 +339,7 @@ test.describe("personal tasks preserve legacy metadata and type badges", () => {
   }
 });
 
-test("maximum project title renders an empty task card without mobile overflow", async ({
+test("maximum project title fits the task workspace and the mobile Projects board", async ({
   page,
   api,
 }, testInfo) => {
@@ -357,13 +358,19 @@ test("maximum project title renders an empty task card without mobile overflow",
   await page.setViewportSize(VIEWPORTS.MOBILE);
   await createProjectPage(page).goto(project.id);
   await expect(page.getByText("אין משימות עדיין", { exact: true })).toBeVisible();
-  await contactSearchInput(page).fill(contactName);
+  await openWorkspaceTab(page, "people");
+  await contactSearchInput(projectContactsSection(page)).fill(contactName);
   await expect(page.getByText(contactEmail, { exact: false })).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
   await expect
     .poll(async () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
     .toBe(true);
   await page.screenshot({ path: testInfo.outputPath("mobile-long-title.png"), fullPage: true });
+  await page.goto(ROUTES.BOARD);
+  await expect(page.getByRole("region", { name: project.name, exact: true }).first()).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+    .toBe(true);
 });
 
 for (const viewport of [{ width: 1440, height: 1000 }, VIEWPORTS.MOBILE]) {

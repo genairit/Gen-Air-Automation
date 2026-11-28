@@ -20,6 +20,7 @@ import { contactSearchInput } from "../../src/pages/contact-search.page.ts";
 import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { readCustomerProjects } from "../../src/api/customer-projects.api.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { scopedApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 
 const contactIdFrom = async (response: { json: () => Promise<unknown> }): Promise<string> => {
@@ -172,6 +173,7 @@ test("one directory contact links to a project and apartment, then unlinking pre
     expect(linked.status()).toBe(201);
   }
   await page.goto(`/projects/${project.id}`);
+  await openWorkspaceTab(page, "people");
   await expect(page.getByText("איש קשר ראשי של הפרויקט")).toBeVisible();
   await expect(page.locator('a[href="tel:+12025550123"]')).toBeVisible();
   const primary = await api.send(HTTP_METHODS.GET, `/customer/${customer.id}`);
@@ -215,6 +217,7 @@ test("project contact controls create, edit, unlink, and reselect a reusable dir
   const contactName = createUniqueName("אתר קשר");
   const editedName = `${contactName} חדש`;
   await page.goto(`/projects/${project.id}`);
+  await openWorkspaceTab(page, "people");
   const card = findCardByTitle(page, "אנשי קשר בפרויקט או בדירה");
   await card.getByRole("button", { name: "צור איש קשר במדריך" }).click();
   await findFieldByTitle(card, "שם").fill(contactName);

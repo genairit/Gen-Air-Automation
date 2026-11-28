@@ -41,6 +41,7 @@ import { createApartmentPage } from "../../src/pages/apartment.page.ts";
 import { KEYBOARD_KEYS } from "../../src/constants/keyboard.constant.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { PROJECT_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { remapArchivedOnHoldProject } from "../../src/environment/stage-reason-data.ts";
 import { createApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { seedBuilding, seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts";
@@ -146,6 +147,7 @@ test("the project header asks for a required reason and cancel, Esc and X send n
   await expect(projectPage.stagePicker).toHaveValue(PROJECT_STATUS_NAMES.WAITING_RESPONSE);
   const banner = findWaitingReasonBanner(page);
   await expect(banner).toContainText(MIXED_REASON);
+  await openWorkspaceTab(page, "history");
   await expect(findTimelineReason(projectPage.timeline, MIXED_REASON)).toBeVisible();
   await expect(
     findTimelineReason(projectPage.timeline, MIXED_REASON).getByText(
@@ -223,6 +225,7 @@ test("the building header shows its reason and bulk moves share one reason, keep
   const stageMoves = captureStageMoves(page);
 
   await projectPage.goto(building.id);
+  await openWorkspaceTab(page, "apartments");
   await projectPage.changeStage(PROJECT_STATUS_NAMES.WAITING_RESPONSE);
   await headerDialog.confirm(REASON);
   await expect(headerDialog.dialog).toBeHidden();
@@ -315,6 +318,7 @@ test("apartment status tabs ask for the reason by click and arrow key, and cance
   ]);
   const banner = findWaitingReasonBanner(page);
   await expect(banner).toContainText(APARTMENT_REASON);
+  await openWorkspaceTab(page, "history");
   await expect(findTimelineReason(projectPage.timeline, APARTMENT_REASON)).toBeVisible();
   await saveScreenshot(banner, "banner-apartment-desktop");
   await saveScreenshot(projectPage.timeline, "timeline-apartment-desktop");
@@ -394,6 +398,7 @@ test("migrated waiting projects show the archived reason, an empty-reason banner
 
   await projectPage.goto(archived.id);
   await expect(findWaitingReasonBanner(page)).toContainText(archivedReason);
+  await openWorkspaceTab(page, "history");
   const archivedEntry = findTimelineReason(projectPage.timeline, archivedReason);
   await expect(archivedEntry.getByText(ARCHIVED_ON_HOLD_STAGE_NAME, { exact: true })).toBeVisible();
 
@@ -416,6 +421,7 @@ test("migrated waiting projects show the archived reason, an empty-reason banner
     });
   });
   await projectPage.goto(archived.id);
+  await openWorkspaceTab(page, "history");
   await expect(
     findTimelineReason(projectPage.timeline, archivedReason).getByText(
       STAGE_REASON_COPY.ARCHIVED_STAGE,
@@ -435,6 +441,7 @@ test("the dialog, banners and timeline fit a 390px screen in RTL", async ({ page
 
   await page.setViewportSize(VIEWPORTS.MOBILE);
   await projectPage.goto(building.id);
+  await openWorkspaceTab(page, "apartments");
   await projectPage.changeStage(PROJECT_STATUS_NAMES.WAITING_RESPONSE);
   await reasonDialog.reasonInput.fill(longReason);
   expect(await reasonDialog.dialog.evaluate(element => getComputedStyle(element).direction)).toBe(
@@ -448,6 +455,7 @@ test("the dialog, banners and timeline fit a 390px screen in RTL", async ({ page
   await expect(banner).toContainText(longReason);
   await expectNoHorizontalOverflow(page);
   await saveScreenshot(banner, "banner-building-390");
+  await openWorkspaceTab(page, "history");
   await projectPage.timeline.scrollIntoViewIfNeeded();
   await expect(findTimelineReason(projectPage.timeline, longReason)).toBeVisible();
   await expectNoHorizontalOverflow(page);
@@ -462,6 +470,7 @@ test("the dialog, banners and timeline fit a 390px screen in RTL", async ({ page
   await expect(findWaitingReasonBanner(page)).toContainText(MIXED_REASON);
   await expectNoHorizontalOverflow(page);
   await saveScreenshot(findWaitingReasonBanner(page), "banner-apartment-390");
+  await openWorkspaceTab(page, "history");
   await projectPage.timeline.scrollIntoViewIfNeeded();
   await saveScreenshot(projectPage.timeline, "timeline-apartment-390");
 });
@@ -476,6 +485,7 @@ test("bulk stage options can be clicked above the apartments table header", asyn
   const bulkDialog = createStageReasonDialog(page, formatBulkReasonTitle(1));
 
   await projectPage.goto(building.id);
+  await openWorkspaceTab(page, "apartments");
   await projectPage.selectApartment(apartment.number).check();
   await projectPage.changeSelectedStage(PROJECT_STATUS_NAMES.WAITING_RESPONSE);
   await expect(bulkDialog.dialog).toBeVisible();

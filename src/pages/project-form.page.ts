@@ -2,7 +2,6 @@ import type { Page } from "@playwright/test";
 import { findFieldByTitle } from "./field.component.ts";
 import { findMainContent } from "./layout.component.ts";
 import { ROUTES } from "../constants/routes.constant.ts";
-import { findFormSectionByTitle } from "./card.component.ts";
 import { PROJECT_FORM_COPY } from "../constants/copy.constant.ts";
 import { buildEditProjectRoute } from "../utilities/route.utility.ts";
 import type { IFakePlace } from "../interfaces/fake-place.interface.ts";
@@ -18,7 +17,7 @@ export interface IProjectFormInput {
 export const createProjectFormPage = (page: Page) => {
   const form = findMainContent(page);
   const nameInput = findFieldByTitle(form, PROJECT_FORM_COPY.NAME);
-  const notesInput = findFieldByTitle(form, PROJECT_FORM_COPY.NOTES_LABEL);
+  const notesInput = form.getByRole("textbox", { name: PROJECT_FORM_COPY.NOTES_LABEL });
   const addressVerified = page.getByText(PROJECT_FORM_COPY.ADDRESS_VERIFIED);
   const contactNameInput = form.getByPlaceholder(PROJECT_FORM_COPY.CONTACT_NAME_PLACEHOLDER);
   const contactPhoneInput = form.getByPlaceholder(PROJECT_FORM_COPY.CONTACT_PHONE_PLACEHOLDER);
@@ -27,7 +26,9 @@ export const createProjectFormPage = (page: Page) => {
   const deleteButton = page.getByRole("button", { name: PROJECT_FORM_COPY.DELETE });
   const addressInput = form.getByRole("combobox", { name: PROJECT_FORM_COPY.ADDRESS });
   const customerSearch = form.getByPlaceholder(PROJECT_FORM_COPY.CUSTOMER_SEARCH_PLACEHOLDER);
-  const rolesSection = findFormSectionByTitle(form, PROJECT_FORM_COPY.ROLES_TITLE);
+  const rolesSection = form
+    .getByText(PROJECT_FORM_COPY.ROLES_TITLE, { exact: true })
+    .locator("xpath=ancestor::div[.//input[@role='combobox']][1]");
   const memberSlotPickers = rolesSection.getByRole("combobox");
   const createDenied = form.getByText(PROJECT_FORM_COPY.CREATE_DENIED, { exact: true });
   const editDenied = form.getByText(PROJECT_FORM_COPY.EDIT_DENIED, { exact: true });
@@ -38,7 +39,7 @@ export const createProjectFormPage = (page: Page) => {
   const gotoEdit = (projectId: string) => page.goto(buildEditProjectRoute(projectId));
 
   const memberSlotPicker = (role: ProjectMemberRoleType) =>
-    findFormSectionByTitle(rolesSection, USER_ROLE_LABELS[role]).getByRole("combobox");
+    rolesSection.getByRole("combobox", { name: USER_ROLE_LABELS[role], exact: true });
 
   const openMemberSlot = async (role: ProjectMemberRoleType) => {
     await memberSlotPicker(role).click();
@@ -52,8 +53,13 @@ export const createProjectFormPage = (page: Page) => {
     await options.filter({ hasText: userName }).click();
   };
 
-  const chooseProjectType = (projectTypeName: string) =>
-    form.getByText(projectTypeName, { exact: true }).click();
+  const chooseProjectType = async (projectTypeName: string) => {
+    await form.getByRole("combobox", { name: "בחירת סוג פרויקט" }).click();
+    await page
+      .getByRole("option")
+      .filter({ has: page.getByText(projectTypeName, { exact: true }) })
+      .click();
+  };
 
   const chooseAddress = async (place: IFakePlace) => {
     await addressInput.fill(place.mainText);
@@ -94,6 +100,7 @@ export const createProjectFormPage = (page: Page) => {
     gotoEdit,
     chooseMember,
     openMemberSlot,
+    chooseProjectType,
     memberSlotPicker,
   };
 };

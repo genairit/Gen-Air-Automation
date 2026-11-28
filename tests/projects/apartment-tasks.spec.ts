@@ -11,7 +11,6 @@ import {
 import type { Page } from "@playwright/test";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { createTaskFormPage } from "../../src/pages/tasks.page.ts";
-import { findCardByTitle } from "../../src/pages/card.component.ts";
 import { createProjectPage } from "../../src/pages/project.page.ts";
 import { TASK_TYPES } from "../../src/constants/domain.constant.ts";
 import { TASK_FORM_COPY } from "../../src/constants/copy.constant.ts";
@@ -23,31 +22,24 @@ import { buildApartmentRoute } from "../../src/utilities/route.utility.ts";
 import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 import { buildImportRow } from "../../src/utilities/apartment-import.utility.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { uploadApartments, readBuildingApartments } from "../../src/api/apartment-import.api.ts";
 
 const TASKS_TITLE = "משימות הפרויקט";
 
-const expectTasksImmediatelyAfterHeader = async (page: Page) => {
-  const tasksCard = findCardByTitle(page, TASKS_TITLE);
-  const header = tasksCard.locator("xpath=preceding-sibling::*[1]");
-  const nextContent = tasksCard.locator("xpath=following-sibling::*[1]");
-  await expect(tasksCard).toBeVisible();
-  await expect(header).toBeVisible();
-  await expect(nextContent).toBeVisible();
-  const [headerBox, tasksBox, nextBox] = await Promise.all([
-    header.boundingBox(),
-    tasksCard.boundingBox(),
-    nextContent.boundingBox(),
-  ]);
-  if (!headerBox || !tasksBox || !nextBox) {
-    throw new Error("Expected the header, tasks and next section to have visible bounds");
-  }
-  expect(tasksBox.y).toBeGreaterThanOrEqual(headerBox.y + headerBox.height - 2);
-  expect(tasksBox.y - (headerBox.y + headerBox.height)).toBeLessThanOrEqual(40);
-  expect(nextBox.y).toBeGreaterThanOrEqual(tasksBox.y + tasksBox.height - 2);
+const expectDefaultWorkspace = async (page: Page) => {
+  const tab = page.getByRole("tab", { name: "משימות", exact: true });
+  await expect(tab).toHaveAttribute("aria-selected", "true");
+  const tasks = page.getByRole("tabpanel", { name: "משימות", exact: true });
+  await expect(tasks).toBeInViewport();
+  const files = page.getByRole("tabpanel", { name: "קבצים", exact: true });
+  await expect(files).toBeHidden();
+  await openWorkspaceTab(page, "files");
+  await expect(files).toBeVisible();
+  await expect(tasks).toBeHidden();
 };
 
-test("building, standalone and apartment pages put tasks immediately after the header", async ({
+test("building, standalone and apartment pages open on tasks and switch directly to files", async ({
   page,
   api,
 }) => {
@@ -60,13 +52,13 @@ test("building, standalone and apartment pages put tasks immediately after the h
     await createProjectPage(page).goto(project.id);
     expect((await api.getProjectTasks(project.id)).items).toEqual([]);
     await expect(page.getByText("אין משימות עדיין", { exact: true })).toBeVisible();
-    await expectTasksImmediatelyAfterHeader(page);
+    await expectDefaultWorkspace(page);
   }
 
   await createApartmentPage(page).goto(building.id, apartment.id);
   expect((await api.getProjectTasks(apartment.id)).items).toEqual([]);
   await expect(page.getByText("אין משימות עדיין", { exact: true })).toBeVisible();
-  await expectTasksImmediatelyAfterHeader(page);
+  await expectDefaultWorkspace(page);
 });
 
 test("apartment task card scopes tasks and creates General and Planning work deliberately", async ({
@@ -81,7 +73,7 @@ test("apartment task card scopes tasks and creates General and Planning work del
   const secondTask = await seedTask(api, { link: linkToProject(second) });
 
   await createApartmentPage(page).goto(building.id, first.id);
-  const tasksCard = findCardByTitle(page, TASKS_TITLE);
+  const tasksCard = page.getByRole("region", { name: TASKS_TITLE, exact: true });
   await expect(tasksCard.getByText(firstTask.title, { exact: true })).toBeVisible();
   await expect(tasksCard.getByText(buildingTask.title, { exact: true })).toHaveCount(0);
   await expect(tasksCard.getByText(secondTask.title, { exact: true })).toHaveCount(0);
@@ -110,9 +102,15 @@ test("apartment task card scopes tasks and creates General and Planning work del
   );
 
   await createApartmentPage(page).goto(building.id, second.id);
-  await expect(findCardByTitle(page, TASKS_TITLE).getByText(secondTask.title)).toBeVisible();
-  await expect(findCardByTitle(page, TASKS_TITLE).getByText(firstTask.title)).toHaveCount(0);
-  await expect(findCardByTitle(page, TASKS_TITLE).getByText(newTitle)).toHaveCount(0);
+  await expect(
+    page.getByRole("region", { name: TASKS_TITLE, exact: true }).getByText(secondTask.title),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: TASKS_TITLE, exact: true }).getByText(firstTask.title),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("region", { name: TASKS_TITLE, exact: true }).getByText(newTitle),
+  ).toHaveCount(0);
 
   await createApartmentPage(page).goto(building.id, first.id);
   await createProjectPage(page).newTaskButton.click();
@@ -141,12 +139,14 @@ test("Excel-imported apartment remains empty after reimport", async ({ page, api
   const [imported] = await readBuildingApartments(api, building.id);
   const apartment = await api.getProject(imported.id);
   await createApartmentPage(page).goto(building.id, apartment.id);
-  const tasksCard = findCardByTitle(page, TASKS_TITLE);
+  const tasksCard = page.getByRole("region", { name: TASKS_TITLE, exact: true });
   await expect(tasksCard.getByText("אין משימות עדיין", { exact: true })).toBeVisible();
   expect((await api.getProjectTasks(apartment.id)).items).toEqual([]);
   expect((await uploadApartments(api, building.id, [row])).counts.existing).toBe(1);
   await page.reload();
-  await expect(findCardByTitle(page, TASKS_TITLE).getByText("אין משימות עדיין")).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: TASKS_TITLE, exact: true }).getByText("אין משימות עדיין"),
+  ).toBeVisible();
   expect((await api.getProjectTasks(apartment.id)).items).toEqual([]);
 });
 
@@ -172,7 +172,12 @@ test("apartment hides task card and task requests without tasks read permission"
       });
       await createApartmentPage(page).goto(building.id, apartment.id);
       await expect(page.getByText(apartment.code)).toBeVisible();
-      await expect(page.getByRole("heading", { name: TASKS_TITLE })).toHaveCount(0);
+      await expect(page.getByRole("tab", { name: "משימות", exact: true })).toHaveCount(0);
+      await expect(page.getByRole("tab", { name: "פרטים", exact: true })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+      await expect(page.getByRole("region", { name: TASKS_TITLE })).toHaveCount(0);
       expect(taskRequests).toEqual([]);
     },
   );

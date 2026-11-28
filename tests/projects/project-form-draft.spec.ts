@@ -129,6 +129,7 @@ test("draft reload restores allowed values, omits private details and discard re
   await expect(form.addressInput).toHaveValue("");
   await expect(form.customerSearch).toHaveValue("");
 
+  await form.draftRestored.click();
   await page.getByRole("button", { name: PROJECT_FORM_COPY.DISCARD_DRAFT }).click();
   await expect(form.nameInput).toHaveValue("");
   await expect.poll(() => readDraft(page, api.session.user.id)).toBeNull();

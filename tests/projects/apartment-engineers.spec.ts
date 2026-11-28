@@ -19,6 +19,7 @@ import { buildApartmentRoute } from "../../src/utilities/route.utility.ts";
 import { PROJECT_TYPE_NAMES } from "../../src/constants/domain.constant.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { buildImportRow } from "../../src/utilities/apartment-import.utility.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { createTaskFormPage, createTaskPage } from "../../src/pages/tasks.page.ts";
 import { createApartmentDesignPage } from "../../src/pages/apartment-design.page.ts";
 import { createApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
@@ -34,19 +35,24 @@ test("building project forms omit the engineer slot while standalone forms keep 
 }) => {
   const projectForm = createProjectFormPage(page);
   await projectForm.goto();
-  await page.getByText(PROJECT_TYPE_NAMES.RESIDENTIAL_BUILDING, { exact: true }).click();
+  await projectForm.chooseProjectType(PROJECT_TYPE_NAMES.RESIDENTIAL_BUILDING);
+  await openWorkspaceTab(page, "people");
   await expect(projectForm.memberSlotPicker(USER_ROLES.ENGINEER)).toHaveCount(0);
   await expect(projectForm.memberSlotPicker(USER_ROLES.INSTALLER)).toBeVisible();
-  await page.getByText(PROJECT_TYPE_NAMES.COMMERCIAL, { exact: true }).click();
+  await openWorkspaceTab(page, "details");
+  await projectForm.chooseProjectType(PROJECT_TYPE_NAMES.COMMERCIAL);
+  await openWorkspaceTab(page, "people");
   await expect(projectForm.memberSlotPicker(USER_ROLES.ENGINEER)).toBeVisible();
 
   const customer = await seedCustomer(api);
   const building = await seedBuilding(api, customer);
   const standalone = await seedStandaloneProject(api, customer);
   await projectForm.gotoEdit(building.id);
+  await openWorkspaceTab(page, "people");
   await expect(projectForm.memberSlotPicker(USER_ROLES.ENGINEER)).toHaveCount(0);
   await expect(projectForm.memberSlotPicker(USER_ROLES.INSTALLER)).toBeVisible();
   await projectForm.gotoEdit(standalone.id);
+  await openWorkspaceTab(page, "people");
   await expect(projectForm.memberSlotPicker(USER_ROLES.ENGINEER)).toBeVisible();
 });
 
@@ -70,6 +76,7 @@ test("apartment create and detail assign a local engineer while other team reset
 
   const form = createApartmentDesignPage(page);
   await form.gotoCreate(building.id);
+  await openWorkspaceTab(page, "people");
   const picker = engineerPicker(page, COPY.TEAM_TITLE);
   await expect(form.draftTeam().getByText(COPY.INHERITED, { exact: true })).toBeVisible();
   await expect(
@@ -84,10 +91,11 @@ test("apartment create and detail assign a local engineer while other team reset
     .getByRole("option")
     .filter({ hasText: formatFullName(first) })
     .click();
+  await openWorkspaceTab(page, "details");
   await form.fillUnit(createApartmentNumber());
   await form.pickCustomer(customer.name);
   await form.submit.click();
-  await expect(page).toHaveURL(new RegExp(`/projects/${building.id}$`));
+  await expect(page).toHaveURL(new RegExp(`/projects/${building.id}\\?tab=apartments$`));
 
   const apartments = await readBuildingApartments(api, building.id);
   const apartment = apartments.find(item => item.customerId === customer.id);
@@ -96,6 +104,7 @@ test("apartment create and detail assign a local engineer while other team reset
     expect.objectContaining({ userId: first.id, role: USER_ROLES.ENGINEER }),
   ]);
   await page.goto(buildApartmentRoute(building.id, apartment.id));
+  await openWorkspaceTab(page, "people");
   const detailTeam = form.teamCard();
   const detailPicker = engineerPicker(page, COPY.CONTACT_TEAM);
   await expect(detailPicker).toHaveValue(new RegExp(escapeRegex(formatFullName(first))));
@@ -177,6 +186,7 @@ test("Excel-imported apartment starts with no engineer and permits a later local
   expect((await uploadApartments(api, building.id, [row])).counts.created).toBe(1);
   const [apartment] = await readBuildingApartments(api, building.id);
   await page.goto(buildApartmentRoute(building.id, apartment.id));
+  await openWorkspaceTab(page, "people");
   const picker = engineerPicker(page, COPY.CONTACT_TEAM);
   await expect(picker).toHaveValue(COPY.NO_ENGINEER);
   await picker.click();

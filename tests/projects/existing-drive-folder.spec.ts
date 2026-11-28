@@ -27,6 +27,7 @@ import { PROJECT_TYPE_NAMES } from "../../src/constants/domain.constant.ts";
 import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { createApartmentFormPage } from "../../src/pages/apartment.page.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { legacyDriveTree } from "../../src/environment/existing-drive-fixtures.ts";
 import { createApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { EXISTING_DRIVE_COPY } from "../../src/constants/existing-drive-folder.constant.ts";
@@ -69,6 +70,7 @@ test("project creation previews and links an existing folder using keyboard radi
     driveFolderId: legacy.root.id,
     driveFolderLinked: true,
   });
+  await openWorkspaceTab(page, "files");
   await expect(page.getByText(EXISTING_DRIVE_COPY.LINKED, { exact: true })).toBeVisible();
   await expect(page.getByText(EXISTING_DRIVE_COPY.MISSING, { exact: true })).toBeVisible();
   const complete = page.getByRole("button", { name: EXISTING_DRIVE_COPY.COMPLETE, exact: true });
@@ -246,7 +248,7 @@ test("apartment creation links a legacy folder in its own building and presents 
     throw new Error("Apartment create response has no id");
   }
   const apartmentId = result.id;
-  await expect(page).toHaveURL(buildProjectRoute(building.id));
+  await expect(page).toHaveURL(`${buildProjectRoute(building.id)}?tab=apartments`);
   await page.goto(buildApartmentRoute(building.id, apartmentId));
   expect(await (await api.send(HTTP_METHODS.GET, `/project/${apartmentId}`)).json()).toMatchObject({
     driveFolderId: legacy.firstApartment.id,
@@ -254,11 +256,13 @@ test("apartment creation links a legacy folder in its own building and presents 
     parentProjectId: building.id,
   });
   await page.setViewportSize({ width: 390, height: 844 });
+  await openWorkspaceTab(page, "files");
   await expect(page.getByText(EXISTING_DRIVE_COPY.LINKED, { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
   await page.screenshot({ path: "/tmp/feedback174-mobile-linked-folder.png", fullPage: true });
   await page.goto(buildProjectRoute(building.id));
+  await openWorkspaceTab(page, "files");
   await expect(page.getByText(EXISTING_DRIVE_COPY.LINKED, { exact: true })).toBeVisible();
 });

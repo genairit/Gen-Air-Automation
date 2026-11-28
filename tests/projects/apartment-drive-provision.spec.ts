@@ -6,6 +6,7 @@ import { createProjectPage } from "../../src/pages/project.page.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { createApartmentPage } from "../../src/pages/apartment.page.ts";
 import { buildImportRow } from "../../src/utilities/apartment-import.utility.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { seedApartment, seedBuilding, seedCustomer } from "../../src/api/seed-data.ts";
 import { scopedApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { uploadApartments, readBuildingApartments } from "../../src/api/apartment-import.api.ts";
@@ -106,6 +107,7 @@ test("new building and apartment create דיירים hierarchy and full apartmen
     expect.arrayContaining([expect.objectContaining({ id: apartmentFolderId })]),
   );
   await createApartmentPage(page).goto(building.id, apartment.id);
+  await openWorkspaceTab(page, "files");
   await expect(
     createProjectPage(page).driveCard.getByRole("button", { name: /^PDF/ }),
   ).toBeVisible();

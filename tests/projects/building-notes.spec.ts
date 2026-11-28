@@ -12,6 +12,7 @@ import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { ROUTE_PATTERNS } from "../../src/constants/route-patterns.constant.ts";
 import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { seedBuilding, seedCustomer, seedApartment } from "../../src/api/seed-data.ts";
 import { buildEditProjectRoute, readLastPathSegment } from "../../src/utilities/route.utility.ts";
 
@@ -34,6 +35,7 @@ test("building notes save on creation, update live in apartments, and leave apar
     customerName: customer.name,
     projectTypeName: PROJECT_TYPE_NAMES.RESIDENTIAL_BUILDING,
   });
+  await openWorkspaceTab(page, "technical");
   await expect(form.notesInput).toBeVisible();
   await expect(form.notesInput).toHaveAttribute("dir", "rtl");
   await form.notesInput.fill(INITIAL_NOTES);
@@ -41,6 +43,7 @@ test("building notes save on creation, update live in apartments, and leave apar
   await expect(page).toHaveURL(ROUTE_PATTERNS.PROJECT);
   const buildingId = readLastPathSegment(page.url());
   const projectPage = createProjectPage(page);
+  await openWorkspaceTab(page, "details");
   await expect(page.getByText(INITIAL_NOTES, { exact: true })).toBeVisible();
   await expect(page.getByText(BUILDING_NOTES_COPY.TAMA_BADGE, { exact: true })).toBeVisible();
   expect(
@@ -52,6 +55,7 @@ test("building notes save on creation, update live in apartments, and leave apar
   const apartment = await seedApartment(api, await api.getProject(buildingId));
   const apartmentPage = createApartmentPage(page);
   await apartmentPage.goto(buildingId, apartment.id);
+  await openWorkspaceTab(page, "details");
   const inherited = findCardByTitle(page, BUILDING_NOTES_COPY.PARENT_CARD);
   const local = findCardByTitle(page, BUILDING_NOTES_COPY.APARTMENT_CARD);
   await expect(inherited.getByText(INITIAL_NOTES, { exact: true })).toBeVisible();
@@ -62,13 +66,16 @@ test("building notes save on creation, update live in apartments, and leave apar
   await expect(apartmentPage.saveNotesButton).toBeDisabled();
 
   await form.gotoEdit(buildingId);
+  await openWorkspaceTab(page, "technical");
   await expect(form.notesInput).toHaveValue(INITIAL_NOTES);
   await form.notesInput.fill(UPDATED_NOTES);
   await form.saveButton.click();
   await expect(page).toHaveURL(ROUTE_PATTERNS.PROJECT);
+  await openWorkspaceTab(page, "details");
   await expect(projectPage.heading((await api.getProject(buildingId)).name)).toBeVisible();
   await expect(page.getByText(UPDATED_NOTES, { exact: true })).toBeVisible();
   await apartmentPage.goto(buildingId, apartment.id);
+  await openWorkspaceTab(page, "details");
   await page.reload();
   await expect(inherited.getByText(UPDATED_NOTES, { exact: true })).toBeVisible();
   await expect(local.getByRole("textbox")).toHaveValue(APARTMENT_NOTES);
@@ -99,11 +106,15 @@ test("long building notes and clearing them render consistently without granting
   const apartment = await seedApartment(api, building);
   const form = createProjectFormPage(page);
   await form.gotoEdit(building.id);
+  await openWorkspaceTab(page, "technical");
   await expect(form.notesInput).toHaveValue("");
   await form.notesInput.fill(LONG_NOTES);
   await form.saveButton.click();
+  await expect(page).toHaveURL(ROUTE_PATTERNS.PROJECT);
+  await openWorkspaceTab(page, "details");
   await expect(page.getByText(LONG_NOTES, { exact: true })).toBeVisible();
   await createApartmentPage(page).goto(building.id, apartment.id);
+  await openWorkspaceTab(page, "details");
   await page.reload();
   await expect(
     findCardByTitle(page, BUILDING_NOTES_COPY.PARENT_CARD).getByText(LONG_NOTES, { exact: true }),
@@ -120,8 +131,11 @@ test("long building notes and clearing them render consistently without granting
   expect(denied.status()).toBe(HTTP_STATUS.FORBIDDEN);
 
   await form.gotoEdit(building.id);
+  await openWorkspaceTab(page, "technical");
   await form.notesInput.fill("");
   await form.saveButton.click();
+  await expect(page).toHaveURL(ROUTE_PATTERNS.PROJECT);
+  await openWorkspaceTab(page, "details");
   await expect(page.getByText(BUILDING_NOTES_COPY.NO_NOTES, { exact: true })).toBeVisible();
   expect(
     await (await api.send(HTTP_METHODS.GET, buildProjectPath(building.id))).json(),
@@ -129,6 +143,7 @@ test("long building notes and clearing them render consistently without granting
     notes: null,
   });
   await createApartmentPage(page).goto(building.id, apartment.id);
+  await openWorkspaceTab(page, "details");
   await expect(
     findCardByTitle(page, BUILDING_NOTES_COPY.PARENT_CARD).getByText(BUILDING_NOTES_COPY.NO_NOTES),
   ).toBeVisible();

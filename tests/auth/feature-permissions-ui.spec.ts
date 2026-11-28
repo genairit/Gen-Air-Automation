@@ -27,6 +27,7 @@ import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { PROJECT_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
 import { mockDriveManagement } from "../../src/mocks/drive-management.mock.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { createTaskFormPage, createTaskPage } from "../../src/pages/tasks.page.ts";
 import { createDriveManagement } from "../../src/pages/drive-management.component.ts";
 import { PERMISSIONS, PERMISSION_COPY } from "../../src/constants/permission.constant.ts";
@@ -231,11 +232,12 @@ test("apartments can be created without project-edit permission and denied route
       const project = createProjectPage(page);
       await project.goto(building.id);
       await expect(project.editButton).toHaveCount(0);
+      await openWorkspaceTab(page, "apartments");
       await project.addApartmentButton.click();
       const form = createApartmentFormPage(page);
       await form.fill({ floor: "5", number: "47א", customerName: customer.name });
       await form.submitButton.click();
-      await expect(page).toHaveURL(new RegExp(`/projects/${building.id}$`));
+      await expect(page).toHaveURL(new RegExp(`/projects/${building.id}\\?tab=apartments$`));
       await expect(project.findApartmentRow("47א")).toBeVisible();
     },
   );
@@ -271,9 +273,13 @@ test("status grant is separate from project edit in form, apartment tabs and bul
       await expect(page.getByRole("heading", { name: "QA ordinary project edit" })).toBeVisible();
       const view = createApartmentPage(page);
       await view.goto(building.id, apartment.id);
-      await expect(view.stageTab(PROJECT_STATUS_NAMES.IN_PROGRESS)).toBeDisabled();
+      await expect(view.stageTab(PROJECT_STATUS_NAMES.IN_PROGRESS)).toHaveCount(0);
+      await expect(
+        page.getByText(PROJECT_STATUS_NAMES.NOT_STARTED, { exact: true }).first(),
+      ).toBeVisible();
       const buildingPage = createProjectPage(page);
       await buildingPage.goto(building.id);
+      await openWorkspaceTab(page, "apartments");
       await buildingPage.findApartmentRow(apartment.name).getByRole("checkbox").check();
       await expect(page.getByRole("combobox", { name: "שנה שלב ל…" })).toHaveCount(0);
     },
@@ -302,6 +308,12 @@ for (const building of [false, true]) {
         const view = createProjectPage(page);
         await view.goto(project.id);
         await expect(view.heading(project.name)).toBeVisible();
+        await expect(page.getByRole("tab", { name: "פרטים", exact: true })).toHaveAttribute(
+          "aria-selected",
+          "true",
+        );
+        await expect(page.getByRole("tab", { name: "קבצים", exact: true })).toHaveCount(0);
+        await expect(page.getByRole("tab", { name: "משימות", exact: true })).toHaveCount(0);
         await expect(view.driveCard).toHaveCount(0);
         await expect(page.getByRole("heading", { name: "משימות הפרויקט" })).toHaveCount(0);
         expect(
@@ -347,6 +359,7 @@ for (const grant of [PERMISSIONS.DRIVE_UPLOAD, PERMISSIONS.DRIVE_MOVE, PERMISSIO
       await mockDriveManagement(page, project.id);
       const view = createDriveManagement(page);
       await view.goto(project.id);
+      await openWorkspaceTab(page, "files");
       await view.expandNested();
       await expect(view.file).toBeVisible();
       await expect(view.editButton).toHaveCount(0);
