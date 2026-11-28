@@ -14,7 +14,6 @@ const TITLE = "פריטי קטלוג";
 const CREATE = "פריט קטלוג חדש";
 const EDIT = "עריכת פריט קטלוג";
 const PREVIEW = "כרטיס פריט";
-const LIST = "רשימת פריטי קטלוג";
 const SEARCH = "חיפוש לפי מק״ט, תיאור או BTU";
 const DESCRIPTION = "תיאור";
 const SKU = "מק״ט";
@@ -25,8 +24,8 @@ const CANCEL = "ביטול";
 
 const title = (page: Page, name: string) => page.getByRole("heading", { name, exact: true });
 const button = (page: Page, name: string) => page.getByRole("button", { name, exact: true });
-const field = (page: Page, name: string) =>
-  page.getByRole("region", { name: "פרטי פריט", exact: true }).getByRole("textbox", { name });
+const editor = (page: Page) => page.getByRole("dialog", { name: /פריט קטלוג/ });
+const field = (page: Page, name: string) => editor(page).getByRole("textbox", { name });
 const search = (page: Page) => page.getByRole("searchbox", { name: SEARCH, exact: true });
 const row = (page: Page, sku: string, description: string) =>
   page.getByRole("button", { name: `פתיחת פריט ${sku} · ${description}`, exact: true });
@@ -44,7 +43,7 @@ test("catalogue manager creates, edits and archives an item from the Hebrew desk
   await expect(title(page, TITLE)).toHaveCSS("font-weight", "800");
   await button(page, CREATE).click();
   await expect(title(page, CREATE)).toBeVisible();
-  await expect(page.getByRole("region", { name: LIST })).toHaveCount(0);
+  await expect(editor(page)).toBeVisible();
   await button(page, "יצירת פריט").click();
   await expect(page.getByText("יש למלא את השדה")).toHaveCount(4);
   await field(page, DESCRIPTION).fill(description);
@@ -102,6 +101,27 @@ test("catalogue manager creates, edits and archives an item from the Hebrew desk
   const historical = await api.send(HTTP_METHODS.GET, `${API}/${id}`);
   expect(historical.status()).toBe(HTTP_STATUS.OK);
   expect(await historical.json()).toMatchObject({ id, sku, status: "archived" });
+});
+
+test("catalogue manager removes an item with the row trash icon", async ({ page, api }) => {
+  const item = await createCatalogueFixture();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(CATALOGUE);
+  await search(page).fill(item.sku);
+  const target = row(page, item.sku, item.description);
+  await expect(target).toBeVisible();
+  await button(page, `הסרת ${item.sku} מהקטלוג`).click();
+  const dialog = page.getByRole("dialog", { name: "הסרת פריט מהקטלוג" });
+  await dialog.getByRole("button", { name: CANCEL, exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(target).toBeVisible();
+  await button(page, `הסרת ${item.sku} מהקטלוג`).click();
+  await dialog.getByRole("button", { name: "הסרת הפריט", exact: true }).click();
+  await expect(page.getByText("הפריט הוסר מהקטלוג", { exact: true })).toBeVisible();
+  await expect(target).toHaveCount(0);
+  const historical = await api.send(HTTP_METHODS.GET, `${API}/${item.id}`);
+  expect(historical.status()).toBe(HTTP_STATUS.OK);
+  expect(await historical.json()).toMatchObject({ id: item.id, status: "archived" });
 });
 
 test("catalogue row keyboard focus returns after cancelling the editor", async ({ page }) => {
