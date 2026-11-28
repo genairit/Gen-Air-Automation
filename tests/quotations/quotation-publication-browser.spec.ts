@@ -27,6 +27,7 @@ import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
 import { createDeferred } from "../../src/utilities/deferred.utility.ts";
 import { readPublication } from "../../src/api/quotation-publication.api.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { LIFECYCLE_COPY } from "../../src/constants/quotation-lifecycle.constant.ts";
 import { seedQuotationForDeletion } from "../../src/api/quotation-delete-fixture.ts";
 import { expectQuotationWithinViewport } from "../../src/utilities/quotation-layout.utility.ts";
@@ -236,6 +237,7 @@ test("saved browser review publishes through real broker and one existing histor
   await expect(page.getByText("הקובץ הועבר לארכיון", { exact: true })).toBeVisible({
     timeout: PUBLICATION_QA.ARCHIVE_MS,
   });
+  await createQuotationPage(page).showDetails();
   await page.getByText("פרטים נוספים", { exact: true }).click();
   await expect(page.getByRole("heading", { name: "היסטוריית המסמך", exact: true })).toHaveCount(1);
   const timeline = page.getByRole("list").filter({ has: page.getByText(/^החזרה לעריכה ·/) });
@@ -327,6 +329,7 @@ test("read-only quotation viewer sees published state and existing history witho
         page.getByRole("heading", { name: quotation.number, exact: true }),
       ).toBeVisible();
       await expect(page.getByText(COPY.published, { exact: true })).toBeVisible();
+      await createQuotationPage(page).showDetails();
       await page.getByText("פרטים נוספים", { exact: true }).click();
       await expect(
         page.getByRole("heading", { name: LIFECYCLE_COPY.HISTORY, exact: true }),
@@ -383,14 +386,15 @@ test("project quotation details display actual published state and safe file nav
     .toBe(PUBLICATION_STATE.PUBLISHED);
   const publication = await readPublication(api, quotation.id);
   await page.goto(`/projects/${project.id}`);
+  await openWorkspaceTab(page, "quotations");
   const region = page.getByRole("region", { name: "הצעות מחיר", exact: true });
   await expect(region).toBeVisible();
-  const row = region.getByRole("button", { name: new RegExp(quotation.number) });
-  await expect(row).toHaveCount(1);
-  await expect(row.getByText(COPY.published, { exact: true })).toBeVisible();
-  await expect(row).toContainText(`גרסה ${publication.sourceVersion}`);
-  await expect(row).toContainText(publication.destinationLabel ?? "Missing destination");
-  const link = row.getByRole("link", { name: "פתיחת הקובץ (בחלון חדש)", exact: true });
+  const card = region.getByRole("region", { name: new RegExp(quotation.number) });
+  await expect(card).toHaveCount(1);
+  await expect(card.getByText(COPY.published, { exact: true })).toBeVisible();
+  await expect(card).toContainText(`גרסה ${publication.sourceVersion}`);
+  await expect(card).toContainText(publication.destinationLabel ?? "Missing destination");
+  const link = card.getByRole("link", { name: "פתיחת הקובץ (בחלון חדש)", exact: true });
   await expect(link).toHaveAttribute("href", publication.fileUrl ?? "Missing file");
   await expect(link).toHaveAttribute("rel", "noopener noreferrer");
   await expect(link).toHaveAttribute("target", "_blank");
@@ -399,6 +403,9 @@ test("project quotation details display actual published state and safe file nav
     fullPage: true,
     animations: "disabled",
   });
+  const openQuotation = card.getByRole("button", { name: new RegExp(quotation.number) });
+  await openQuotation.press("Enter");
+  await expect(page).toHaveURL(new RegExp(`/quotations/${quotation.id}#apartment-sharing$`));
 });
 
 test("account switch discards a delayed retry result and keeps the next account summary", async ({

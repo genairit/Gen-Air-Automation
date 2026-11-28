@@ -25,6 +25,7 @@ import { createEmployeesPage } from "../../src/pages/employees.page.ts";
 import { KEYBOARD_KEYS } from "../../src/constants/keyboard.constant.ts";
 import { buildApartmentRoute } from "../../src/utilities/route.utility.ts";
 import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { createTaskFormPage, createTaskPage } from "../../src/pages/tasks.page.ts";
 import { createApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { USER_ROLES, USER_ROLE_LABELS } from "../../src/constants/user-role.constant.ts";
@@ -44,10 +45,12 @@ test("engineering labels preserve role codes, switching permissions, and mobile 
 }) => {
   const employees = createEmployeesPage(page);
   await employees.goto();
-  await expect(employees.roleCheckbox(USER_ROLES.ENGINEER)).toHaveAccessibleName(
+  await expect(employees.roleTab(USER_ROLES.ENGINEER)).toBeVisible();
+  await employees.openCreate();
+  await employees.openRoles();
+  await expect(employees.roleOption(USER_ROLES.ENGINEER)).toHaveAccessibleName(
     USER_ROLE_LABELS[USER_ROLES.ENGINEER],
   );
-  await expect(employees.roleTab(USER_ROLES.ENGINEER)).toBeVisible();
 
   const user = await seedMultiRoleUser(api, [USER_ROLES.SYSTEM_ADMIN, USER_ROLES.ENGINEER]);
   const actor = await openPageAs(user);
@@ -78,7 +81,8 @@ test("task pool and apartment worker copy stays readable while assignment remain
 }) => {
   await page.setViewportSize(VIEWPORTS.MOBILE);
   const form = createTaskFormPage(page);
-  await form.goto();
+  const building = await seedBuilding(api, await seedCustomer(api));
+  await form.goto(building.id);
   await expect(form.form.getByText(COPY.POOL_HINT, { exact: true })).toBeVisible();
   const poolOption = (await form.openAssigneeOptions()).filter({
     hasText: TASK_FORM_COPY.POOL_OPTION,
@@ -97,7 +101,6 @@ test("task pool and apartment worker copy stays readable while assignment remain
   expect(poolBounds.clipped).toBe(false);
   await page.keyboard.press(KEYBOARD_KEYS.ESCAPE);
 
-  const building = await seedBuilding(api, await seedCustomer(api));
   const engineer = await seedUser(api, USER_ROLES.ENGINEER);
   const other = await seedUser(api, USER_ROLES.ENGINEER);
   const apartment = await api.createApartment(building.id, {
@@ -108,7 +111,8 @@ test("task pool and apartment worker copy stays readable while assignment remain
   });
   await page.setViewportSize(VIEWPORTS.MOBILE);
   await page.goto(buildApartmentRoute(building.id, apartment.id));
-  await expect(page.getByText(COPY.APARTMENT_SUBTITLE, { exact: true })).toBeVisible();
+  await openWorkspaceTab(page, "people");
+  await expect(page.getByText("שיוך עובד הנדסי נשמר מיד", { exact: true })).toBeVisible();
   await expect(page.getByRole("combobox", { name: APARTMENT_DESIGN_COPY.ENGINEER })).toHaveValue(
     new RegExp(escapeRegex(formatFullName(engineer))),
   );
@@ -117,7 +121,8 @@ test("task pool and apartment worker copy stays readable while assignment remain
   const task = await seedTask(api, { link: linkToProject(apartment), assigneeId: other.id });
   const taskPage = createTaskPage(page);
   await taskPage.goto(task.id);
-  const options = await taskPage.openAssigneeOptions();
+  await taskPage.editButton.click();
+  const options = await form.openAssigneeOptions();
   await expect(
     options.filter({ hasText: `${formatFullName(other)} · ${COPY.OTHER_ASSIGNEE}` }),
   ).toBeVisible();
@@ -154,6 +159,7 @@ test("new contact suggestion uses engineering wording without rewriting a legacy
     ).status(),
   ).toBe(201);
   await page.goto(`/projects/${project.id}`);
+  await openWorkspaceTab(page, "people");
   const card = findCardByTitle(page, "אנשי קשר בפרויקט או בדירה");
   await card.getByRole("button", { name: "ערוך איש קשר", exact: true }).click();
   await expect(findFieldByTitle(card, "תפקיד")).toHaveValue(COPY.LEGACY_CONTACT_ROLE);

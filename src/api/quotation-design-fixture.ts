@@ -58,7 +58,7 @@ export const seedQuotationDesign = async (api: TGenAirApi) => {
     paymentTerms: PAYMENT_TERMS.PREPAID,
   });
   const project = await seedStandaloneProject(api, customer);
-  const initial = await createQuotation(api, customer.id);
+  const initial = await createQuotation(api, customer.id, project.id);
   const items = await Promise.all(
     [
       { sku: "E-SMD-63", quantity: "1", location: "סלון ומטבח", circuit: "A" },

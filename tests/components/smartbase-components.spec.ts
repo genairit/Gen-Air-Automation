@@ -1,11 +1,11 @@
 import { devices } from "@playwright/test";
-import { seedUser } from "../../src/api/seed-data.ts";
 import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { createTaskFormPage } from "../../src/pages/tasks.page.ts";
 import { formatFullName } from "../../src/utilities/user.utility.ts";
 import { TASK_FORM_COPY } from "../../src/constants/copy.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
+import { seedUser, seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts";
 
 const { defaultBrowserType: _browserType, ...PHONE } = devices["Pixel 7"];
 
@@ -143,7 +143,8 @@ test.describe("mobile option activation", () => {
     const engineer = await seedUser(api, USER_ROLES.ENGINEER);
     const engineerName = formatFullName(engineer);
 
-    await form.goto();
+    const project = await seedStandaloneProject(api, await seedCustomer(api));
+    await form.goto(project.id);
     await expect(picker).toHaveValue(TASK_FORM_COPY.POOL_OPTION);
     await picker.tap();
     await expect(picker).toHaveValue("");

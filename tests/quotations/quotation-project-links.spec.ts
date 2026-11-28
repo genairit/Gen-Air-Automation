@@ -16,6 +16,7 @@ import { createQuotationPage } from "../../src/pages/quotation.page.ts";
 import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
 import { buildApartmentRoute } from "../../src/utilities/route.utility.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { createCatalogueFixture } from "../../src/environment/quotation-fixtures.ts";
 import { seedApartment, seedBuilding, seedCustomer } from "../../src/api/seed-data.ts";
 import { QUOTATION, QUOTATION_PERMISSIONS } from "../../src/constants/quotation.constant.ts";
@@ -33,7 +34,7 @@ const createBuildingQuotation = async (
   customer: Awaited<ReturnType<typeof seedCustomer>>,
 ) => {
   const item = await createCatalogueFixture();
-  const initial = await createQuotation(api, customer.id);
+  const initial = await createQuotation(api, customer.id, buildingId);
   const draft = await saveQuotation(api, initial.id, {
     ...quotationWrite(initial),
     projectId: buildingId,
@@ -161,7 +162,8 @@ test("approved building quotation shares one record with selected apartments and
         ? `/projects/${projectId}`
         : buildApartmentRoute(building.id, projectId),
     );
-    const linkedRow = projectQuotationCard(page).getByRole("button", {
+    await openWorkspaceTab(page, "quotations");
+    const linkedRow = projectQuotationCard(page).getByRole("region", {
       name: new RegExp(draft.number),
     });
     await expect(linkedRow).toHaveCount(1);
@@ -176,7 +178,7 @@ test("approved building quotation shares one record with selected apartments and
   }
 });
 
-test("shared quotation excludes unselected apartments and appears once in the quotation list", async ({
+test("shared quotation excludes unselected apartments and appears once in its building tab", async ({
   page,
   api,
 }) => {
@@ -194,11 +196,11 @@ test("shared quotation excludes unselected apartments and appears once in the qu
     expectedApartmentIds: [],
   });
   expect(linked.status()).toBe(200);
-  const quote = createQuotationPage(page);
   for (const projectId of [unselected.id, unrelated.id]) {
     await page.goto(
       buildApartmentRoute(projectId === unrelated.id ? otherBuilding.id : building.id, projectId),
     );
+    await openWorkspaceTab(page, "quotations");
     await expect(
       projectQuotationCard(page).getByText(LINK_COPY.PROJECT_QUOTES_EMPTY, { exact: true }),
     ).toBeVisible();
@@ -207,10 +209,11 @@ test("shared quotation excludes unselected apartments and appears once in the qu
     ).toHaveCount(0);
   }
 
-  await page.goto("/quotations");
-  await quote.field("חיפוש לפי מספר, לקוח, פרויקט או חברה").fill(draft.number);
-  await expect(page.getByRole("button", { name: "הכל 1", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: new RegExp(draft.number) })).toHaveCount(1);
+  await page.goto(`/projects/${building.id}`);
+  await openWorkspaceTab(page, "quotations");
+  await expect(
+    projectQuotationCard(page).getByRole("button", { name: new RegExp(draft.number) }),
+  ).toHaveCount(1);
 });
 
 test("partial and complete apartment sharing removal preserve the approved quotation", async ({
@@ -244,10 +247,12 @@ test("partial and complete apartment sharing removal preserve the approved quota
   expect((await partial).status()).toBe(200);
   await expect(sharing.getByText("משותפת ל-1 דירות")).toBeVisible();
   await page.goto(buildApartmentRoute(building.id, first.id));
+  await openWorkspaceTab(page, "quotations");
   await expect(
     projectQuotationCard(page).getByRole("button", { name: new RegExp(draft.number) }),
   ).toHaveCount(1);
   await page.goto(buildApartmentRoute(building.id, second.id));
+  await openWorkspaceTab(page, "quotations");
   await expect(
     projectQuotationCard(page).getByRole("button", { name: new RegExp(draft.number) }),
   ).toHaveCount(0);
@@ -276,10 +281,12 @@ test("partial and complete apartment sharing removal preserve the approved quota
   expect(retained.status).toBe(QUOTATION.STATUS.APPROVED);
   expect(retained.totals).toEqual(draft.totals);
   await page.goto(`/projects/${building.id}`);
+  await openWorkspaceTab(page, "quotations");
   await expect(
     projectQuotationCard(page).getByRole("button", { name: new RegExp(draft.number) }),
   ).toHaveCount(1);
   await page.goto(buildApartmentRoute(building.id, first.id));
+  await openWorkspaceTab(page, "quotations");
   await expect(
     projectQuotationCard(page).getByRole("button", { name: new RegExp(draft.number) }),
   ).toHaveCount(0);
@@ -319,6 +326,7 @@ test("unrelated apartment link is rejected and project quotation lists require b
     ).toBe(403);
     const page = await openPageAs(TEST_USERS[USER_ROLES.ENGINEER]);
     await page.goto(`/projects/${building.id}`);
+    await expect(page.getByRole("tab", { name: "הצעות מחיר", exact: true })).toHaveCount(0);
     await expect(projectQuotationCard(page)).toHaveCount(0);
   });
   await withRolePermissions(USER_ROLES.ENGINEER, [QUOTATION_PERMISSIONS.READ], async () => {
@@ -367,11 +375,13 @@ test("select all is a snapshot and reopening a shared quotation keeps links whil
     sharing.getByRole("group", { name: "בחירת דירות לשיתוף" }).getByRole("checkbox"),
   ).toHaveCount(3);
   await page.goto(buildApartmentRoute(building.id, addedLater.id));
+  await openWorkspaceTab(page, "quotations");
   await expect(
     projectQuotationCard(page).getByRole("button", { name: new RegExp(draft.number) }),
   ).toHaveCount(0);
   for (const apartment of [first, second]) {
     await page.goto(buildApartmentRoute(building.id, apartment.id));
+    await openWorkspaceTab(page, "quotations");
     await expect(
       projectQuotationCard(page).getByRole("button", { name: new RegExp(draft.number) }),
     ).toHaveCount(1);
@@ -380,9 +390,11 @@ test("select all is a snapshot and reopening a shared quotation keeps links whil
   await quote.goto(draft.id);
   await quote.returnToEditing();
   await expect(sharing.getByRole("switch", { name: LINK_COPY.SHARING_SWITCH })).toBeDisabled();
-  await expect(quote.field("פרויקט (אופציונלי)")).toBeDisabled();
+  await quote.showDetails();
+  await expect(quote.field("פרויקט *")).toBeDisabled();
   await expect(quote.field("לקוח *")).toBeDisabled();
   await page.goto(buildApartmentRoute(building.id, first.id));
+  await openWorkspaceTab(page, "quotations");
   await expect(
     projectQuotationCard(page).getByRole("button", { name: new RegExp(draft.number) }),
   ).toHaveCount(1);

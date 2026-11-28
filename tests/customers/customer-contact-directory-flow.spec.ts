@@ -6,21 +6,28 @@ import {
   seedStandaloneProject,
 } from "../../src/api/seed-data.ts";
 
+import {
+  createCustomerPopup,
+  createCustomersPage,
+  createCustomerFormPage,
+} from "../../src/pages/customers.page.ts";
+
 import type { TGenAirApi } from "../../src/api/gen-air-api.ts";
 import { isRecord } from "../../src/utilities/guard.utility.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
-import { findCardByTitle } from "../../src/pages/card.component.ts";
+import { expectTabSelected } from "../../src/pages/tab.component.ts";
 import { findFieldByTitle } from "../../src/pages/field.component.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
-import { createCustomerFormPage } from "../../src/pages/customers.page.ts";
 import { readLastPathSegment } from "../../src/utilities/route.utility.ts";
 import { contactSearchInput } from "../../src/pages/contact-search.page.ts";
 import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { readCustomerProjects } from "../../src/api/customer-projects.api.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { scopedApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
+import { CUSTOMERS_COPY, CUSTOMER_FORM_COPY } from "../../src/constants/copy.constant.ts";
 
 const contactIdFrom = async (response: { json: () => Promise<unknown> }): Promise<string> => {
   const body = await response.json();
@@ -172,6 +179,7 @@ test("one directory contact links to a project and apartment, then unlinking pre
     expect(linked.status()).toBe(201);
   }
   await page.goto(`/projects/${project.id}`);
+  await openWorkspaceTab(page, "people");
   await expect(page.getByText("איש קשר ראשי של הפרויקט")).toBeVisible();
   await expect(page.locator('a[href="tel:+12025550123"]')).toBeVisible();
   const primary = await api.send(HTTP_METHODS.GET, `/customer/${customer.id}`);
@@ -215,13 +223,17 @@ test("project contact controls create, edit, unlink, and reselect a reusable dir
   const contactName = createUniqueName("אתר קשר");
   const editedName = `${contactName} חדש`;
   await page.goto(`/projects/${project.id}`);
-  const card = findCardByTitle(page, "אנשי קשר בפרויקט או בדירה");
+  await openWorkspaceTab(page, "people");
+  await page.getByRole("button", { name: "ניהול אנשי קשר נוספים", exact: true }).click();
+  const card = page.getByRole("dialog", { name: "ניהול אנשי קשר נוספים", exact: true });
   await card.getByRole("button", { name: "צור איש קשר במדריך" }).click();
   await findFieldByTitle(card, "שם").fill(contactName);
   await findFieldByTitle(card, "טלפון").fill("+33142278186");
   await card.getByRole("button", { name: "שמירה", exact: true }).click();
   await expect(card.getByText(contactName, { exact: false })).toBeVisible();
-  await expect(card.locator('a[href="tel:+33142278186"]')).toBeVisible();
+  await card.getByRole("button", { name: "סיום", exact: true }).click();
+  await expect(page.locator('a[href="tel:+33142278186"]')).toBeVisible();
+  await page.getByRole("button", { name: "ניהול אנשי קשר נוספים", exact: true }).click();
   await findFieldByTitle(card, "תפקיד בפרויקט").fill("תיאום אתר");
   const roleSaved = page.waitForResponse(
     response =>
@@ -231,6 +243,7 @@ test("project contact controls create, edit, unlink, and reselect a reusable dir
   await card.getByRole("button", { name: "שמור תפקיד" }).click();
   expect((await roleSaved).ok()).toBe(true);
   await page.reload();
+  await page.getByRole("button", { name: "ניהול אנשי קשר נוספים", exact: true }).click();
   await expect(findFieldByTitle(card, "תפקיד בפרויקט")).toHaveValue("תיאום אתר");
   await card.getByRole("button", { name: "ערוך איש קשר" }).click();
   await findFieldByTitle(card, "שם").fill(editedName);
@@ -245,10 +258,11 @@ test("project contact controls create, edit, unlink, and reselect a reusable dir
   await card.getByRole("button", { name: "שייך" }).click();
   await expect(card.getByText(editedName, { exact: false })).toBeVisible();
   await page.reload();
+  await page.getByRole("button", { name: "ניהול אנשי קשר נוספים", exact: true }).click();
   await expect(card.getByText(editedName, { exact: false })).toBeVisible();
 });
 
-test("post-create picker links only selected building and apartment, confirms reassignment, and retries a failed save", async ({
+test("filtered client list popup links only selected building and apartment, confirms reassignment, and retries a failed save", async ({
   page,
   api,
   apiAs,
@@ -267,12 +281,16 @@ test("post-create picker links only selected building and apartment, confirms re
   });
   const unrelated = await seedStandaloneProject(api, oldOwner);
   const input = buildCustomerInput();
-  const form = createCustomerFormPage(page);
-  await form.goto();
+  const list = createCustomersPage(page);
+  await list.goto();
+  await list.searchBox.fill(input.taxId);
+  await list.pendingTab.click();
+  await list.newCustomerButton.click();
+  const form = createCustomerPopup(page, CUSTOMER_FORM_COPY.TITLE);
   await form.field("NAME").fill(input.name);
   await form.field("TAX_ID").fill(input.taxId);
   await form.field("ADDRESS").fill(input.address);
-  await form.saveButton.click();
+  await form.save.click();
   const search = page.getByPlaceholder("שם פרויקט, קוד או מספר דירה");
   await search.fill(building.name);
   await page.getByRole("checkbox", { name: `שיוך ${building.name}` }).click();
@@ -298,6 +316,10 @@ test("post-create picker links only selected building and apartment, confirms re
   await expect(page.getByRole("heading", { name: "שיוך פרויקטים ללקוח" })).toBeVisible();
   await expect(page.getByRole("alert")).toBeVisible();
   await page.getByRole("button", { name: "שמור שיוכים" }).click();
+  await expect(page.getByRole("dialog", { name: CUSTOMERS_COPY.LINK_PROJECTS })).toHaveCount(0);
+  await expect(list.searchBox).toHaveValue(input.taxId);
+  await expectTabSelected(list.pendingTab);
+  await list.findRow(input.taxId).click();
   await expect(page.getByRole("heading", { name: input.name })).toBeVisible();
   const newCustomerId = readLastPathSegment(page.url());
   expect(await projectCustomerId(api, building.id)).toBe(newCustomerId);

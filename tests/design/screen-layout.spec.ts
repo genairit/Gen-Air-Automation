@@ -15,14 +15,16 @@ import {
 } from "../../src/utilities/route.utility.ts";
 
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
+import { createTaskFormPage } from "../../src/pages/tasks.page.ts";
 import { URLS } from "../../src/constants/environment.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { PROJECT_TYPE_NAMES } from "../../src/constants/domain.constant.ts";
 import { ROUTES, ROUTE_SEGMENTS } from "../../src/constants/routes.constant.ts";
 import { createGenAirApi, loginThroughApi } from "../../src/api/gen-air-api.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
+import { expectApartmentTabLayout } from "../../src/pages/apartment-layout.component.ts";
 import type { ICustomer, IProject, ITask } from "../../src/interfaces/entities.interface.ts";
-import { expectApartmentColumnsBeforeDrive } from "../../src/pages/apartment-layout.component.ts";
 
 interface ILayoutScenario {
   task: ITask;
@@ -61,14 +63,14 @@ const readScenario = () => {
 };
 
 const readScreens = (scenario: ILayoutScenario) => ({
-  board: { path: ROUTES.BOARD, text: "פרויקטים" },
+  board: { path: ROUTES.BOARD, text: scenario.project.name },
   newProject: { path: ROUTES.NEW_PROJECT, text: "יצירת פרויקט חדש" },
   editProject: { path: buildEditProjectRoute(scenario.project.id), text: "עריכת פרויקט" },
   project: { path: buildProjectRoute(scenario.project.id), text: scenario.project.name },
   building: { path: buildProjectRoute(scenario.building.id), text: scenario.building.name },
   apartment: {
     path: buildApartmentRoute(scenario.building.id, scenario.apartment.id),
-    text: "נתונים מהפרויקט האב",
+    text: "שלב הדירה",
   },
   newApartment: {
     path: buildApartmentRoute(scenario.building.id, ROUTE_SEGMENTS.NEW),
@@ -77,9 +79,9 @@ const readScreens = (scenario: ILayoutScenario) => ({
   customers: { path: ROUTES.CUSTOMERS, text: "לקוח חדש" },
   customer: { path: buildCustomerRoute(scenario.customer.id), text: scenario.customer.name },
   newCustomer: { path: ROUTES.NEW_CUSTOMER, text: "זהות הלקוח" },
-  tasks: { path: ROUTES.TASKS, text: "המשימות שלי" },
+  tasks: { path: ROUTES.TASKS, text: "דחופות" },
   task: { path: buildTaskRoute(scenario.task.id), text: scenario.task.title },
-  newTask: { path: ROUTES.NEW_TASK, text: "פרטי המשימה" },
+  newTask: { path: buildProjectRoute(scenario.project.id), text: "משימה חדשה" },
   employees: { path: ROUTES.EMPLOYEES, text: "ניהול עובדים ומשתמשים" },
   settings: { path: ROUTES.SETTINGS, text: "סטטוסי פרויקט קבועים" },
   login: { path: ROUTES.LOGIN, text: "התחברות למערכת" },
@@ -115,6 +117,9 @@ for (const width of WIDTHS) {
         await page.evaluate(() => localStorage.clear());
       }
       await page.goto(screen.path);
+      if (name === "newTask") {
+        await createTaskFormPage(page).open();
+      }
       await expect(page.getByText(screen.text, { exact: false }).first()).toBeVisible();
       await expect
         .poll(() =>
@@ -125,7 +130,16 @@ for (const width of WIDTHS) {
           ),
         )
         .toEqual([]);
-      await expect(page.locator('img[aria-hidden="true"]:visible').first()).toBeVisible();
+      if (
+        ["project", "building", "apartment", "editProject", "newProject", "newApartment"].includes(
+          name,
+        )
+      ) {
+        await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+        await expect(page.getByRole("tab", { selected: true })).toHaveCount(1);
+      } else {
+        await expect(page.locator('img[aria-hidden="true"]:visible').first()).toBeVisible();
+      }
       const geometry = await page.evaluate(() => ({
         viewport: innerWidth,
         content: document.documentElement.scrollWidth,
@@ -133,29 +147,24 @@ for (const width of WIDTHS) {
       expect(geometry.content).toBeLessThanOrEqual(geometry.viewport);
       expect(errors).toEqual([]);
       if (name === "newProject" && width === 1440) {
-        const tiles = [];
+        const picker = page.getByRole("combobox", { name: "בחירת סוג פרויקט" });
+        await picker.click();
         for (const title of Object.values(PROJECT_TYPE_NAMES)) {
-          tiles.push(
-            await page.getByText(title, { exact: true }).locator("xpath=..").boundingBox(),
-          );
+          await expect(page.getByRole("option").filter({ hasText: title }).first()).toBeVisible();
         }
-        const visible = tiles.filter(tile => tile !== null);
-        expect(visible).toHaveLength(Object.values(PROJECT_TYPE_NAMES).length);
-        const firstRow = visible.filter(tile => tile.y === visible[0].y);
-        expect(firstRow.length).toBeGreaterThan(1);
-        const heights = firstRow.map(tile => tile.height);
-        expect(Math.max(...heights) - Math.min(...heights)).toBeLessThanOrEqual(1);
+        await page.keyboard.press("Escape");
       }
       if (name === "apartment" && width === 1440) {
-        await expectApartmentColumnsBeforeDrive(page);
+        await expectApartmentTabLayout(page);
       }
-      if (name === "apartment" || name === "task") {
+      if (name === "task") {
         const tabs = page.getByRole("tablist").getByRole("tab");
         for (const tab of await tabs.all()) {
           await expect(tab.locator("span").first()).toHaveCSS("width", "7px");
         }
       }
       if (name === "building") {
+        await openWorkspaceTab(page, "apartments");
         await expect(
           page.getByRole("button", { name: "ייבוא דירות מאקסל", exact: true }),
         ).toHaveCSS("background-color", "rgb(255, 255, 255)");

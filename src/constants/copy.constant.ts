@@ -32,7 +32,12 @@ export const NAVIGATION_COPY = {
 export const BOARD_COPY = {
   NEW_TASK: "משימה חדשה",
   NEW_PROJECT: "פרויקט חדש",
-  TITLE: "ניהול פרויקטים ומשימות",
+  CARD: "פרויקטים",
+  STATUS_FILTER: "סטטוס",
+  TYPE_FILTER: "סוג פרויקט",
+  ALL_STATUSES: "כל הסטטוסים",
+  LOADING: "טוען את לוח הפרויקטים...",
+  NO_RESULTS: "לא נמצאו פרויקטים שמתאימים לחיפוש או לשלב שנבחר",
   SEARCH_PLACEHOLDER: "חיפוש פרויקטים, מזהה או קבלן...",
 } as const;
 
@@ -45,6 +50,8 @@ export const CUSTOMERS_COPY = {
   BACK_TO_CUSTOMERS: "חזרה ללקוחות",
   PENDING_SYNC: "ממתין ל-Priority",
   CREATE_DENIED: "אין הרשאה ליצירת לקוחות",
+  EDIT: "עריכת לקוח",
+  LINK_PROJECTS: "שיוך פרויקטים ללקוח",
   MANAGERS_ONLY: "רק מנהלים עם הרשאת ניהול לקוחות יכולים ליצור לקוחות",
   SEARCH_PLACEHOLDER: "חיפוש לפי שם, ח.פ, טלפון, דוא״ל או מזהה Priority...",
   PICKER_SEARCH_PLACEHOLDER: "חיפוש לקוח לפי שם, ח.פ, טלפון או דוא״ל...",
@@ -127,11 +134,13 @@ export const TASKS_COPY = {
 } as const;
 
 export const EMPLOYEES_COPY = {
+  PERSON_COLUMN: "עובד ופרטי קשר",
   ROLE_LABEL: "תפקידים משויכים",
   EDIT_EMPLOYEE: "עריכת עובד",
-  ADD_TITLE: "הוספת עובד / משתמש חדש",
-  ACCOUNT_SECTION: "פרטי חשבון",
-  ACCESS_SECTION: "גישה ותפקידים",
+  ADD_TITLE: "הוספת עובד",
+  INTRO_HEADING: "ניהול עובדים ומשתמשים",
+  INTRO_EYEBROW: "פורטל ניהול משא״ש והרשאות אבטחה",
+  NO_MATCHING_ROLES: "לא נמצאו תפקידים",
   DELETE_EMPLOYEE: "מחיקת עובד",
   NAME_PLACEHOLDER: "לדוגמה: יובל אל",
   PHONE_PLACEHOLDER: "0500000000",
@@ -195,6 +204,7 @@ export const PROJECT_PAGE_COPY = {
 export const DRIVE_COPY = {
   SUBTITLE: "לחיצה על שם הקובץ פותחת אותו ב-Google Drive",
   OPEN_FOLDER: "פתח תיקייה ב-Drive",
+  BROWSER_OPEN_FOLDER: "פתח ב-Drive",
   PREPARE_FOLDER: "צור תיקיית פרויקט",
   PREPARING_FOLDER: "מכין את תיקיית הפרויקט…",
   MISSING_TITLE: "תיקיית הפרויקט עדיין לא נוצרה",

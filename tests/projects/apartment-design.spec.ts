@@ -36,6 +36,7 @@ import { buildProjectPath } from "../../src/utilities/api-path.utility.ts";
 import { buildApartmentsPath } from "../../src/utilities/api-path.utility.ts";
 import { CUSTOMER_SYNC_STATUSES } from "../../src/constants/domain.constant.ts";
 import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { API_PATHS, API_PROXY_PREFIX } from "../../src/constants/api.constant.ts";
 import { expectResponseOk } from "../../src/utilities/response-assertion.utility.ts";
 import { createApartmentDesignPage } from "../../src/pages/apartment-design.page.ts";
@@ -97,6 +98,7 @@ test("apartment creation matches required fields, validation count and customer-
   const form = createApartmentDesignPage(page);
   await form.gotoCreate(building.id);
   await expect(page.getByText(COPY.CUSTOMER_TITLE, { exact: true })).toBeVisible();
+  await form.search.focus();
   await expect(page.getByRole("option").filter({ hasText: customer.name })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("add-apartment-desktop.png"), fullPage: true });
   await form.submit.click();
@@ -121,7 +123,7 @@ test("apartment creation matches required fields, validation count and customer-
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: testInfo.outputPath("add-apartment-mobile.png"), fullPage: true });
   await form.submit.click();
-  await expect(page).toHaveURL(new RegExp(`${buildProjectRoute(building.id)}$`));
+  await expect(page).toHaveURL(new RegExp(`${buildProjectRoute(building.id)}\\?tab=apartments$`));
   const created = await findCreated(api, building, customer);
   expect(created).toMatchObject({
     customerId: customer.id,
@@ -187,11 +189,13 @@ test("customer lookup exposes loading and a recoverable lookup failure", async (
   });
   const form = createApartmentDesignPage(page);
   await form.gotoCreate(building.id);
+  await form.search.focus();
   await expect(page.getByText(COPY.LOADING, { exact: true })).toBeVisible();
   pendingGate.release?.();
   await expect(page.getByRole("alert").filter({ hasText: DATA.CUSTOMERS_FAILURE })).toBeVisible();
   await page.unroute(pattern);
   await page.getByRole("button", { name: COPY.RETRY, exact: true }).click();
+  await form.search.focus();
   await expect(page.getByRole("option").filter({ hasText: customer.name })).toBeVisible();
 });
 
@@ -223,6 +227,7 @@ test("creation inherits non-engineering building team, supports an empty own tea
   });
   const form = createApartmentDesignPage(page);
   await form.gotoCreate(building.id);
+  await openWorkspaceTab(page, "people");
   const team = form.draftTeam();
   await expect(team.getByText(COPY.INHERITED, { exact: true })).toBeVisible();
   await expect(
@@ -238,10 +243,11 @@ test("creation inherits non-engineering building team, supports an empty own tea
   ).toBeVisible();
   await team.getByRole("button", { name: COPY.OVERRIDE, exact: true }).click();
   await team.getByRole("button", { name: new RegExp(COPY.REMOVE_MEMBER) }).click();
+  await openWorkspaceTab(page, "details");
   await form.fillUnit(scopedApartmentNumber(DATA.NUMBER));
   await form.pickCustomer(customer.name);
   await form.submit.click();
-  await expect(page).toHaveURL(new RegExp(`${buildProjectRoute(building.id)}$`));
+  await expect(page).toHaveURL(new RegExp(`${buildProjectRoute(building.id)}\\?tab=apartments$`));
   expect(await findCreated(api, building, customer)).toMatchObject({
     hasOwnTeam: true,
     members: [],
@@ -256,12 +262,14 @@ test("creation adds an apartment-only non-engineering member and persists its as
   const installer = await seedUser(api, USER_ROLES.INSTALLER);
   const form = createApartmentDesignPage(page);
   await form.gotoCreate(building.id);
+  await openWorkspaceTab(page, "people");
   await form.draftTeam().getByRole("button", { name: COPY.OVERRIDE, exact: true }).click();
   await form.selectMember(installer.firstName);
+  await openWorkspaceTab(page, "details");
   await form.fillUnit(scopedApartmentNumber(DATA.NUMBER));
   await form.pickCustomer(customer.name);
   await form.submit.click();
-  await expect(page).toHaveURL(new RegExp(`${buildProjectRoute(building.id)}$`));
+  await expect(page).toHaveURL(new RegExp(`${buildProjectRoute(building.id)}\\?tab=apartments$`));
   expect(await findCreated(api, building, customer)).toMatchObject({
     hasOwnTeam: true,
     members: [expect.objectContaining({ userId: installer.id, role: USER_ROLES.INSTALLER })],
@@ -278,6 +286,7 @@ test("team search clear keeps the picker open and restores unfiltered options", 
   const form = createApartmentDesignPage(page);
 
   await form.gotoCreate(building.id);
+  await openWorkspaceTab(page, "people");
   await form.draftTeam().getByRole("button", { name: COPY.OVERRIDE, exact: true }).click();
 
   const trigger = page.getByPlaceholder(COPY.ADD_MEMBER).first();
@@ -311,7 +320,7 @@ test("apartment creation and detail omit payment controls, displays and parent i
       request.url().endsWith(buildApartmentsPath(building.id)),
   );
   await form.submit.click();
-  await expect(page).toHaveURL(new RegExp(`${buildProjectRoute(building.id)}$`));
+  await expect(page).toHaveURL(new RegExp(`${buildProjectRoute(building.id)}\\?tab=apartments$`));
   const created = await findCreated(api, building, customer);
   const payload: unknown = (await creation).postDataJSON();
   expectFieldsAbsent(payload, RETIRED_PROJECT_PAYMENT_FIELDS);
@@ -321,6 +330,7 @@ test("apartment creation and detail omit payment controls, displays and parent i
   }
 
   await page.goto(buildApartmentRoute(building.id, created.id));
+  await openWorkspaceTab(page, "details");
   await expect(page.getByText(customer.name, { exact: true }).last()).toBeVisible();
   await expect(page.getByText(PAYMENT_DEFAULT_PATTERNS.SECTION)).toHaveCount(0);
   await page.reload();
@@ -336,6 +346,7 @@ test("detail shows linked customer, named parent customer, callable contact and 
   const apartment = await createApartment(api, building, customer);
   await mockDriveContents(page, apartment.id);
   await page.goto(buildApartmentRoute(building.id, apartment.id));
+  await openWorkspaceTab(page, "details");
   await expect(page.getByText(COPY.END_CUSTOMER, { exact: true })).toBeVisible();
   await expect(page.getByText(customer.name, { exact: true }).last()).toBeVisible();
   await expect(
@@ -348,10 +359,16 @@ test("detail shows linked customer, named parent customer, callable contact and 
     "href",
     "tel:+97231234567",
   );
-  for (const title of [COPY.PARENT_NOTES, COPY.APARTMENT_NOTES, COPY.DRIVE, COPY.TIMELINE]) {
+  for (const title of [COPY.PARENT_NOTES, COPY.APARTMENT_NOTES]) {
     await expect(page.getByText(title, { exact: true })).toBeVisible();
   }
   await expect(page.getByText(DATA.PARENT_NOTE, { exact: true })).toBeVisible();
+  await openWorkspaceTab(page, "files");
+  await expect(page.getByRole("region", { name: COPY.DRIVE, exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "נתיב התיקייה", exact: true })).toBeVisible();
+  await openWorkspaceTab(page, "history");
+  await expect(page.getByText(COPY.TIMELINE, { exact: true })).toBeVisible();
+  await openWorkspaceTab(page, "details");
   await page.screenshot({ path: testInfo.outputPath("apartment-desktop.png"), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("link", { name: SEED_VALUES.CUSTOMER_PHONE }).last()).toBeVisible();
@@ -397,6 +414,8 @@ test("detail team edits find server-side candidates, add multiple roles, persist
   });
   const form = createApartmentDesignPage(page);
   await page.goto(buildApartmentRoute(building.id, apartment.id));
+  await openWorkspaceTab(page, "people");
+  await page.getByRole("button", { name: "ניהול צוות הדירה", exact: true }).click();
   const team = form.teamCard();
   await team.getByRole("button", { name: COPY.OVERRIDE, exact: true }).click();
   await form.selectMember(secretary.firstName);
@@ -416,6 +435,7 @@ test("detail team edits find server-side candidates, add multiple roles, persist
   await team.getByRole("button", { name: COPY.SAVE_TEAM }).click();
   await expect(team.getByRole("button", { name: COPY.SAVE_TEAM })).toHaveCount(0);
   await page.reload();
+  await page.getByRole("button", { name: "ניהול צוות הדירה", exact: true }).click();
   await expect(team.getByText(COPY.OWN, { exact: true })).toBeVisible();
   expect(await api.getProjectMembers(apartment.id)).toEqual(
     expect.arrayContaining(
@@ -437,6 +457,7 @@ test("detail team edits find server-side candidates, add multiple roles, persist
   await team.getByRole("button", { name: COPY.SAVE_TEAM }).click();
   await expect(team.getByRole("button", { name: COPY.SAVE_TEAM })).toHaveCount(0);
   await page.reload();
+  await page.getByRole("button", { name: "ניהול צוות הדירה", exact: true }).click();
   await expect(team.getByText(COPY.EMPTY_TEAM, { exact: true })).toBeVisible();
   await patchProject(api, building.id, {
     members: [{ userId: installer.id, role: USER_ROLES.INSTALLER }],
@@ -457,6 +478,7 @@ test("legacy apartment customer remains visible while retired contact fields are
   const apartment = await createApartment(api, building, customer);
   await recreateLegacyApartment(apartment.id);
   await page.goto(buildApartmentRoute(building.id, apartment.id));
+  await openWorkspaceTab(page, "details");
   await expect(page.getByText(LEGACY_APARTMENT.CUSTOMER_NAME, { exact: true })).toBeVisible();
   await expect(page.getByText(LEGACY_APARTMENT.CONTACT_NAME, { exact: true })).toHaveCount(0);
   await expect(page.getByRole("link", { name: LEGACY_APARTMENT.CONTACT_PHONE })).toHaveCount(0);
@@ -470,13 +492,16 @@ test("team edit controls follow server permissions for engineering and project m
   const apartment = await createApartment(api, building, customer);
   for (const role of [USER_ROLES.ENGINEER, USER_ROLES.PROJECT_MANAGER]) {
     const page = await openPageAs(TEST_USERS[role]);
-    const team = createApartmentDesignPage(page).teamCard();
     await page.goto(buildApartmentRoute(building.id, apartment.id));
-    const override = team.getByRole("button", { name: COPY.OVERRIDE, exact: true });
+    await openWorkspaceTab(page, "people");
+    const manage = page.getByRole("button", { name: "ניהול צוות הדירה", exact: true });
     if (role === USER_ROLES.ENGINEER) {
-      await expect(override).toHaveCount(0);
+      await expect(manage).toHaveCount(0);
       continue;
     }
+    await manage.click();
+    const team = createApartmentDesignPage(page).teamCard();
+    const override = team.getByRole("button", { name: COPY.OVERRIDE, exact: true });
     await expect(override).toBeVisible();
     await override.click();
     await expect(team.getByRole("button", { name: COPY.SAVE_TEAM })).toBeVisible();

@@ -27,6 +27,7 @@ import { seedQuotationDesign } from "../../src/api/quotation-design-fixture.ts";
 import { legacyDriveTree } from "../../src/environment/existing-drive-fixtures.ts";
 import type { IQuotationDocument } from "../../src/interfaces/quotation.interface.ts";
 import { createTestDatabaseClient } from "../../src/environment/test-database-client.ts";
+import { makeLegacyProjectlessQuotation } from "../../src/environment/quotation-fixtures.ts";
 import type { PublicationStateType } from "../../src/constants/quotation-publication.constant.ts";
 import { quotationDocument, quotationWrite, saveQuotation } from "../../src/api/quotation.api.ts";
 
@@ -260,7 +261,7 @@ for (const withdrawal of Object.values(PUBLICATION_WITHDRAWAL)) {
   });
 }
 
-test("draft saves and no-project review/manual download do not create publication work or Drive effects", async ({
+test("draft saves and legacy no-project review/manual download do not create publication work or Drive effects", async ({
   api,
 }): Promise<void> => {
   expect(
@@ -270,9 +271,13 @@ test("draft saves and no-project review/manual download do not create publicatio
   const fixture = await seedQuotationDesign(api);
   const saved = await saveQuotation(api, fixture.quotation.id, {
     ...quotationWrite(fixture.quotation),
-    projectId: null,
     internalNotes: "Draft unpublished",
   });
+  expect(await readPublication(api, saved.id)).toMatchObject({
+    state: PUBLICATION_STATE.UNTRACKED,
+    cycleId: null,
+  });
+  await makeLegacyProjectlessQuotation(saved.id);
   expect(await readPublication(api, saved.id)).toMatchObject({
     state: PUBLICATION_STATE.NOT_APPLICABLE,
     cycleId: null,
@@ -280,8 +285,15 @@ test("draft saves and no-project review/manual download do not create publicatio
   const exported = await api.send(HTTP_METHODS.POST, `/quotation/${saved.id}/pdf`);
   expect(exported.status()).toBe(200);
   expect((await exported.body()).subarray(0, 4).toString()).toBe("%PDF");
-  const review = await transition(api, saved, QUOTATION.STATUS.REVIEW);
-  expect(await readPublication(api, review.id)).toMatchObject({
+  const rejected = await api.send(HTTP_METHODS.POST, `/quotation/${saved.id}/review`, {
+    version: saved.version,
+    status: QUOTATION.STATUS.REVIEW,
+  });
+  expect(rejected.status()).toBe(400);
+  expect(
+    await quotationDocument(await api.send(HTTP_METHODS.GET, `/quotation/${saved.id}`)),
+  ).toMatchObject({ status: QUOTATION.STATUS.DRAFT, version: saved.version });
+  expect(await readPublication(api, saved.id)).toMatchObject({
     state: PUBLICATION_STATE.NOT_APPLICABLE,
     cycleId: null,
     fileUrl: null,

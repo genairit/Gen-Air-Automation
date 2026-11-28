@@ -33,7 +33,12 @@ test.describe(`${USER_ROLES.SALES_AGENT} without grants`, () => {
     await page.goto(ROUTES.BOARD);
 
     await expect(page.getByText(PERMISSION_COPY.DENIED, { exact: false })).toBeVisible();
-    await expect(createBoardPage(page).searchBox).toHaveCount(0);
+    await expect(createBoardPage(page).card).toHaveCount(0);
+    await expect(
+      page.locator("main header").getByRole("button", {
+        name: new RegExp(TEST_USERS[USER_ROLES.SALES_AGENT].firstName),
+      }),
+    ).toBeVisible();
   });
 });
 
@@ -116,32 +121,40 @@ for (const role of APP_ACCESS_ROLES) {
 
       await expect(customersPage.heading).toBeVisible();
       await expectVisibility(access.canManageCustomers, customersPage.newCustomerButton);
-      await expectVisibility(!access.canManageCustomers, customersPage.managersOnlyCaption);
+      await expect(customersPage.managersOnlyCaption).toHaveCount(0);
     });
 
-    test("task creation belongs on the board with the existing role permission", async ({
+    test("task creation is available only on a project with the create grant", async ({
       page,
+      api,
     }) => {
       const boardPage = createBoardPage(page);
       const tasksPage = createTasksPage(page);
 
       await boardPage.goto();
 
-      await expectEnabled(access.canManageTasks, boardPage.newTaskButton);
+      await expect(boardPage.searchBox).toBeVisible();
+      await expect(boardPage.newTaskButton).toHaveCount(0);
       await tasksPage.goto();
 
       await expect(tasksPage.searchBox).toBeVisible();
-      await expectVisibility(access.canManageTasks, tasksPage.newTaskButton);
+      await expect(tasksPage.newTaskButton).toHaveCount(0);
       await expect(page.getByText(TASKS_COPY.REMOVED_MANAGERS_NOTE)).toHaveCount(0);
+
+      const project = await seedStandaloneProject(api, await seedCustomer(api));
+      const projectPage = createProjectPage(page);
+      await projectPage.goto(project.id);
+      await expect(projectPage.heading(project.name)).toBeVisible();
+      await expectVisibility(access.canManageTasks, projectPage.newTaskButton);
     });
 
-    test("employees page shows the add-employee form only when allowed", async ({ page }) => {
+    test("employees page offers creation only when allowed", async ({ page }) => {
       await page.goto(ROUTES.EMPLOYEES);
 
       await expect(page.getByPlaceholder(EMPLOYEES_COPY.SEARCH_PLACEHOLDER)).toBeVisible();
       await expectVisibility(
         access.canManageUsers,
-        page.getByRole("button", { name: EMPLOYEES_COPY.ADD_EMPLOYEE }),
+        page.getByRole("button", { name: EMPLOYEES_COPY.ADD_TITLE, exact: true }),
       );
     });
 
@@ -157,6 +170,7 @@ for (const role of APP_ACCESS_ROLES) {
       await expect(page.getByRole("heading", { name: task.title })).toBeVisible();
       await expectVisibility(access.canClaimTasks, taskPage.claimButton);
       await expectVisibility(access.canManageTasks, taskPage.markUrgentButton);
+      await expectVisibility(access.canManageTasks, taskPage.editButton);
       await expectEnabled(
         access.canChangeTaskStatus,
         taskPage.statusTab(TASK_STATUS_NAMES.IN_PROGRESS),
@@ -176,7 +190,13 @@ for (const role of APP_ACCESS_ROLES) {
       await tasksPage.goto();
       await tasksPage.searchBox.fill(task.title);
 
-      await expect(tasksPage.findRow(task.title).getByRole("combobox")).toHaveCount(0);
+      const row = tasksPage.findRow(task.title);
+      await expect(row).toBeVisible();
+      await expectVisibility(
+        access.canManageTasks,
+        row.getByRole("button", { name: `עריכת משימה · ${task.title}`, exact: true }),
+      );
+      await expect(row.getByRole("combobox")).toHaveCount(0);
       await tasksPage.findRow(task.title).click();
       await expect(page.getByRole("heading", { name: task.title })).toBeVisible();
       await expectEnabled(
@@ -191,10 +211,12 @@ for (const role of TASK_MANAGEMENT_DENIED_ROLES) {
   test.describe(`${role} opening the new-task form`, () => {
     test.use({ storageState: getAuthStatePath(role) });
 
-    test("sees a permission denial", async ({ page }) => {
+    test("returns to the task list without opening a creation form", async ({ page }) => {
       await page.goto(ROUTES.NEW_TASK);
 
-      await expect(page.getByText(TASKS_COPY.CREATE_DENIED)).toBeVisible();
+      await expect(page).toHaveURL(ROUTES.TASKS);
+      await expect(createTasksPage(page).searchBox).toBeVisible();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
     });
   });
 }

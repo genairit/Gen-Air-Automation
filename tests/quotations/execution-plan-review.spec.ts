@@ -13,6 +13,7 @@ import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { createProjectPage } from "../../src/pages/project.page.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { AUTOMATION_DIRECTORIES } from "../../src/constants/environment.constant.ts";
 import { createTestDatabaseClient } from "../../src/environment/test-database-client.ts";
 import { createQuotation, quotationWrite, saveQuotation } from "../../src/api/quotation.api.ts";
@@ -71,14 +72,24 @@ const completeChecklist = async (api: TGenAirApi, submission: IPlanSnapshot) => 
   return (await response.json()) as IPlanSnapshot;
 };
 
-test("submitter confirms six saved checks and lead reviews the exact plan from the quotation queue", async ({
+test("submitter confirms six saved checks and lead reviews the exact plan inside the quotation", async ({
   api,
   page,
   openPageAs,
 }) => {
   const context = await seedPlanContext(api);
   await createProjectPage(page).goto(context.project.id);
-  await createProjectPage(page).driveFolder("תיקיית משנה").click();
+  await openWorkspaceTab(page, "files");
+  const folder = createProjectPage(page).driveFolder("תיקיית משנה");
+  const nextPage = page
+    .getByRole("tabpanel", { name: "קבצים" })
+    .getByRole("button", { name: "הבא", exact: true });
+  await expect(folder.or(nextPage).first()).toBeVisible();
+  while (!(await folder.isVisible())) {
+    await expect(nextPage).toBeEnabled();
+    await nextPage.click();
+  }
+  await folder.click();
   await page.getByRole("button", { name: "הגש תוכנית לביצוע: תוכנית לביצוע.pdf" }).click();
   const dialog = page.getByRole("dialog", { name: "הגשת תוכנית לביצוע" });
   await expect(dialog).toBeVisible();
@@ -105,14 +116,9 @@ test("submitter confirms six saved checks and lead reviews the exact plan from t
   await expect(dialog).toHaveCount(0);
 
   const leadPage = await openPageAs(TEST_USERS[USER_ROLES.ENGINEERING_LEAD]);
-  await leadPage.goto("/quotations");
-  const pendingTab = leadPage.getByRole("button", { name: /ממתינות לאישור/ });
-  await expect(pendingTab).toContainText("1");
-  await pendingTab.click();
-  const pendingRow = leadPage.getByRole("button", { name: new RegExp(context.quotation.number) });
-  await expect(pendingRow).toContainText("תוכנית לביצוע.pdf");
-  await expect(pendingRow).toContainText("01");
-  await pendingRow.click();
+  await leadPage.goto(`/projects/${context.project.id}?tab=quotations`);
+  await leadPage.getByText(context.quotation.number, { exact: true }).click();
+  await expect(leadPage.getByRole("link", { name: "תוכנית לביצוע.pdf" })).toBeVisible();
   await expect(leadPage.getByRole("region", { name: "אישור תוכנית לביצוע" })).toBeVisible();
   await expect(leadPage.getByText("גרסת Drive שנרשמה בהגשה: 1", { exact: false })).toBeVisible();
   await expect(
@@ -120,8 +126,8 @@ test("submitter confirms six saved checks and lead reviews the exact plan from t
   ).toHaveCount(6);
   await leadPage.getByRole("button", { name: "אשר תוכנית לביצוע" }).click();
   await expect(leadPage.getByText("תוכנית מאושרת", { exact: true })).toBeVisible();
-  await leadPage.goto("/quotations");
-  await expect(leadPage.getByRole("button", { name: /ממתינות לאישור/ })).toContainText("0");
+  await leadPage.reload();
+  await expect(leadPage.getByText("תוכנית מאושרת", { exact: true })).toBeVisible();
 });
 
 test("API rejects incomplete, unauthorized, self, stale and version-mismatched decisions", async ({
@@ -202,7 +208,7 @@ test("API rejects incomplete, unauthorized, self, stale and version-mismatched d
   ).toBe(409);
 });
 
-test("pending tab counts one quotation with two submitted project plans", async ({
+test("one quotation displays both submitted project plans for review", async ({
   api,
   openPageAs,
 }) => {
@@ -246,14 +252,10 @@ test("pending tab counts one quotation with two submitted project plans", async 
     expect(submitted.status()).toBe(201);
   }
   const leadPage = await openPageAs(TEST_USERS[USER_ROLES.ENGINEERING_LEAD]);
-  await leadPage.goto("/quotations");
-  const tab = leadPage.getByRole("button", { name: /ממתינות לאישור/ });
-  await expect(tab).toContainText("1");
-  await tab.click();
-  const row = leadPage.getByRole("button", { name: new RegExp(quotation.number) });
-  await expect(row).toHaveCount(1);
-  await expect(row).toContainText(building.name);
-  await expect(row).toContainText(apartment.name);
-  await expect(row).toContainText("01");
-  await expect(row).toContainText("02");
+  await leadPage.goto(`/quotations/${quotation.id}`);
+  const reviews = leadPage.getByRole("region", { name: "אישור תוכנית לביצוע" });
+  await expect(reviews.getByRole("button", { name: "אשר תוכנית לביצוע" })).toHaveCount(2);
+  for (const value of [building.name, apartment.name, "01", "02"]) {
+    await expect(reviews.getByText(value, { exact: true })).toBeVisible();
+  }
 });

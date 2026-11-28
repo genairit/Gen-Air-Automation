@@ -1,16 +1,38 @@
 import {
+  PROJECT_CONTACT_ROLE_COPY,
   PROJECT_CONTACT_ROLE_LABELS,
   type ProjectContactRoleType,
 } from "../constants/project-contact-role.constant.ts";
 
+import { findCardByTitle } from "./card.component.ts";
 import type { Page, Locator } from "@playwright/test";
 import { findFieldByTitle } from "./field.component.ts";
 import { KEYBOARD_KEYS } from "../constants/keyboard.constant.ts";
 
 export const contactRolePicker = (page: Page, role: ProjectContactRoleType): Locator =>
-  page
+  findCardByTitle(page, PROJECT_CONTACT_ROLE_COPY.CREATE_SECTION)
+    .or(findCardByTitle(page, PROJECT_CONTACT_ROLE_COPY.SECTION))
+    .or(page.getByRole("dialog", { name: PROJECT_CONTACT_ROLE_LABELS[role], exact: true }))
     .getByRole("combobox", { name: PROJECT_CONTACT_ROLE_LABELS[role], exact: true })
     .and(page.locator("input[readonly]"));
+
+export const openContactRoleControls = async (page: Page, role: ProjectContactRoleType) => {
+  const mobileContacts = page
+    .getByRole("group", { name: "צוות ואנשי קשר", exact: true })
+    .getByRole("button", { name: "אנשי קשר", exact: true });
+  const label = PROJECT_CONTACT_ROLE_LABELS[role];
+  const disclosure = page.getByRole("button", { name: new RegExp(`^(שייך|ערוך) ${label}$`) });
+  await mobileContacts
+    .or(disclosure)
+    .or(contactRolePicker(page, role))
+    .filter({ visible: true })
+    .first()
+    .waitFor({ state: "visible" });
+  if (await mobileContacts.isVisible()) await mobileContacts.click();
+  if (await contactRolePicker(page, role).isVisible()) return;
+  await disclosure.waitFor({ state: "visible" });
+  await disclosure.click();
+};
 
 export const contactRoleEditor = (page: Page, role: ProjectContactRoleType): Locator =>
   page
@@ -22,6 +44,7 @@ export const selectRoleContact = async (
   role: ProjectContactRoleType,
   name: string,
 ): Promise<void> => {
+  await openContactRoleControls(page, role);
   await contactRolePicker(page, role).click();
   const search = page
     .getByRole("combobox", { name: PROJECT_CONTACT_ROLE_LABELS[role], exact: true })

@@ -1,5 +1,6 @@
 import type { TGenAirApi } from "./gen-air-api.ts";
 import type { APIResponse } from "@playwright/test";
+import { seedStandaloneProject } from "./seed-data.ts";
 import { isRecord } from "../utilities/guard.utility.ts";
 import { HTTP_METHODS } from "../constants/http.constant.ts";
 import { QUOTATION } from "../constants/quotation.constant.ts";
@@ -33,6 +34,9 @@ const isSection = (value: unknown) =>
   isRecord(value) &&
   strings(value, ["id", "title"]) &&
   nullableStrings(value, ["brand"]) &&
+  [value.floorId, value.floorName].every(
+    field => field === undefined || field === null || typeof field === "string",
+  ) &&
   Object.values(QUOTATION.SYSTEM).some(system => system === value.systemType) &&
   Array.isArray(value.items) &&
   value.items.every(isLine);
@@ -156,6 +160,8 @@ export const quotationWrite = (quote: IQuotationDocument): IQuotationWrite => ({
     title: section.title,
     systemType: section.systemType,
     brand: section.brand,
+    floorId: section.floorId ?? null,
+    floorName: section.floorName ?? null,
     items: section.items.map(item => ({
       id: item.id,
       catalogueItemId: item.catalogueItemId,
@@ -169,8 +175,13 @@ export const quotationWrite = (quote: IQuotationDocument): IQuotationWrite => ({
     })),
   })),
 });
-export const createQuotation = async (api: TGenAirApi, customerId: string) =>
-  quotationDocument(await api.send(HTTP_METHODS.POST, "/quotation", { customerId }));
+export const createQuotation = async (api: TGenAirApi, customerId: string, projectId?: string) => {
+  const primaryProjectId =
+    projectId ?? (await seedStandaloneProject(api, await api.getCustomer(customerId))).id;
+  return quotationDocument(
+    await api.send(HTTP_METHODS.POST, "/quotation", { customerId, projectId: primaryProjectId }),
+  );
+};
 export const saveQuotation = async (api: TGenAirApi, id: string, input: IQuotationWrite) =>
   quotationDocument(await api.send(HTTP_METHODS.PUT, `/quotation/${id}`, input));
 

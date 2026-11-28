@@ -1,4 +1,3 @@
-import { seedTaskScenario } from "../../src/api/seed-data.ts";
 import { seedMultiRoleUser } from "../../src/api/multi-role.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { formatFullName } from "../../src/utilities/user.utility.ts";
@@ -6,9 +5,11 @@ import { createRoleMenu } from "../../src/pages/role-menu.component.ts";
 import { KEYBOARD_KEYS } from "../../src/constants/keyboard.constant.ts";
 import { TASK_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { createTestDatabaseClient } from "../../src/environment/test-database-client.ts";
 import { USER_ROLES, USER_ROLE_LABELS } from "../../src/constants/user-role.constant.ts";
 import { getUpcomingDate, toDateInputValue } from "../../src/pages/date-field.component.ts";
+import { seedTaskScenario, seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts";
 import { createTaskFormPage, createTaskPage, createTasksPage } from "../../src/pages/tasks.page.ts";
 
 const ADMIN = USER_ROLES.SYSTEM_ADMIN;
@@ -24,7 +25,8 @@ test("an assigned engineer remains selectable beyond the first lazy options batc
     await test.step(`seed newer engineer ${index + 1}`, () => seedMultiRoleUser(api, [ENGINEER]));
   }
   const form = createTaskFormPage(page);
-  await form.goto();
+  const project = await seedStandaloneProject(api, await seedCustomer(api));
+  await form.goto(project.id);
   await form.fillDetails({
     dueDate: toDateInputValue(getUpcomingDate(14)),
     title: "QA multi-role assignee",
@@ -41,13 +43,15 @@ test("engineer pickers use assigned roles even while the employee is active in f
   const engineer = await seedMultiRoleUser(api, [FINANCE, ENGINEER]);
   const financeOnly = await seedMultiRoleUser(api, [FINANCE]);
   const taskForm = createTaskFormPage(page);
-  await taskForm.goto();
+  const project = await seedStandaloneProject(api, await seedCustomer(api));
+  await taskForm.goto(project.id);
   const assignees = await taskForm.openAssigneeOptions();
   await expect(assignees.filter({ hasText: formatFullName(engineer) })).toBeVisible();
   await expect(assignees.filter({ hasText: formatFullName(financeOnly) })).toHaveCount(0);
   await page.keyboard.press(KEYBOARD_KEYS.ESCAPE);
   const projectForm = createProjectFormPage(page);
   await projectForm.goto();
+  await openWorkspaceTab(page, "people");
   const members = await projectForm.openMemberSlot(ENGINEER);
   await expect(members.filter({ hasText: formatFullName(engineer) })).toBeVisible();
   await expect(members.filter({ hasText: formatFullName(financeOnly) })).toHaveCount(0);

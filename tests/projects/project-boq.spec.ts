@@ -387,10 +387,7 @@ test("procurement manager opens project BOQ, selects approved source and sees pu
 }) => {
   const { project, fixed, approved } = await fixture(api);
   const page = await openPageAs(TEST_USERS[USER_ROLES.PURCHASING_EXECUTION_MANAGER]);
-  await page.goto("/project-boqs");
-  await expect(page.getByRole("heading", { name: "כתבי רכש לפרויקטים" })).toBeVisible();
-  await page.getByText(project.name, { exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/project-boqs/${project.id}$`));
+  await page.goto(`/project-boqs/${project.id}`);
   await expect(page.getByRole("heading", { name: "רכש לפרויקט" })).toBeVisible();
   await expect(page.getByText("אין עדיין כתב רכש לפרויקט.")).toBeVisible();
   await expect(page.getByText("טרם נבחרה הצעה")).toBeVisible();

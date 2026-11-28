@@ -29,8 +29,33 @@ export const createQuotationPage = (page: Page) => {
     saved(() => field(name).nth(index).fill(value));
   const select = (name: string, value: string, index = 0) =>
     saved(() => selectMuiOption(page, field(name).nth(index), value));
-  const addBrandTab = (brand: string) =>
-    saved(() => selectMuiOption(page, field("הוספת לשונית חברה"), brand));
+  const addBrandTab = async (brand: string) => {
+    await button("חברות").click();
+    await saved(() => selectMuiOption(page, field("הוספת חברה"), brand));
+  };
+  const addSystem = async (brand: string, system: string, title = "") => {
+    await button("+ הוספת מערכת").click();
+    const form = page.getByRole("form", { name: "הוספת מערכת", exact: true });
+    await selectMuiOption(page, form.getByRole("combobox", { name: "חברה", exact: true }), brand);
+    if (brand)
+      await selectMuiOption(
+        page,
+        form.getByRole("combobox", { name: "סוג מערכת", exact: true }),
+        system,
+      );
+    await form.getByRole("textbox", { name: "כותרת מערכת", exact: true }).fill(title);
+    await saved(() => form.getByRole("button", { name: "הוספה", exact: true }).click());
+  };
+  const showDetails = async () => {
+    const details = page.getByRole("button", { name: /פרטי הצעה/ });
+    if ((await details.getAttribute("aria-expanded")) === "false") await details.click();
+  };
+  const openItem = async (description: string, index = 0) => {
+    const item = page
+      .getByRole("button", { name: "עריכת פריט " + description, exact: true })
+      .nth(index);
+    if ((await item.getAttribute("aria-expanded")) === "false") await item.click();
+  };
   const chooseEntity = async (name: string, label: string) => {
     await field(name).click();
     await entitySearch(name).fill(label);
@@ -91,6 +116,9 @@ export const createQuotationPage = (page: Page) => {
     fill,
     select,
     addBrandTab,
+    addSystem,
+    showDetails,
+    openItem,
     chooseEntity,
     selectEntity,
     add,

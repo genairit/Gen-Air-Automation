@@ -19,6 +19,7 @@ import { PROJECT_PAGE_COPY } from "../../src/constants/copy.constant.ts";
 import { FAKE_PLACES } from "../../src/constants/fake-places.constant.ts";
 import { buildEditProjectRoute } from "../../src/utilities/route.utility.ts";
 import { createStageReasonDialog } from "../../src/pages/stage-reason.component.ts";
+import { openWorkspaceTab, workspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { PROJECT_TYPE_NAMES, PROJECT_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
 
 const TIMELINE_ENTRIES_AFTER_CREATION = 1;
@@ -38,10 +39,14 @@ test("a standalone project page shows its header, intake, customer, team, tasks 
 
   await expect(projectPage.heading(project.name)).toBeVisible();
   await expect(page.getByText(project.code)).toBeVisible();
-  await expect(page.getByText(FAKE_PLACES[0].formattedAddress)).toBeVisible();
-  await expect(page.getByText(customer.name)).not.toHaveCount(0);
-  await expect(page.getByText(PROJECT_PAGE_COPY.TEAM_TITLE)).toBeVisible();
+  await expect(workspaceTab(page, "tasks")).toHaveAttribute("aria-selected", "true");
   await expect(page.getByText(task.title)).toBeVisible();
+  await openWorkspaceTab(page, "details");
+  await expect(page.getByText(FAKE_PLACES[0].formattedAddress).first()).toBeVisible();
+  await expect(page.getByText(customer.name)).not.toHaveCount(0);
+  await openWorkspaceTab(page, "people");
+  await expect(page.getByText(PROJECT_PAGE_COPY.TEAM_TITLE)).toBeVisible();
+  await openWorkspaceTab(page, "history");
   await expect(projectPage.timeline.getByRole("listitem")).toHaveCount(
     TIMELINE_ENTRIES_AFTER_CREATION,
   );
@@ -56,8 +61,10 @@ test("a building page shows the inherited values and its apartments", async ({ p
   await projectPage.goto(building.id);
 
   await expect(projectPage.heading(building.name)).toBeVisible();
+  await openWorkspaceTab(page, "details");
   await expect(page.getByText(PROJECT_PAGE_COPY.BUILDING_INHERITED)).toBeVisible();
   await expect(page.getByText(PROJECT_TYPE_NAMES.RESIDENTIAL_BUILDING)).not.toHaveCount(0);
+  await openWorkspaceTab(page, "apartments");
   await expect(projectPage.addApartmentButton).toBeVisible();
   await expect(projectPage.findApartmentRow(apartment.name)).toBeVisible();
   await expect(projectPage.stagePicker).toHaveValue(PROJECT_STATUS_NAMES.NOT_STARTED);
@@ -129,4 +136,27 @@ test("an unknown project id shows the not-found state", async ({ page }) => {
   await projectPage.goto(crypto.randomUUID());
 
   await expect(page.getByText(PROJECT_PAGE_COPY.NOT_FOUND)).toBeVisible();
+});
+
+test("project workspace keeps the shell in view and restores the tab on refresh and Back", async ({
+  page,
+  api,
+}) => {
+  const project = await seedStandaloneProject(api, await seedCustomer(api));
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await createProjectPage(page).goto(project.id);
+  await expect(workspaceTab(page, "tasks")).toHaveAttribute("aria-selected", "true");
+  await workspaceTab(page, "tasks").focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(workspaceTab(page, "files")).toBeFocused();
+  await expect(page.getByRole("tabpanel", { name: "קבצים", exact: true })).toBeVisible();
+  await page.reload();
+  await expect(workspaceTab(page, "files")).toHaveAttribute("aria-selected", "true");
+  await page.goBack();
+  await expect(workspaceTab(page, "tasks")).toHaveAttribute("aria-selected", "true");
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollHeight - innerHeight))
+    .toBeLessThanOrEqual(1);
+  await expect(workspaceTab(page, "apartments")).toHaveCount(0);
+  await expect(workspaceTab(page, "quotations")).toBeVisible();
 });

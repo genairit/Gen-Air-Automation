@@ -27,6 +27,7 @@ import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
 import { PROJECT_STATUS_NAMES } from "../../src/constants/domain.constant.ts";
 import { mockDriveManagement } from "../../src/mocks/drive-management.mock.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { createTaskFormPage, createTaskPage } from "../../src/pages/tasks.page.ts";
 import { createDriveManagement } from "../../src/pages/drive-management.component.ts";
 import { PERMISSIONS, PERMISSION_COPY } from "../../src/constants/permission.constant.ts";
@@ -43,29 +44,32 @@ const captureRequests = (page: Page) => {
   return requests;
 };
 
-test("grant changes on focus update controls and navigation without another login", async ({
+test("grant changes on focus update project task creation without another login", async ({
+  api,
   openPageAs,
   apiAs,
 }) => {
   const actor = await apiAs(TEST_USERS[FINANCE]);
   const page = await openPageAs(TEST_USERS[FINANCE]);
-  const board = createBoardPage(page);
-  await board.goto();
-  await expect(board.searchBox).toBeVisible();
-  await expect(board.newTaskButton).toBeDisabled();
+  const project = await seedStandaloneProject(api, await seedCustomer(api));
+  const view = createProjectPage(page);
+  await view.goto(project.id);
+  await expect(view.heading(project.name)).toBeVisible();
+  await expect(view.newTaskButton).toHaveCount(0);
   await withRolePermissions(
     FINANCE,
     [...actor.session.user.permissions, PERMISSIONS.TASKS_CREATE],
     async () => {
       await refreshVisibility(page);
-      await expect(board.newTaskButton).toBeEnabled();
-      await board.newTaskButton.click();
-      await expect(page.getByRole("button", { name: TASK_FORM_COPY.SAVE })).toBeVisible();
+      const form = createTaskFormPage(page);
+      await form.open();
+      await expect(form.saveButton).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(form.form).toHaveCount(0);
     },
   );
-  await page.getByRole("button", { name: NAVIGATION_COPY.BOARD, exact: true }).click();
   await refreshVisibility(page);
-  await expect(board.newTaskButton).toBeDisabled();
+  await expect(view.newTaskButton).toHaveCount(0);
 });
 
 test("a real forbidden write refreshes current grants and removes the stale action", async ({
@@ -91,7 +95,7 @@ test("a real forbidden write refreshes current grants and removes the stale acti
       await view.markUrgent();
       await forbidden;
       await expect(view.markUrgentButton).toHaveCount(0);
-      await expect(view.descriptionInput).toBeVisible();
+      await expect(view.editButton).toBeVisible();
     },
   );
 });
@@ -184,7 +188,7 @@ test("independent task grants keep content editable while assignment and urgency
   apiAs,
   openPageAs,
 }) => {
-  const { task } = await seedTaskScenario(api);
+  const { task, project } = await seedTaskScenario(api);
   const actor = await apiAs(TEST_USERS[ADMIN]);
   const keys = actor.session.user.permissions.filter(
     key =>
@@ -194,16 +198,17 @@ test("independent task grants keep content editable while assignment and urgency
     const page = await openPageAs(TEST_USERS[ADMIN]);
     const view = createTaskPage(page);
     await view.goto(task.id);
-    await expect(view.descriptionInput).toBeEnabled();
-    await expect(view.assigneeSelect).toHaveCount(0);
     await expect(view.markUrgentButton).toHaveCount(0);
+    await view.editButton.click();
+    await expect(view.descriptionInput).toBeEnabled();
+    await expect(view.assigneeSelect).toBeDisabled();
     await view.descriptionInput.fill("QA content remains editable");
-    await view.saveDescriptionButton.click();
+    const form = createTaskFormPage(page);
+    await form.saveButton.click();
     await expect
       .poll(async () => (await api.getTask(task.id)).description)
       .toBe("QA content remains editable");
-    const form = createTaskFormPage(page);
-    await form.goto();
+    await form.goto(project.id);
     const assigneeOptions = await form.openAssigneeOptions();
     await expect(assigneeOptions).toHaveCount(1);
     await expect(assigneeOptions).toHaveText(TASK_FORM_COPY.POOL_OPTION);
@@ -227,11 +232,12 @@ test("apartments can be created without project-edit permission and denied route
       const project = createProjectPage(page);
       await project.goto(building.id);
       await expect(project.editButton).toHaveCount(0);
+      await openWorkspaceTab(page, "apartments");
       await project.addApartmentButton.click();
       const form = createApartmentFormPage(page);
       await form.fill({ floor: "5", number: "47א", customerName: customer.name });
       await form.submitButton.click();
-      await expect(page).toHaveURL(new RegExp(`/projects/${building.id}$`));
+      await expect(page).toHaveURL(new RegExp(`/projects/${building.id}\\?tab=apartments$`));
       await expect(project.findApartmentRow("47א")).toBeVisible();
     },
   );
@@ -267,9 +273,13 @@ test("status grant is separate from project edit in form, apartment tabs and bul
       await expect(page.getByRole("heading", { name: "QA ordinary project edit" })).toBeVisible();
       const view = createApartmentPage(page);
       await view.goto(building.id, apartment.id);
-      await expect(view.stageTab(PROJECT_STATUS_NAMES.IN_PROGRESS)).toBeDisabled();
+      await expect(view.stageTab(PROJECT_STATUS_NAMES.IN_PROGRESS)).toHaveCount(0);
+      await expect(
+        page.getByText(PROJECT_STATUS_NAMES.NOT_STARTED, { exact: true }).first(),
+      ).toBeVisible();
       const buildingPage = createProjectPage(page);
       await buildingPage.goto(building.id);
+      await openWorkspaceTab(page, "apartments");
       await buildingPage.findApartmentRow(apartment.name).getByRole("checkbox").check();
       await expect(page.getByRole("combobox", { name: "שנה שלב ל…" })).toHaveCount(0);
     },
@@ -298,6 +308,12 @@ for (const building of [false, true]) {
         const view = createProjectPage(page);
         await view.goto(project.id);
         await expect(view.heading(project.name)).toBeVisible();
+        await expect(page.getByRole("tab", { name: "פרטים", exact: true })).toHaveAttribute(
+          "aria-selected",
+          "true",
+        );
+        await expect(page.getByRole("tab", { name: "קבצים", exact: true })).toHaveCount(0);
+        await expect(page.getByRole("tab", { name: "משימות", exact: true })).toHaveCount(0);
         await expect(view.driveCard).toHaveCount(0);
         await expect(page.getByRole("heading", { name: "משימות הפרויקט" })).toHaveCount(0);
         expect(
@@ -343,6 +359,7 @@ for (const grant of [PERMISSIONS.DRIVE_UPLOAD, PERMISSIONS.DRIVE_MOVE, PERMISSIO
       await mockDriveManagement(page, project.id);
       const view = createDriveManagement(page);
       await view.goto(project.id);
+      await openWorkspaceTab(page, "files");
       await view.expandNested();
       await expect(view.file).toBeVisible();
       await expect(view.editButton).toHaveCount(0);

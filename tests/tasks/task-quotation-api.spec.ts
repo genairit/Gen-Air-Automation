@@ -7,6 +7,11 @@ import {
 } from "../../src/api/seed-data.ts";
 
 import {
+  createCatalogueFixture,
+  makeLegacyProjectlessQuotation,
+} from "../../src/environment/quotation-fixtures.ts";
+
+import {
   TASK_QUOTATION_ERROR,
   TASK_QUOTATION_UNAVAILABLE,
 } from "../../src/constants/task-quotation.constant.ts";
@@ -28,7 +33,6 @@ import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
 import { seedTaskQuotationScenario } from "../../src/api/task-quotation.api.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
-import { createCatalogueFixture } from "../../src/environment/quotation-fixtures.ts";
 import { taskQuotationPath, createTaskQuotation } from "../../src/api/task-quotation.api.ts";
 import { setLegacyTaskQuotationFixture } from "../../src/environment/task-quotation-fixtures.ts";
 import { quotationDocument, quotationWrite, createQuotation } from "../../src/api/quotation.api.ts";
@@ -111,9 +115,17 @@ test("exact apartment direct customer and legacy customer-only context never inf
   const customer = await seedCustomer(api);
   const legacy = await seedLegacyCustomerTask(api, customer);
   await setLegacyTaskQuotationFixture(legacy.id, customer.id);
+  const before = await counts();
   expect(
-    await document(api, (await createTaskQuotation(api, legacy.id)).quotationId),
-  ).toMatchObject({ customerId: customer.id, projectId: null });
+    await (await api.send(HTTP_METHODS.GET, `/task/${legacy.id}/quotations`)).json(),
+  ).toMatchObject({
+    customerId: customer.id,
+    projectId: null,
+    canCreate: false,
+    unavailableReason: TASK_QUOTATION_UNAVAILABLE.MISSING_CONTEXT,
+  });
+  expect((await api.send(HTTP_METHODS.POST, taskQuotationPath(legacy.id), {})).status()).toBe(400);
+  expect(await counts()).toEqual(before);
   expect(
     (
       await api.send(HTTP_METHODS.POST, "/task", {
@@ -190,7 +202,7 @@ test("linked project context is enforced on ordinary saves without modifying doc
           ...update,
         })
       ).status(),
-    ).toBe(409);
+    ).toBe(update.projectId === null ? 400 : 409);
     expect(await document(api, quote.id)).toEqual(quote);
   }
 });
@@ -356,7 +368,13 @@ test("customer-only save permits an explicitly chosen own project; deleted task 
   const customer = await seedCustomer(api);
   const task = await seedLegacyCustomerTask(api, customer);
   await setLegacyTaskQuotationFixture(task.id, customer.id);
-  const quote = await document(api, (await createTaskQuotation(api, task.id)).quotationId);
+  const quote = await createQuotation(api, customer.id);
+  await makeLegacyProjectlessQuotation(quote.id);
+  await taskQuotationQuery(
+    "INSERT INTO task_quotation_links(task_id, quotation_id, is_primary) VALUES ($1, $2, true)",
+    [task.id, quote.id],
+  );
+  expect((await document(api, quote.id)).projectId).toBeNull();
   const ownProject = await seedStandaloneProject(api, customer);
   const saved = await quotationDocument(
     await api.send(HTTP_METHODS.PUT, `/quotation/${quote.id}`, {
@@ -458,7 +476,7 @@ test("deleting the only linked quotation permits one new draft and retains both 
   ]);
 });
 
-test("customer-only creation omits project-read dependency and protected summaries independently require their grants", async ({
+test("customer-only tasks block creation and protected summaries independently require their grants", async ({
   api,
   apiAs,
 }) => {
@@ -473,7 +491,9 @@ test("customer-only creation omits project-read dependency and protected summari
   ];
   await withRolePermissions(USER_ROLES.ENGINEER, grants, async () => {
     const actor = await apiAs(TEST_USERS[USER_ROLES.ENGINEER]);
-    expect((await createTaskQuotation(actor, legacy.id)).created).toBe(true);
+    expect((await actor.send(HTTP_METHODS.POST, taskQuotationPath(legacy.id), {})).status()).toBe(
+      400,
+    );
     expect((await actor.send(HTTP_METHODS.GET, `/task/${legacy.id}/quotations`)).status()).toBe(
       200,
     );
@@ -591,7 +611,7 @@ test("public project customer changes and quotation primary relinks return confl
     customerId: other.customer.id,
   });
   expect(projectChange.status()).toBe(409);
-  expect(await projectChange.json()).toMatchObject({ code: TASK_QUOTATION_ERROR.CONTEXT_LOCKED });
+  expect(await projectChange.json()).toMatchObject({ code: "PROJECT_HAS_QUOTATIONS" });
   const relink = await api.send(HTTP_METHODS.PUT, `/quotation/${quote.id}`, {
     ...quotationWrite(quote),
     projectId: sameCustomerProject.id,

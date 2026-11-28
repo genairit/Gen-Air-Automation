@@ -4,6 +4,7 @@ import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { buildApartmentRoute } from "../../src/utilities/route.utility.ts";
 import { createApartmentFormPage } from "../../src/pages/apartment.page.ts";
 import { readBuildingApartments } from "../../src/api/apartment-import.api.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { seedApartment, seedBuilding, seedCustomer } from "../../src/api/seed-data.ts";
 import { createApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { PROJECT_CONSTRAINTS } from "../../src/constants/project-constraints.constant.ts";
@@ -42,6 +43,7 @@ test("apartment detail follows live building lighting until a local override is 
   const neighbor = await seedApartment(api, building);
 
   await page.goto(buildApartmentRoute(building.id, first.id));
+  await openWorkspaceTab(page, "details");
   const lightingCard = page
     .getByText("הנמכה כללית לתאורה", { exact: true })
     .first()
@@ -113,8 +115,10 @@ test("apartment creation shows inherited lowering, validates centimeters, and sa
   const form = createApartmentFormPage(page);
 
   await projectPage.goto(building.id);
+  await openWorkspaceTab(page, "apartments");
   await projectPage.addApartmentButton.click();
   await form.fill({ floor: "4", number, customerName: customer.name });
+  await openWorkspaceTab(page, "technical");
   const lightingCard = page
     .getByText("הנמכה כללית לתאורה", { exact: true })
     .first()
@@ -125,11 +129,12 @@ test("apartment creation shows inherited lowering, validates centimeters, and sa
   const height = lightingCard.getByPlaceholder(PROJECT_CONSTRAINTS.HEIGHT_PLACEHOLDER);
   await height.fill("abc");
   await expect(page.getByText(PROJECT_CONSTRAINTS.HEIGHT_INVALID, { exact: true })).toBeVisible();
+  await openWorkspaceTab(page, "people");
   await form.submitButton.click();
-  await expect(page).not.toHaveURL(new RegExp(`/projects/${building.id}$`));
+  await expect(height).toBeFocused();
   await height.fill("30");
   await form.submitButton.click();
-  await expect(page).toHaveURL(new RegExp(`/projects/${building.id}$`));
+  await expect(page).toHaveURL(new RegExp(`/projects/${building.id}\\?tab=apartments$`));
 
   const apartments = await readBuildingApartments(api, building.id);
   expect(apartments).toHaveLength(1);
