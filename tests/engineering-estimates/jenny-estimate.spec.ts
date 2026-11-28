@@ -331,7 +331,6 @@ test("An engineer opens a linked bill and edits a saved estimate and its catalog
   await expectLargeHeading(page.getByRole("heading", { name, exact: true }), 32);
   await expectCompactEditActions(page);
   await page.getByRole("button", { name: "עריכת כתב כמויות", exact: true }).click();
-  await page.getByRole("button", { name: "עריכת פרטי טיוטה", exact: true }).click();
   await page.getByRole("textbox", { name: ESTIMATE_NAME }).fill(revisedName);
   await page.getByRole("button", { name: "הוספת אזור", exact: true }).click();
   const editor = createEstimateEditorPage(page);
