@@ -23,7 +23,9 @@ export const openContactRoleControls = async (page: Page, role: ProjectContactRo
   if (await mobileContacts.isVisible()) await mobileContacts.click();
   const label = PROJECT_CONTACT_ROLE_LABELS[role];
   const disclosure = page.getByRole("button", { name: new RegExp(`^(שייך|ערוך) ${label}$`) });
-  if (await disclosure.isVisible()) await disclosure.click();
+  if (await contactRolePicker(page, role).isVisible()) return;
+  await disclosure.waitFor({ state: "visible" });
+  await disclosure.click();
 };
 
 export const contactRoleEditor = (page: Page, role: ProjectContactRoleType): Locator =>

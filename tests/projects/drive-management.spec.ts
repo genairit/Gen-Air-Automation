@@ -219,9 +219,10 @@ for (const width of [1440, 390]) {
       method: HTTP_METHODS.DELETE,
       fileId: MANAGEMENT_FILE.id,
     });
-    expect(mock.requests.contents.slice(beforeTrash)).toEqual(
-      expect.arrayContaining([FOLDERS.ROOT, FOLDERS.TARGET.id]),
-    );
+    expect(mock.requests.contents.slice(beforeTrash)).toContain(FOLDERS.ROOT);
+    await ui.driveFolder(FOLDERS.TARGET.name).click();
+    await expect(ui.driveCard.getByText(DRIVE_COPY.EMPTY_FOLDER, { exact: true })).toBeVisible();
+    expect(mock.requests.contents.slice(beforeTrash)).toContain(FOLDERS.TARGET.id);
     expect(mock.files.size).toBe(0);
     const other = await seedStandaloneProject(api, await seedCustomer(api));
     await mockDriveManagement(page, other.id);

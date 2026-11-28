@@ -16,7 +16,6 @@ import type { TGenAirApi } from "../../src/api/gen-air-api.ts";
 import { isRecord } from "../../src/utilities/guard.utility.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
-import { findCardByTitle } from "../../src/pages/card.component.ts";
 import { expectTabSelected } from "../../src/pages/tab.component.ts";
 import { findFieldByTitle } from "../../src/pages/field.component.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
@@ -225,13 +224,16 @@ test("project contact controls create, edit, unlink, and reselect a reusable dir
   const editedName = `${contactName} חדש`;
   await page.goto(`/projects/${project.id}`);
   await openWorkspaceTab(page, "people");
-  const card = findCardByTitle(page, "אנשי קשר בפרויקט או בדירה");
+  await page.getByRole("button", { name: "ניהול אנשי קשר נוספים", exact: true }).click();
+  const card = page.getByRole("dialog", { name: "ניהול אנשי קשר נוספים", exact: true });
   await card.getByRole("button", { name: "צור איש קשר במדריך" }).click();
   await findFieldByTitle(card, "שם").fill(contactName);
   await findFieldByTitle(card, "טלפון").fill("+33142278186");
   await card.getByRole("button", { name: "שמירה", exact: true }).click();
   await expect(card.getByText(contactName, { exact: false })).toBeVisible();
-  await expect(card.locator('a[href="tel:+33142278186"]')).toBeVisible();
+  await card.getByRole("button", { name: "סיום", exact: true }).click();
+  await expect(page.locator('a[href="tel:+33142278186"]')).toBeVisible();
+  await page.getByRole("button", { name: "ניהול אנשי קשר נוספים", exact: true }).click();
   await findFieldByTitle(card, "תפקיד בפרויקט").fill("תיאום אתר");
   const roleSaved = page.waitForResponse(
     response =>
@@ -241,6 +243,7 @@ test("project contact controls create, edit, unlink, and reselect a reusable dir
   await card.getByRole("button", { name: "שמור תפקיד" }).click();
   expect((await roleSaved).ok()).toBe(true);
   await page.reload();
+  await page.getByRole("button", { name: "ניהול אנשי קשר נוספים", exact: true }).click();
   await expect(findFieldByTitle(card, "תפקיד בפרויקט")).toHaveValue("תיאום אתר");
   await card.getByRole("button", { name: "ערוך איש קשר" }).click();
   await findFieldByTitle(card, "שם").fill(editedName);
@@ -255,6 +258,7 @@ test("project contact controls create, edit, unlink, and reselect a reusable dir
   await card.getByRole("button", { name: "שייך" }).click();
   await expect(card.getByText(editedName, { exact: false })).toBeVisible();
   await page.reload();
+  await page.getByRole("button", { name: "ניהול אנשי קשר נוספים", exact: true }).click();
   await expect(card.getByText(editedName, { exact: false })).toBeVisible();
 });
 
