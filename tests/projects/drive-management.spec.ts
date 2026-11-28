@@ -212,7 +212,9 @@ for (const width of [1440, 390]) {
     await expect(ui.dialog).toHaveCount(0);
     await expect(ui.file).toHaveCount(0);
     await expect(ui.driveCard.getByText(COPY.TRASH_SUCCESS)).toBeVisible();
-    await expect(ui.driveCard.getByText(DRIVE_COPY.EMPTY_FOLDER, { exact: true })).toBeVisible();
+    await expect(
+      ui.driveFolder(FOLDERS.TARGET.name).getByRole("img", { name: DRIVE_COPY.EMPTY_FOLDER }),
+    ).toBeVisible();
     expect(mock.requests.mutations[2]).toEqual({
       method: HTTP_METHODS.DELETE,
       fileId: MANAGEMENT_FILE.id,
