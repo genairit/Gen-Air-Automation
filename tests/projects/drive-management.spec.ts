@@ -66,6 +66,7 @@ for (const kind of ["standalone", "building", "apartment"] as const) {
     await openWorkspaceTab(page, "history");
     await expect(page.getByText(PROJECT_PAGE_COPY.TIMELINE_TITLE)).toBeVisible();
     await openWorkspaceTab(page, "files");
+    await page.getByRole("button", { name: "העלאת קבצים", exact: true }).click();
     await expect(ui.uploadInput).toHaveCount(1);
     await page.getByRole("button", { name: COPY.CHOOSE, exact: true }).click();
     await ui.browse(FOLDERS.SOURCE.name);
@@ -99,7 +100,7 @@ for (const kind of ["standalone", "building", "apartment"] as const) {
     await expect(ui.uploadInput).toBeDisabled();
     await expect(page.getByRole("button", { name: COPY.CHOOSE, exact: true })).toBeDisabled();
     pending.resolve();
-    await expect(ui.driveCard.getByText(COPY.UPLOAD_SUCCESS)).toBeVisible();
+    await expect(page.getByText(COPY.UPLOAD_SUCCESS, { exact: true })).toBeVisible();
     expect(mock.requests.uploads[0]).toMatchObject({ folderId: FOLDERS.NESTED.id });
     expect(mock.requests.uploads[0].contentType).toContain("multipart/form-data; boundary=");
     expect(mock.requests.uploads[0].body).toContain(PDF.name);
@@ -157,6 +158,10 @@ for (const width of [1440, 390]) {
     await expect(ui.dialog).toHaveCount(0);
     await expect(ui.driveCard.getByText(COPY.MOVE_SUCCESS)).toBeVisible();
     await expect(ui.file).toHaveCount(0);
+    await ui.driveCard
+      .getByRole("navigation", { name: "נתיב התיקייה" })
+      .getByRole("button", { name: COPY.ROOT, exact: true })
+      .click();
     await expect(
       ui.driveFolder(FOLDERS.SOURCE.name).getByRole("img", { name: DRIVE_COPY.EMPTY_FOLDER }),
     ).toBeVisible();
@@ -164,12 +169,7 @@ for (const width of [1440, 390]) {
       ui.driveFolder(FOLDERS.TARGET.name).getByRole("img", { name: DRIVE_COPY.FOLDER_HAS_FILES }),
     ).toBeVisible();
     expect(mock.requests.contents.slice(before)).toEqual(
-      expect.arrayContaining([
-        FOLDERS.ROOT,
-        FOLDERS.SOURCE.id,
-        FOLDERS.NESTED.id,
-        FOLDERS.TARGET.id,
-      ]),
+      expect.arrayContaining([FOLDERS.ROOT, FOLDERS.SOURCE.id, FOLDERS.NESTED.id]),
     );
     await ui.driveFolder(FOLDERS.TARGET.name).click();
     await expect(ui.file).toHaveAttribute("href", MANAGEMENT_FILE.webViewLink);
@@ -177,6 +177,10 @@ for (const width of [1440, 390]) {
     const beforeRootMove = mock.requests.contents.length;
     await ui.confirmMove.click();
     await expect(ui.dialog).toHaveCount(0);
+    await ui.driveCard
+      .getByRole("navigation", { name: "נתיב התיקייה" })
+      .getByRole("button", { name: COPY.ROOT, exact: true })
+      .click();
     await expect(ui.file).toHaveAttribute("href", MANAGEMENT_FILE.webViewLink);
     expect(mock.requests.contents.slice(beforeRootMove)).toEqual(
       expect.arrayContaining([FOLDERS.ROOT, FOLDERS.TARGET.id]),
@@ -247,6 +251,7 @@ for (const role of USER_ROLE_VALUES) {
       await expect(ui.move).toHaveCount(ROLE_ACCESS[role].canEditProject ? 1 : 0);
       await expect(ui.trash).toHaveCount(ROLE_ACCESS[role].canEditProject ? 1 : 0);
       if (grants.includes(PERMISSIONS.DRIVE_UPLOAD)) {
+        await page.getByRole("button", { name: "העלאת קבצים", exact: true }).click();
         await expect(ui.uploadInput).toBeEnabled();
         await expect(page.getByRole("button", { name: COPY.CHOOSE, exact: true })).toBeEnabled();
       } else {

@@ -97,6 +97,7 @@ test("upload a supported file to the project Drive", async ({ page, api }) => {
 
   await projectPage.goto(project.id);
   await openWorkspaceTab(page, "files");
+  await page.getByRole("button", { name: "העלאת קבצים", exact: true }).click();
   await projectPage.uploadInput.setInputFiles(VALID_PDF);
 
   await expect.poll(() => uploads.some(body => body.includes(VALID_PDF.name))).toBe(true);
@@ -112,6 +113,7 @@ test("a file that breaks the upload policy is rejected before upload", async ({ 
 
   await projectPage.goto(project.id);
   await openWorkspaceTab(page, "files");
+  await page.getByRole("button", { name: "העלאת קבצים", exact: true }).click();
   await projectPage.uploadInput.setInputFiles(BLOCKED_FILE);
 
   await expect(page.getByText(DRIVE_COPY.UNSUPPORTED_FILE)).toBeVisible();
@@ -196,14 +198,14 @@ for (const [kind, createScenario] of Object.entries(DRIVE_SCENARIOS)) {
           .getByRole("img", { name: DRIVE_COPY.EMPTY_FOLDER }),
       ).toBeVisible();
       await fullFolder.click();
-      await expect(fullFolder).toHaveAttribute("aria-expanded", "true");
+      await expect(projectPage.driveFolder(MOCK_DRIVE_FOLDERS.EMPTY.name)).toHaveCount(0);
       const nestedFolder = projectPage.driveFolder(MOCK_NESTED_FOLDER.name);
       await expect(
         nestedFolder.getByRole("img", { name: DRIVE_COPY.FOLDER_HAS_FILES }),
       ).toBeVisible();
       await nestedFolder.click();
       const fileLinks = card.getByRole("link", { name: MOCK_DRIVE_FILE.name, exact: true });
-      await expect(fileLinks).toHaveCount(2);
+      await expect(fileLinks).toHaveCount(1);
       for (const link of await fileLinks.all()) {
         await expect(link).toHaveAttribute("href", MOCK_DRIVE_FILE.webViewLink);
         await expect(link).toHaveAttribute("target", "_blank");
@@ -217,6 +219,7 @@ for (const [kind, createScenario] of Object.entries(DRIVE_SCENARIOS)) {
         fullPage: true,
       });
       if (scenario.hasUploads) {
+        await page.getByRole("button", { name: "העלאת קבצים", exact: true }).click();
         await expect(projectPage.uploadInput).toHaveCount(1);
         await openWorkspaceTab(page, "history");
         await expect(page.getByText(PROJECT_PAGE_COPY.TIMELINE_TITLE)).toBeVisible();
