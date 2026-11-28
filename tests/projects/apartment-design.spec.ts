@@ -364,7 +364,8 @@ test("detail shows linked customer, named parent customer, callable contact and 
   }
   await expect(page.getByText(DATA.PARENT_NOTE, { exact: true })).toBeVisible();
   await openWorkspaceTab(page, "files");
-  await expect(page.getByText(COPY.DRIVE, { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: COPY.DRIVE, exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "נתיב התיקייה", exact: true })).toBeVisible();
   await openWorkspaceTab(page, "history");
   await expect(page.getByText(COPY.TIMELINE, { exact: true })).toBeVisible();
   await openWorkspaceTab(page, "details");
@@ -414,6 +415,7 @@ test("detail team edits find server-side candidates, add multiple roles, persist
   const form = createApartmentDesignPage(page);
   await page.goto(buildApartmentRoute(building.id, apartment.id));
   await openWorkspaceTab(page, "people");
+  await page.getByRole("button", { name: "ניהול צוות הדירה", exact: true }).click();
   const team = form.teamCard();
   await team.getByRole("button", { name: COPY.OVERRIDE, exact: true }).click();
   await form.selectMember(secretary.firstName);
@@ -433,6 +435,7 @@ test("detail team edits find server-side candidates, add multiple roles, persist
   await team.getByRole("button", { name: COPY.SAVE_TEAM }).click();
   await expect(team.getByRole("button", { name: COPY.SAVE_TEAM })).toHaveCount(0);
   await page.reload();
+  await page.getByRole("button", { name: "ניהול צוות הדירה", exact: true }).click();
   await expect(team.getByText(COPY.OWN, { exact: true })).toBeVisible();
   expect(await api.getProjectMembers(apartment.id)).toEqual(
     expect.arrayContaining(
@@ -454,6 +457,7 @@ test("detail team edits find server-side candidates, add multiple roles, persist
   await team.getByRole("button", { name: COPY.SAVE_TEAM }).click();
   await expect(team.getByRole("button", { name: COPY.SAVE_TEAM })).toHaveCount(0);
   await page.reload();
+  await page.getByRole("button", { name: "ניהול צוות הדירה", exact: true }).click();
   await expect(team.getByText(COPY.EMPTY_TEAM, { exact: true })).toBeVisible();
   await patchProject(api, building.id, {
     members: [{ userId: installer.id, role: USER_ROLES.INSTALLER }],
@@ -488,14 +492,16 @@ test("team edit controls follow server permissions for engineering and project m
   const apartment = await createApartment(api, building, customer);
   for (const role of [USER_ROLES.ENGINEER, USER_ROLES.PROJECT_MANAGER]) {
     const page = await openPageAs(TEST_USERS[role]);
-    const team = createApartmentDesignPage(page).teamCard();
     await page.goto(buildApartmentRoute(building.id, apartment.id));
     await openWorkspaceTab(page, "people");
-    const override = team.getByRole("button", { name: COPY.OVERRIDE, exact: true });
+    const manage = page.getByRole("button", { name: "ניהול צוות הדירה", exact: true });
     if (role === USER_ROLES.ENGINEER) {
-      await expect(override).toHaveCount(0);
+      await expect(manage).toHaveCount(0);
       continue;
     }
+    await manage.click();
+    const team = createApartmentDesignPage(page).teamCard();
+    const override = team.getByRole("button", { name: COPY.OVERRIDE, exact: true });
     await expect(override).toBeVisible();
     await override.click();
     await expect(team.getByRole("button", { name: COPY.SAVE_TEAM })).toBeVisible();

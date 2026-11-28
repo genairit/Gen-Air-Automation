@@ -5,7 +5,7 @@ import { DRIVE_MANAGEMENT_COPY as COPY } from "../constants/drive-management.con
 
 export const createDriveManagement = (page: Page) => {
   const project = createProjectPage(page);
-  const dialog = page.getByRole("dialog");
+  const dialog = page.getByRole("dialog").last();
   const confirmMove = dialog.getByRole("button", { name: COPY.MOVE_CONFIRM, exact: true });
   const cancel = dialog.getByRole("button", { name: COPY.CANCEL, exact: true });
   const move = project.driveCard.getByRole("button", {
