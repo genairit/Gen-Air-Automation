@@ -215,8 +215,11 @@ test("typing text after selecting a verified address clears verification and blo
   await form.addressInput.fill("כתובת ידנית שלא נבחרה");
   await form.addressInput.blur();
   await expect(form.addressVerified).toHaveCount(0);
+  const historyLength = await page.evaluate(() => history.length);
   await form.createButton.click();
   await expect(page.getByText("לא הצלחנו לאמת את הכתובת שהוקלדה", { exact: true })).toBeVisible();
   await expect(page).toHaveURL(/\/projects\/new$/);
+  await expect(form.addressInput).toBeFocused();
+  expect(await page.evaluate(() => history.length)).toBe(historyLength);
   expect(creations).toEqual([]);
 });

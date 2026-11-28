@@ -13,6 +13,7 @@ import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { createProjectPage } from "../../src/pages/project.page.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { AUTOMATION_DIRECTORIES } from "../../src/constants/environment.constant.ts";
 import { createTestDatabaseClient } from "../../src/environment/test-database-client.ts";
 import { createQuotation, quotationWrite, saveQuotation } from "../../src/api/quotation.api.ts";
@@ -78,6 +79,7 @@ test("submitter confirms six saved checks and lead reviews the exact plan from t
 }) => {
   const context = await seedPlanContext(api);
   await createProjectPage(page).goto(context.project.id);
+  await openWorkspaceTab(page, "files");
   await createProjectPage(page).driveFolder("תיקיית משנה").click();
   await page.getByRole("button", { name: "הגש תוכנית לביצוע: תוכנית לביצוע.pdf" }).click();
   const dialog = page.getByRole("dialog", { name: "הגשת תוכנית לביצוע" });

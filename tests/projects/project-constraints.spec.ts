@@ -21,6 +21,7 @@ import { readBuildingApartments } from "../../src/api/apartment-import.api.ts";
 import { ROUTE_PATTERNS } from "../../src/constants/route-patterns.constant.ts";
 import { buildProjectDraftKey } from "../../src/utilities/auth-state.utility.ts";
 import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { readProjectConstraints } from "../../src/api/project-constraints.api.ts";
 import { APARTMENT_IMPORT } from "../../src/constants/apartment-import.constant.ts";
 import { createApartmentDesignPage } from "../../src/pages/apartment-design.page.ts";
@@ -40,13 +41,16 @@ test("lighting is keyboard accessible, validates height and persists decimal and
     customerName: customer.name,
     projectTypeName: PROJECT_TYPE_NAMES.COMMERCIAL,
   });
+  await openWorkspaceTab(page, "technical");
   const toggle = page.getByRole("switch", { name: COPY.LIGHTING_LABEL });
   const height = page.getByPlaceholder(COPY.HEIGHT_PLACEHOLDER);
   await expect(toggle).toHaveAttribute("aria-checked", "false");
   await toggle.focus();
   await page.keyboard.press("Space");
   await expect(toggle).toHaveAttribute("aria-checked", "true");
+  await openWorkspaceTab(page, "people");
   await form.createButton.click();
+  await expect(height).toBeFocused();
   await expect(page.getByText(COPY.HEIGHT_REQUIRED, { exact: true })).toBeVisible();
   await height.fill("abc");
   await expect(page.getByText(COPY.HEIGHT_INVALID, { exact: true })).toBeVisible();
@@ -61,6 +65,7 @@ test("lighting is keyboard accessible, validates height and persists decimal and
     generalLightingCeilingLoweringHeight: 25.5,
   });
   await form.gotoEdit(id);
+  await openWorkspaceTab(page, "technical");
   await expect(height).toHaveValue("25.5");
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(toggle).toBeVisible();
@@ -157,12 +162,16 @@ test("new lighting values restore with the project draft", async ({ page, api })
   await form.goto();
   const name = createUniqueName("טיוטה תאורה");
   await form.nameInput.fill(name);
+  await openWorkspaceTab(page, "technical");
   const toggle = page.getByRole("switch", { name: COPY.LIGHTING_LABEL });
   const height = page.getByPlaceholder(COPY.HEIGHT_PLACEHOLDER);
   await toggle.click();
   await height.fill("0");
   await page.reload();
+  await expect(toggle).toBeVisible();
+  await openWorkspaceTab(page, "details");
   await expect(form.nameInput).toHaveValue(name);
+  await openWorkspaceTab(page, "technical");
   await expect(toggle).toHaveAttribute("aria-checked", "true");
   await expect(height).toHaveValue("0");
   await page.evaluate(key => {
@@ -172,7 +181,10 @@ test("new lighting values restore with the project draft", async ({ page, api })
     localStorage.setItem(key, JSON.stringify(draft));
   }, buildProjectDraftKey(api.session.user.id));
   await page.reload();
+  await expect(toggle).toBeVisible();
+  await openWorkspaceTab(page, "details");
   await expect(form.nameInput).toHaveValue(name);
+  await openWorkspaceTab(page, "technical");
   await expect(toggle).toHaveAttribute("aria-checked", "false");
   await expect(height).toHaveCount(0);
 });
@@ -201,6 +213,7 @@ test("apartments globally collide with standalone preflight and another building
   await apartmentForm.submit.click();
   await expect(page.getByRole("alert").filter({ hasText: COPY.DUPLICATE_NAME })).toBeVisible();
   await createProjectPage(page).goto(other.id);
+  await openWorkspaceTab(page, "apartments");
   await page.getByRole("button", { name: APARTMENT_IMPORT.OPEN, exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.locator('input[type="file"]').setInputFiles({
