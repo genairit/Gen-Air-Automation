@@ -55,7 +55,7 @@ import { buildCustomerRoute, readLastPathSegment } from "../../src/utilities/rou
 
 const INVALID_TAX_ID = "123456789";
 
-const MAX_HEADER_BUTTON_WIDTH_RATIO = 0.5;
+const CUSTOMER_TOOLBAR_GAP = 12;
 
 const CUSTOMER_CREATION_URL = `${API_PROXY_PREFIX}${API_PATHS.CUSTOMER}`;
 
@@ -134,42 +134,66 @@ test("the customer form refuses to save with an invalid field", async ({ page })
   await expect(page).toHaveURL(ROUTES.NEW_CUSTOMER);
 });
 
-test("the header new-customer button has the add icon, is not full width and opens the form inside the list", async ({
-  page,
-}) => {
-  const customersPage = createCustomersPage(page);
+for (const viewport of [{ width: 1440, height: 900 }, VIEWPORTS.MOBILE]) {
+  test.describe(`client toolbar at ${viewport.width}px`, () => {
+    test.use({ viewport });
+    test("new client sits immediately right of search and opens its popup", async ({
+      api,
+      page,
+    }, testInfo) => {
+      const customer = await seedCustomer(api);
+      const list = createCustomersPage(page);
+      await list.goto();
+      await expect(page.getByText(customer.name, { exact: true })).toBeVisible();
+      const header = list.main.locator("header");
+      await expect(header.getByRole("heading", { level: 1, name: "לקוחות" })).toBeVisible();
+      await expect(header.getByRole("button", { name: CUSTOMERS_COPY.NEW_CUSTOMER })).toHaveCount(
+        0,
+      );
+      await expect(list.heading).toHaveCount(1);
+      await expect(list.newCustomerButton).toHaveCount(1);
+      await expect(list.newCustomerIcon).toBeVisible();
+      await expect(list.managersOnlyCaption).toHaveCount(0);
+      await expect(page.getByText("לקוחות · ניהול ב-CRM", { exact: true })).toHaveCount(0);
+      await expect(page.getByText("ניהול לקוחות ופרטי הקשר שלהם", { exact: false })).toHaveCount(0);
 
-  await customersPage.goto();
+      const field = list.main.locator(".MuiInputBase-root").filter({ has: list.searchBox });
+      const button = await readBoundingBox(list.newCustomerButton);
+      const search = await readBoundingBox(field);
+      const gap = button.x - (search.x + search.width);
+      const centers = button.y + button.height / 2 - (search.y + search.height / 2);
+      expect(gap).toBeCloseTo(CUSTOMER_TOOLBAR_GAP, 0);
+      expect(Math.abs(centers)).toBeLessThanOrEqual(1);
+      expect(await readHorizontalOverflow(page)).toBeLessThanOrEqual(0);
+      await page.screenshot({
+        path: testInfo.outputPath(`clients-toolbar-${viewport.width}.png`),
+        animations: "disabled",
+      });
+      await list.newCustomerButton.click();
+      const popup = createCustomerPopup(page, CUSTOMER_FORM_COPY.TITLE);
+      await expect(page).toHaveURL(ROUTES.CUSTOMERS);
+      await expect(popup.field("TAX_ID")).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(popup.dialog).toHaveCount(0);
+      await expect(list.newCustomerButton).toBeFocused();
+    });
+  });
+}
 
-  await expect(customersPage.newCustomerButton).toBeVisible();
-  const header = customersPage.main.locator("header");
-  await expect(header.getByRole("heading", { level: 1, name: "לקוחות" })).toBeVisible();
-  await expect(header.getByRole("button", { name: CUSTOMERS_COPY.NEW_CUSTOMER })).toBeVisible();
-  await expect(customersPage.heading).toHaveCount(1);
-  await expect(page.getByText("לקוחות · ניהול ב-CRM", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("ניהול לקוחות ופרטי הקשר שלהם", { exact: false })).toHaveCount(0);
-  await expect(customersPage.newCustomerIcon).toBeVisible();
-  await expect(customersPage.managersOnlyCaption).toHaveCount(0);
-
-  const buttonBox = await readBoundingBox(customersPage.newCustomerButton);
-  const mainBox = await readBoundingBox(customersPage.main);
-  const searchBox = await readBoundingBox(customersPage.searchBox);
-  const headingBox = await readBoundingBox(customersPage.heading);
-  const startsBeforeHeadingEnds = buttonBox.y < headingBox.y + headingBox.height;
-  const endsAfterHeadingStarts = buttonBox.y + buttonBox.height > headingBox.y;
-
-  expect(buttonBox.width).toBeLessThan(mainBox.width * MAX_HEADER_BUTTON_WIDTH_RATIO);
-  expect(buttonBox.y + buttonBox.height).toBeLessThanOrEqual(searchBox.y);
-  expect(startsBeforeHeadingEnds && endsAfterHeadingStarts).toBe(true);
-
-  await customersPage.newCustomerButton.click();
-
+test("resizing the client toolbar keeps the open create popup and its draft", async ({ page }) => {
+  const list = createCustomersPage(page);
+  await list.goto();
+  await list.newCustomerButton.click();
   const popup = createCustomerPopup(page, CUSTOMER_FORM_COPY.TITLE);
-  await expect(page).toHaveURL(ROUTES.CUSTOMERS);
-  await expect(popup.field("TAX_ID")).toBeVisible();
-  await page.keyboard.press("Escape");
+  const draft = buildCustomerInput();
+  await popup.field("NAME").fill(draft.name);
+  await page.setViewportSize(VIEWPORTS.MOBILE);
+  await expect(popup.dialog).toBeVisible();
+  await expect(popup.field("NAME")).toHaveValue(draft.name);
+  await popup.cancel.click();
   await expect(popup.dialog).toHaveCount(0);
-  await expect(customersPage.newCustomerButton).toBeFocused();
+  await expect(list.newCustomerButton).toBeVisible();
+  await expect(page).toHaveURL(ROUTES.CUSTOMERS);
 });
 
 test("desktop table edit opens the selected client and leaves the list in place", async ({
