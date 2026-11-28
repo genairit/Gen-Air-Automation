@@ -89,6 +89,7 @@ const fixture = async (api: Parameters<typeof createQuotation>[0]) => {
   ];
   const quotation = await saveQuotation(api, initial.id, {
     ...quotationWrite(initial),
+    brand: first.brand,
     brands: [first.brand, second.brand],
     internalNotes: "PRIVATE STAFF NOTE",
     sections,

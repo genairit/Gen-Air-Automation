@@ -121,7 +121,7 @@ test("quotation workspace keeps compact metadata, linked rows, payments and revi
   await quote.openItem(parent.description);
   await expect(quote.field("מיקום").first()).toHaveValue(parent.location);
   await quote.openItem(linked.description);
-  await expect(quote.field("בקר עבור יחידה")).toHaveValue(parent.id);
+  await expect(quote.field("בקר עבור יחידה")).toContainText(parent.location || parent.sku);
   const chips = page.getByRole("radiogroup", { name: "תנאי תשלום", exact: true });
   await expect(chips.getByRole("radio", { name: "לפי שלבי תשלום", exact: true })).toBeChecked();
   await expect(quote.field("אחוז מהסכום")).toHaveCount(3);
