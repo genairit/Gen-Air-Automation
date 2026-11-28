@@ -24,9 +24,9 @@ import { USER_ROLE_VALUES } from "../../src/constants/user-role.constant.ts";
 import { getAuthStatePath } from "../../src/utilities/auth-state.utility.ts";
 import { HTTP_STATUS, HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { seedCustomer, seedStandaloneProject } from "../../src/api/seed-data.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { API_PATHS, API_PROXY_PREFIX } from "../../src/constants/api.constant.ts";
 import { DRIVE_COPY, PROJECT_PAGE_COPY } from "../../src/constants/copy.constant.ts";
-import { APARTMENT_DESIGN_COPY } from "../../src/constants/apartment-design.constant.ts";
 import { BASELINE_PERMISSIONS } from "../../src/constants/permission-baseline.constant.ts";
 
 const VALID_PDF = {
@@ -55,6 +55,7 @@ test("the Drive-unavailable banner shows when Drive cannot be reached", async ({
   );
 
   await projectPage.goto(project.id);
+  await openWorkspaceTab(page, "files");
 
   await expect(
     page.getByRole("status").filter({ hasText: DRIVE_COPY.UNAVAILABLE_TITLE }),
@@ -73,6 +74,7 @@ test("project folders show their empty or non-empty status and list their files"
 
   await mockDriveContents(page, project.id);
   await projectPage.goto(project.id);
+  await openWorkspaceTab(page, "files");
 
   await expect(page.getByText(PROJECT_PAGE_COPY.FOLDERS_TITLE)).toBeVisible();
   await expect(
@@ -94,6 +96,7 @@ test("upload a supported file to the project Drive", async ({ page, api }) => {
   const uploads = await mockDriveUpload(page, project.id);
 
   await projectPage.goto(project.id);
+  await openWorkspaceTab(page, "files");
   await projectPage.uploadInput.setInputFiles(VALID_PDF);
 
   await expect.poll(() => uploads.some(body => body.includes(VALID_PDF.name))).toBe(true);
@@ -108,6 +111,7 @@ test("a file that breaks the upload policy is rejected before upload", async ({ 
   const uploads = await mockDriveUpload(page, project.id);
 
   await projectPage.goto(project.id);
+  await openWorkspaceTab(page, "files");
   await projectPage.uploadInput.setInputFiles(BLOCKED_FILE);
 
   await expect(page.getByText(DRIVE_COPY.UNSUPPORTED_FILE)).toBeVisible();
@@ -148,6 +152,7 @@ for (const [kind, createScenario] of Object.entries(DRIVE_SCENARIOS)) {
       const projectPage = createProjectPage(page);
       await mockDriveContents(page, scenario.project.id);
       await scenario.open();
+      await openWorkspaceTab(page, "files");
       const card = projectPage.driveCard;
       await expect(card).toHaveCount(1);
       await expect(card.getByText(DRIVE_COPY.SUBTITLE)).toBeVisible();
@@ -172,36 +177,15 @@ for (const [kind, createScenario] of Object.entries(DRIVE_SCENARIOS)) {
         "target",
         "_blank",
       );
-      const placement = await card.evaluate(element => ({
-        index: Array.from(element.parentElement?.children ?? []).indexOf(element),
-        width: element.getBoundingClientRect().width,
-        headerWidth: element.parentElement?.firstElementChild?.getBoundingClientRect().width ?? 0,
-        precedingSections: Array.from(element.parentElement?.children ?? [])
-          .slice(0, Array.from(element.parentElement?.children ?? []).indexOf(element))
-          .map(section => section.textContent ?? ""),
-      }));
-      expect(placement.index).toBe(kind === "apartment" ? 7 : 2);
+      const filesPanel = page.getByRole("tabpanel", { name: "קבצים", exact: true });
+      await expect(
+        filesPanel.getByRole("region", { name: PROJECT_PAGE_COPY.FOLDERS_TITLE }),
+      ).toBeVisible();
       if (kind === "apartment") {
-        const infoIndex = placement.precedingSections.findIndex(section =>
-          section.includes(APARTMENT_DESIGN_COPY.END_CUSTOMER),
-        );
-        const commercialIndex = placement.precedingSections.findIndex(section =>
-          section.includes(APARTMENT_DESIGN_COPY.COMMERCIAL_TITLE),
-        );
-        const sharedDocumentIndex = placement.precedingSections.findIndex(section =>
-          section.includes("מסמך משותף מפרויקט האב"),
-        );
-        expect(infoIndex).toBeGreaterThanOrEqual(0);
-        expect(placement.precedingSections[infoIndex]).toContain(
-          APARTMENT_DESIGN_COPY.CONTACT_TEAM,
-        );
-        expect(placement.precedingSections[infoIndex]).toContain(
-          APARTMENT_DESIGN_COPY.INHERITED_TITLE,
-        );
-        expect(commercialIndex).toBeGreaterThan(infoIndex);
-        expect(sharedDocumentIndex).toBeGreaterThan(commercialIndex);
+        await expect(
+          filesPanel.getByRole("region", { name: "מסמך משותף מפרויקט האב" }),
+        ).toBeVisible();
       }
-      expect(Math.abs(placement.width - placement.headerWidth)).toBeLessThan(2);
       const fullFolder = projectPage.driveFolder(MOCK_DRIVE_FOLDERS.WITH_FILES.name);
       await expect(
         fullFolder.getByRole("img", { name: DRIVE_COPY.FOLDER_HAS_FILES }),
@@ -234,7 +218,9 @@ for (const [kind, createScenario] of Object.entries(DRIVE_SCENARIOS)) {
       });
       if (scenario.hasUploads) {
         await expect(projectPage.uploadInput).toHaveCount(1);
+        await openWorkspaceTab(page, "history");
         await expect(page.getByText(PROJECT_PAGE_COPY.TIMELINE_TITLE)).toBeVisible();
+        await expect(card).toBeHidden();
       }
     });
   }
@@ -252,10 +238,12 @@ for (const role of USER_ROLE_VALUES) {
       const projectPage = createProjectPage(page);
       await projectPage.goto(project.id);
       if (!BASELINE_PERMISSIONS[role].includes(PERMISSIONS.DRIVE_READ)) {
+        await expect(page.getByRole("tab", { name: "קבצים", exact: true })).toHaveCount(0);
         await expect(projectPage.driveCard).toHaveCount(0);
         expect(missing.requests.provisions).toHaveLength(0);
         return;
       }
+      await openWorkspaceTab(page, "files");
       await expect(projectPage.driveCard.getByText(DRIVE_COPY.MISSING_TITLE)).toBeVisible();
       await expect(projectPage.driveCard).not.toContainText(project.id);
       expect(missing.requests.provisions).toHaveLength(0);
@@ -324,6 +312,7 @@ for (const failure of [
     );
     const projectPage = createProjectPage(page);
     await projectPage.goto(project.id);
+    await openWorkspaceTab(page, "files");
     const button = projectPage.driveCard.getByRole("button", { name: DRIVE_COPY.PREPARE_FOLDER });
     await button.click();
     await expect(projectPage.driveCard.getByText(failure.message)).toBeVisible();

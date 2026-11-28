@@ -27,6 +27,7 @@ import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
 import { createDeferred } from "../../src/utilities/deferred.utility.ts";
 import { readPublication } from "../../src/api/quotation-publication.api.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { LIFECYCLE_COPY } from "../../src/constants/quotation-lifecycle.constant.ts";
 import { seedQuotationForDeletion } from "../../src/api/quotation-delete-fixture.ts";
 import { expectQuotationWithinViewport } from "../../src/utilities/quotation-layout.utility.ts";
@@ -383,6 +384,7 @@ test("project quotation details display actual published state and safe file nav
     .toBe(PUBLICATION_STATE.PUBLISHED);
   const publication = await readPublication(api, quotation.id);
   await page.goto(`/projects/${project.id}`);
+  await openWorkspaceTab(page, "quotations");
   const region = page.getByRole("region", { name: "הצעות מחיר", exact: true });
   await expect(region).toBeVisible();
   const row = region.getByRole("button", { name: new RegExp(quotation.number) });

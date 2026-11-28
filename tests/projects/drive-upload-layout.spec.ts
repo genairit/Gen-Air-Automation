@@ -9,6 +9,7 @@ import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { createApartmentPage } from "../../src/pages/apartment.page.ts";
 import { PROJECT_PAGE_COPY } from "../../src/constants/copy.constant.ts";
 import { mockDriveManagement } from "../../src/mocks/drive-management.mock.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { createDriveManagement } from "../../src/pages/drive-management.component.ts";
 import { MANAGEMENT_FOLDERS as FOLDERS } from "../../src/mocks/drive-management.mock.ts";
 import { DRIVE_MANAGEMENT_COPY as COPY } from "../../src/constants/drive-management.constant.ts";
@@ -37,6 +38,7 @@ for (const kind of ["standalone", "building", "apartment"] as const) {
         ? createApartmentPage(page).goto(parent.id, project.id)
         : ui.goto(project.id));
 
+      await openWorkspaceTab(page, "files");
       const title = ui.driveCard.getByText(UPLOAD_COPY.TITLE, { exact: true });
       const zone = title.locator("..");
       const description = zone.locator(":scope > span");
@@ -50,7 +52,7 @@ for (const kind of ["standalone", "building", "apartment"] as const) {
       await expect(
         ui.driveCard.getByRole("button", { name: COPY.CHOOSE, exact: true }),
       ).toBeEnabled();
-      await expect(page.getByText(PROJECT_PAGE_COPY.TIMELINE_TITLE, { exact: true })).toBeVisible();
+      await expect(page.getByRole("tabpanel", { name: "קבצים" })).toBeVisible();
       await expect(ui.driveCard.getByText(PROJECT_PAGE_COPY.TIMELINE_TITLE)).toHaveCount(0);
       const folderBounds = await folder.boundingBox();
       const titleBounds = await title.boundingBox();
@@ -58,29 +60,26 @@ for (const kind of ["standalone", "building", "apartment"] as const) {
       const iconBounds = await icon.boundingBox();
       const buttonBounds = await button.boundingBox();
       const cardBounds = await ui.driveCard.boundingBox();
-      const timelineBounds = await page
-        .getByText(PROJECT_PAGE_COPY.TIMELINE_TITLE, { exact: true })
-        .boundingBox();
       expect(folderBounds).not.toBeNull();
       expect(titleBounds).not.toBeNull();
       expect(descriptionBounds).not.toBeNull();
       expect(iconBounds).not.toBeNull();
       expect(buttonBounds).not.toBeNull();
       expect(cardBounds).not.toBeNull();
-      expect(timelineBounds).not.toBeNull();
       if (
         !folderBounds ||
         !titleBounds ||
         !descriptionBounds ||
         !iconBounds ||
         !buttonBounds ||
-        !cardBounds ||
-        !timelineBounds
+        !cardBounds
       ) {
         throw new Error("Expected visible project upload layout");
       }
       expect(titleBounds.y).toBeGreaterThanOrEqual(folderBounds.y + folderBounds.height);
-      expect(timelineBounds.y).toBeGreaterThan(cardBounds.y + cardBounds.height);
+      expect(buttonBounds.y + buttonBounds.height).toBeLessThanOrEqual(
+        cardBounds.y + cardBounds.height,
+      );
       if (width > 1000) {
         expect(descriptionBounds.y).toBeGreaterThanOrEqual(titleBounds.y + titleBounds.height);
         expect(Math.abs(descriptionBounds.x - titleBounds.x)).toBeLessThanOrEqual(1);
@@ -98,6 +97,9 @@ for (const kind of ["standalone", "building", "apartment"] as const) {
       await ui.driveCard.screenshot({
         path: testInfo.outputPath(`drive-upload-${kind}-${width}.png`),
       });
+      await openWorkspaceTab(page, "history");
+      await expect(page.getByText(PROJECT_PAGE_COPY.TIMELINE_TITLE, { exact: true })).toBeVisible();
+      await expect(ui.driveCard).toBeHidden();
     });
   }
 }

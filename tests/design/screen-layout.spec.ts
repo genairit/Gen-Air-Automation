@@ -21,8 +21,9 @@ import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { PROJECT_TYPE_NAMES } from "../../src/constants/domain.constant.ts";
 import { ROUTES, ROUTE_SEGMENTS } from "../../src/constants/routes.constant.ts";
 import { createGenAirApi, loginThroughApi } from "../../src/api/gen-air-api.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
+import { expectApartmentTabLayout } from "../../src/pages/apartment-layout.component.ts";
 import type { ICustomer, IProject, ITask } from "../../src/interfaces/entities.interface.ts";
-import { expectApartmentColumnsBeforeDrive } from "../../src/pages/apartment-layout.component.ts";
 
 interface ILayoutScenario {
   task: ITask;
@@ -68,7 +69,7 @@ const readScreens = (scenario: ILayoutScenario) => ({
   building: { path: buildProjectRoute(scenario.building.id), text: scenario.building.name },
   apartment: {
     path: buildApartmentRoute(scenario.building.id, scenario.apartment.id),
-    text: "נתונים מהפרויקט האב",
+    text: "שלב הדירה",
   },
   newApartment: {
     path: buildApartmentRoute(scenario.building.id, ROUTE_SEGMENTS.NEW),
@@ -133,29 +134,24 @@ for (const width of WIDTHS) {
       expect(geometry.content).toBeLessThanOrEqual(geometry.viewport);
       expect(errors).toEqual([]);
       if (name === "newProject" && width === 1440) {
-        const tiles = [];
+        const picker = page.getByRole("combobox", { name: "בחירת סוג פרויקט" });
+        await picker.click();
         for (const title of Object.values(PROJECT_TYPE_NAMES)) {
-          tiles.push(
-            await page.getByText(title, { exact: true }).locator("xpath=..").boundingBox(),
-          );
+          await expect(page.getByRole("option").filter({ hasText: title }).first()).toBeVisible();
         }
-        const visible = tiles.filter(tile => tile !== null);
-        expect(visible).toHaveLength(Object.values(PROJECT_TYPE_NAMES).length);
-        const firstRow = visible.filter(tile => tile.y === visible[0].y);
-        expect(firstRow.length).toBeGreaterThan(1);
-        const heights = firstRow.map(tile => tile.height);
-        expect(Math.max(...heights) - Math.min(...heights)).toBeLessThanOrEqual(1);
+        await page.keyboard.press("Escape");
       }
       if (name === "apartment" && width === 1440) {
-        await expectApartmentColumnsBeforeDrive(page);
+        await expectApartmentTabLayout(page);
       }
-      if (name === "apartment" || name === "task") {
+      if (name === "task") {
         const tabs = page.getByRole("tablist").getByRole("tab");
         for (const tab of await tabs.all()) {
           await expect(tab.locator("span").first()).toHaveCSS("width", "7px");
         }
       }
       if (name === "building") {
+        await openWorkspaceTab(page, "apartments");
         await expect(
           page.getByRole("button", { name: "ייבוא דירות מאקסל", exact: true }),
         ).toHaveCSS("background-color", "rgb(255, 255, 255)");

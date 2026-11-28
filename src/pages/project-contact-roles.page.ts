@@ -1,14 +1,17 @@
 import {
+  PROJECT_CONTACT_ROLE_COPY,
   PROJECT_CONTACT_ROLE_LABELS,
   type ProjectContactRoleType,
 } from "../constants/project-contact-role.constant.ts";
 
+import { findCardByTitle } from "./card.component.ts";
 import type { Page, Locator } from "@playwright/test";
 import { findFieldByTitle } from "./field.component.ts";
 import { KEYBOARD_KEYS } from "../constants/keyboard.constant.ts";
 
 export const contactRolePicker = (page: Page, role: ProjectContactRoleType): Locator =>
-  page
+  findCardByTitle(page, PROJECT_CONTACT_ROLE_COPY.CREATE_SECTION)
+    .or(findCardByTitle(page, PROJECT_CONTACT_ROLE_COPY.SECTION))
     .getByRole("combobox", { name: PROJECT_CONTACT_ROLE_LABELS[role], exact: true })
     .and(page.locator("input[readonly]"));
 

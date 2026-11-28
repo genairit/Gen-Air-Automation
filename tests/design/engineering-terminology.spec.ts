@@ -25,6 +25,7 @@ import { createEmployeesPage } from "../../src/pages/employees.page.ts";
 import { KEYBOARD_KEYS } from "../../src/constants/keyboard.constant.ts";
 import { buildApartmentRoute } from "../../src/utilities/route.utility.ts";
 import { createUniqueName } from "../../src/utilities/test-data.utility.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { createTaskFormPage, createTaskPage } from "../../src/pages/tasks.page.ts";
 import { createApartmentNumber } from "../../src/utilities/apartment-fixture.utility.ts";
 import { USER_ROLES, USER_ROLE_LABELS } from "../../src/constants/user-role.constant.ts";
@@ -108,7 +109,8 @@ test("task pool and apartment worker copy stays readable while assignment remain
   });
   await page.setViewportSize(VIEWPORTS.MOBILE);
   await page.goto(buildApartmentRoute(building.id, apartment.id));
-  await expect(page.getByText(COPY.APARTMENT_SUBTITLE, { exact: true })).toBeVisible();
+  await openWorkspaceTab(page, "people");
+  await expect(page.getByText("שיוך עובד הנדסי נשמר מיד", { exact: true })).toBeVisible();
   await expect(page.getByRole("combobox", { name: APARTMENT_DESIGN_COPY.ENGINEER })).toHaveValue(
     new RegExp(escapeRegex(formatFullName(engineer))),
   );
@@ -154,6 +156,7 @@ test("new contact suggestion uses engineering wording without rewriting a legacy
     ).status(),
   ).toBe(201);
   await page.goto(`/projects/${project.id}`);
+  await openWorkspaceTab(page, "people");
   const card = findCardByTitle(page, "אנשי קשר בפרויקט או בדירה");
   await card.getByRole("button", { name: "ערוך איש קשר", exact: true }).click();
   await expect(findFieldByTitle(card, "תפקיד")).toHaveValue(COPY.LEGACY_CONTACT_ROLE);

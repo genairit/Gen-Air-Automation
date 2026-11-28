@@ -9,6 +9,7 @@ import { getAuthStatePath } from "../../src/utilities/auth-state.utility.ts";
 import { MOCK_DRIVE_FILE, ROOT_FOLDER_ID } from "../../src/mocks/drive.mock.ts";
 import { DRIVE_CONTENT_STATUSES } from "../../src/constants/domain.constant.ts";
 import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
+import { openWorkspaceTab } from "../../src/pages/project-workspace.component.ts";
 import { API_PATHS, API_PROXY_PREFIX } from "../../src/constants/api.constant.ts";
 import { seedApartment, seedBuilding, seedCustomer } from "../../src/api/seed-data.ts";
 
@@ -118,6 +119,7 @@ test("one nested parent selection reaches two apartments, replacement and cleari
   );
   await mockParentContents(page, parent.id);
   await createProjectPage(page).goto(parent.id);
+  await openWorkspaceTab(page, "files");
   await page.getByRole("button", { name: /תוכניות/ }).click();
   const select = page.getByRole("button", { name: COPY.select, exact: true });
   await expect(select).toHaveCount(2);
@@ -127,6 +129,7 @@ test("one nested parent selection reaches two apartments, replacement and cleari
 
   for (const apartment of apartments) {
     await createApartmentPage(page).goto(parent.id, apartment.id);
+    await openWorkspaceTab(page, "files");
     const shortcut = page.getByRole("link", { name: COPY.open });
     await expect(shortcut).toHaveAttribute(
       "href",
@@ -148,12 +151,14 @@ test("one nested parent selection reaches two apartments, replacement and cleari
   mock.state.renamed = null;
 
   await createProjectPage(page).goto(parent.id);
+  await openWorkspaceTab(page, "files");
   await page.getByRole("button", { name: /תוכניות/ }).click();
   await page.getByRole("button", { name: COPY.select, exact: true }).click();
   await expect(page.getByText(FILES[1].name, { exact: true })).toBeVisible();
   expect(mock.mutations.at(-1)).toEqual({ projectId: parent.id, fileId: FILES[1].id });
   for (const apartment of apartments) {
     await createApartmentPage(page).goto(parent.id, apartment.id);
+    await openWorkspaceTab(page, "files");
     await expect(page.getByRole("link", { name: COPY.open })).toHaveAttribute(
       "href",
       `https://drive.google.com/open?id=${FILES[1].id}`,
@@ -162,9 +167,11 @@ test("one nested parent selection reaches two apartments, replacement and cleari
   }
 
   await createProjectPage(page).goto(parent.id);
+  await openWorkspaceTab(page, "files");
   await page.getByRole("button", { name: COPY.clear }).click();
   expect(mock.mutations.at(-1)).toEqual({ projectId: parent.id, fileId: null });
   await createApartmentPage(page).goto(parent.id, apartments[0].id);
+  await openWorkspaceTab(page, "files");
   await expect(page.getByText(COPY.empty)).toBeVisible();
   await expect(page.getByRole("link", { name: COPY.open })).toHaveCount(0);
 });
@@ -177,6 +184,7 @@ test("missing, unavailable, and inaccessible documents never expose an unsafe sh
   const apartment = await seedApartment(api, parent);
   const mock = await mockSelection(page, parent.id, [apartment.id]);
   await createApartmentPage(page).goto(parent.id, apartment.id);
+  await openWorkspaceTab(page, "files");
   await expect(page.getByText(COPY.empty)).toBeVisible();
   mock.state.selected = FILES[0].id;
   mock.state.unavailable = true;
@@ -190,6 +198,7 @@ test("missing, unavailable, and inaccessible documents never expose an unsafe sh
   mock.state.noAccess = false;
   await mockParentContents(page, parent.id);
   await createProjectPage(page).goto(parent.id);
+  await openWorkspaceTab(page, "files");
   await expect(page.getByText(COPY.parentUnavailable)).toBeVisible();
   await expect(page.getByRole("button", { name: COPY.clear })).toBeVisible();
 });
@@ -230,6 +239,7 @@ test.describe("engineer read-only shared document", () => {
     const parent = await seedBuilding(api, await seedCustomer(api));
     await mockParentContents(page, parent.id);
     await createProjectPage(page).goto(parent.id);
+    await openWorkspaceTab(page, "files");
     await page.getByRole("button", { name: /תוכניות/ }).click();
     await expect(page.getByText(FILES[0].name, { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: COPY.select })).toHaveCount(0);
