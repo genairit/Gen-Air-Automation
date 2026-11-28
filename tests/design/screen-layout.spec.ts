@@ -61,7 +61,7 @@ const readScenario = () => {
 };
 
 const readScreens = (scenario: ILayoutScenario) => ({
-  board: { path: ROUTES.BOARD, text: "פרויקטים" },
+  board: { path: ROUTES.BOARD, text: scenario.project.name },
   newProject: { path: ROUTES.NEW_PROJECT, text: "יצירת פרויקט חדש" },
   editProject: { path: buildEditProjectRoute(scenario.project.id), text: "עריכת פרויקט" },
   project: { path: buildProjectRoute(scenario.project.id), text: scenario.project.name },
