@@ -19,6 +19,7 @@ import { createTaskFormPage } from "../../src/pages/tasks.page.ts";
 import { findCardByTitle } from "../../src/pages/card.component.ts";
 import { FAKE_PLACES } from "../../src/constants/fake-places.constant.ts";
 import { createProjectFormPage } from "../../src/pages/project-form.page.ts";
+import { STACK_TIMEOUTS } from "../../src/constants/environment.constant.ts";
 import { ROUTES, ROUTE_SEGMENTS } from "../../src/constants/routes.constant.ts";
 
 interface ICardPair {
@@ -198,13 +199,13 @@ for (const viewport of VIEWPORTS) {
             await expect(first).toBeVisible();
             await expect(second).toBeVisible();
             await expectCardsFit(scenarioPage, first, second);
-            await expectPairPlacement(
-              first,
-              second,
+            const placement =
               viewport.width === 1600
                 ? (pair.widePlacement ?? viewport.placement)
-                : viewport.placement,
-            );
+                : viewport.placement;
+            await expect(() => expectPairPlacement(first, second, placement)).toPass({
+              timeout: STACK_TIMEOUTS.EXPECT_MS,
+            });
           }
           if (viewport.width === 1600 || viewport.width === 390) {
             await scenarioPage.screenshot({

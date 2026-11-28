@@ -5,6 +5,12 @@ import {
   TASK_LINK_KIND_COPY,
 } from "../constants/copy.constant.ts";
 
+import {
+  buildTaskRoute,
+  buildProjectRoute,
+  buildApartmentRoute,
+} from "../utilities/route.utility.ts";
+
 import type { Page } from "@playwright/test";
 import { findTableRow } from "./table.component.ts";
 import { selectOption } from "./select.component.ts";
@@ -15,11 +21,6 @@ import { buildStartPattern } from "../utilities/regex.utility.ts";
 import type { TaskLinkKindType } from "../constants/domain.constant.ts";
 import { selectDueDate, parseDateInputValue } from "./date-field.component.ts";
 import { findLinkUnderLabel, findListUnderTitle, findLinkTileByLabel } from "./field.component.ts";
-import {
-  buildTaskRoute,
-  buildProjectRoute,
-  buildApartmentRoute,
-} from "../utilities/route.utility.ts";
 
 export interface ITaskDetailsInput {
   title: string;

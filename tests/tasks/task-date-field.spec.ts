@@ -1,6 +1,7 @@
 import {
   selectDueDate,
   getUpcomingDate,
+  findDateCalendar,
   findDueDateField,
   toDateDisplayValue,
 } from "../../src/pages/date-field.component.ts";
@@ -26,7 +27,7 @@ for (const viewport of [{ width: 1440, height: 1000 }, VIEWPORTS.MOBILE]) {
 
     await field.focus();
     await field.press("Enter");
-    const calendar = page.locator(".MuiPopover-paper");
+    const calendar = findDateCalendar(page);
     await expect(calendar).toBeVisible();
     await expect(calendar.getByRole("grid", { name: /[א-ת]+ 20\d\d/ })).toBeVisible();
     await expect(calendar.getByRole("columnheader", { name: "יום ראשון" })).toBeVisible();
