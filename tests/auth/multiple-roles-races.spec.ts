@@ -7,6 +7,7 @@ import { seedMultiRoleUser } from "../../src/api/multi-role.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { HTTP_METHODS } from "../../src/constants/http.constant.ts";
 import { NAVIGATION_COPY } from "../../src/constants/copy.constant.ts";
+import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { createRoleMenu } from "../../src/pages/role-menu.component.ts";
 import { createEmployeesPage } from "../../src/pages/employees.page.ts";
 import { KEYBOARD_KEYS } from "../../src/constants/keyboard.constant.ts";
@@ -14,7 +15,6 @@ import { delayApiResponse } from "../../src/mocks/delayed-response.mock.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 import { refreshVisibility } from "../../src/utilities/browser-event.utility.ts";
 import { MULTIPLE_ROLES_COPY } from "../../src/constants/multiple-roles.constant.ts";
-import { USER_ROLES, USER_ROLE_LABELS } from "../../src/constants/user-role.constant.ts";
 import { PERMISSIONS, PERMISSION_COPY } from "../../src/constants/permission.constant.ts";
 import { buildUserPath, buildBrowserApiPattern } from "../../src/utilities/api-path.utility.ts";
 
@@ -124,7 +124,9 @@ test("a completed employee mutation cannot run its success-close callback after 
     .getByRole("button", { name: MULTIPLE_ROLES_COPY.EDIT })
     .click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByRole("checkbox", { name: USER_ROLE_LABELS[FINANCE], exact: true }).check();
+  await employees.openRoles();
+  await employees.roleOption(FINANCE).click();
+  await employees.closeRoles();
   const delayed = await delayApiResponse({ page, path: buildUserPath(employee.id) });
   try {
     await dialog.getByRole("button", { name: MULTIPLE_ROLES_COPY.SAVE }).click();

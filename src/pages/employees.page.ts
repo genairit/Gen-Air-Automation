@@ -8,9 +8,9 @@ import {
 import type { Page } from "@playwright/test";
 import { findTableRow } from "./table.component.ts";
 import { findCountedTab } from "./tab.component.ts";
-import { findMainContent } from "./layout.component.ts";
 import { ROUTES } from "../constants/routes.constant.ts";
 import { EMPLOYEES_COPY } from "../constants/copy.constant.ts";
+import { KEYBOARD_KEYS } from "../constants/keyboard.constant.ts";
 
 export interface IEmployeeFormInput {
   name: string;
@@ -23,17 +23,21 @@ export interface IEmployeeFormInput {
 }
 
 export const createEmployeesPage = (page: Page) => {
-  const form = findMainContent(page);
+  const form = page.getByRole("dialog");
+  const createButton = page.getByRole("button", { name: EMPLOYEES_COPY.ADD_TITLE, exact: true });
+  const nameInput = form.getByPlaceholder(EMPLOYEES_COPY.NAME_PLACEHOLDER);
+  const emailInput = form.getByPlaceholder(EMPLOYEES_COPY.EMAIL_PLACEHOLDER);
+  const phoneInput = form.getByPlaceholder(EMPLOYEES_COPY.PHONE_PLACEHOLDER);
   const searchBox = page.getByPlaceholder(EMPLOYEES_COPY.SEARCH_PLACEHOLDER);
-  const addButton = page.getByRole("button", { name: EMPLOYEES_COPY.ADD_EMPLOYEE });
+  const addButton = form.getByRole("button", { name: EMPLOYEES_COPY.ADD_EMPLOYEE });
   const passwordInput = form.locator('input[type="password"]').first();
   const passwordConfirmationInput = form.locator('input[type="password"]').last();
-  const roleOptions = form.getByRole("checkbox");
-  const addCard = form
-    .getByRole("heading", { name: EMPLOYEES_COPY.ACCOUNT_SECTION })
-    .locator("xpath=ancestor::section[2]");
-  const roleCheckbox = (role: UserRoleType) =>
-    form.getByRole("checkbox", { name: USER_ROLE_LABELS[role], exact: true });
+  const rolePicker = form.getByRole("combobox", { name: EMPLOYEES_COPY.ROLE_LABEL });
+  const roleOptions = page.getByRole("listbox").getByRole("option");
+  const roleOption = (role: UserRoleType) =>
+    page.getByRole("option", { name: USER_ROLE_LABELS[role], exact: true });
+  const openRoles = () => rolePicker.press(KEYBOARD_KEYS.ARROW_DOWN);
+  const closeRoles = () => rolePicker.press(KEYBOARD_KEYS.ESCAPE);
 
   const goto = () => page.goto(ROUTES.EMPLOYEES);
 
@@ -43,17 +47,24 @@ export const createEmployeesPage = (page: Page) => {
 
   const fillEmployee = async (input: IEmployeeFormInput) => {
     const assignedRoles = input.assignedRoles ?? [input.role];
-    await form.getByPlaceholder(EMPLOYEES_COPY.NAME_PLACEHOLDER).fill(input.name);
-    await form.getByPlaceholder(EMPLOYEES_COPY.EMAIL_PLACEHOLDER).fill(input.email);
-    await form.getByPlaceholder(EMPLOYEES_COPY.PHONE_PLACEHOLDER).fill(input.phone);
+    await nameInput.fill(input.name);
+    await emailInput.fill(input.email);
+    await phoneInput.fill(input.phone);
     await passwordInput.fill(input.password);
     await passwordConfirmationInput.fill(input.passwordConfirmation ?? input.password);
+    await openRoles();
     for (const role of ASSIGNABLE_USER_ROLE_VALUES) {
-      await roleCheckbox(role).setChecked(assignedRoles.includes(role));
+      const option = roleOption(role);
+      const selected = (await option.getAttribute("aria-selected")) === "true";
+      if (assignedRoles.includes(role) !== selected) {
+        await option.click();
+      }
     }
+    await closeRoles();
   };
 
   const addEmployee = async (input: IEmployeeFormInput) => {
+    await createButton.click();
     await fillEmployee(input);
     await addButton.click();
   };
@@ -66,9 +77,16 @@ export const createEmployeesPage = (page: Page) => {
     addButton,
     passwordInput,
     passwordConfirmationInput,
-    roleCheckbox,
+    form,
+    nameInput,
+    emailInput,
+    phoneInput,
+    createButton,
+    rolePicker,
+    openRoles,
+    closeRoles,
+    roleOption,
     roleOptions,
-    addCard,
     goto,
     findRow,
     roleTab,

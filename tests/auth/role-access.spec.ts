@@ -135,13 +135,13 @@ for (const role of APP_ACCESS_ROLES) {
       await expect(page.getByText(TASKS_COPY.REMOVED_MANAGERS_NOTE)).toHaveCount(0);
     });
 
-    test("employees page shows the add-employee form only when allowed", async ({ page }) => {
+    test("employees page offers creation only when allowed", async ({ page }) => {
       await page.goto(ROUTES.EMPLOYEES);
 
       await expect(page.getByPlaceholder(EMPLOYEES_COPY.SEARCH_PLACEHOLDER)).toBeVisible();
       await expectVisibility(
         access.canManageUsers,
-        page.getByRole("button", { name: EMPLOYEES_COPY.ADD_EMPLOYEE }),
+        page.getByRole("button", { name: EMPLOYEES_COPY.ADD_TITLE, exact: true }),
       );
     });
 
