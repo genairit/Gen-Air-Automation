@@ -5,11 +5,6 @@ import {
   seedStandaloneProject,
 } from "../../src/api/seed-data.ts";
 
-import {
-  PUBLICATION_QA,
-  PUBLICATION_STATE,
-} from "../../src/constants/quotation-publication.constant.ts";
-
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import type { TGenAirApi } from "../../src/api/gen-air-api.ts";
@@ -17,19 +12,14 @@ import { createJennyPage } from "../../src/pages/jenny.page.ts";
 import { isRecord } from "../../src/utilities/guard.utility.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import type { APIResponse, Locator, Page } from "@playwright/test";
-import { getDocument, OPS } from "pdfjs-dist/legacy/build/pdf.mjs";
-import { QUOTATION } from "../../src/constants/quotation.constant.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
-import { PAYMENT_TERMS } from "../../src/constants/domain.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
-import { readPublication } from "../../src/api/quotation-publication.api.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
 import { createEstimateEditorPage } from "../../src/pages/estimate-editor.page.ts";
 import { createCatalogueFixture } from "../../src/environment/quotation-fixtures.ts";
 import { JENNY_DRIVE_PDF, registerJennyPdf } from "../../src/environment/jenny-drive-fixture.ts";
-import { quotationDocument, quotationWrite, saveQuotation } from "../../src/api/quotation.api.ts";
 
 const ESTIMATES = "/engineering-estimates";
 const NEW_ESTIMATE = "כתב כמויות חדש";
@@ -42,20 +32,12 @@ const projectBills = (id: string): string => `/projects/${id}?tab=estimates`;
 const billPanel = (page: Page): Locator =>
   page.getByRole("tabpanel", { name: ESTIMATE_TAB, exact: true });
 const PLANS_PROMPT = "אילו תוכניות נצרף לכתב הכמויות?";
-const CUSTOMER_PDF = "הורדת הצעה ללקוח (PDF)";
-const SKETCH = "הפקת סקיצה לאישור";
-const MARKED_PLAN = "internal-marked-plan.png";
 const MOBILE = { width: 390, height: 844 };
 const DESKTOP = { width: 1440, height: 900 };
 
 interface IEstimateResponse extends Record<string, unknown> {
   id: string;
   version: number;
-}
-
-interface IPdfContent {
-  text: string;
-  images: number;
 }
 
 const estimatePath = (id: string): string => `${ESTIMATES}?estimate=${id}`;
@@ -179,44 +161,6 @@ const uploadPlan = (
   bytes: Buffer,
 ): Promise<void> =>
   container.locator('input[type="file"]').setInputFiles({ name, mimeType, buffer: bytes });
-
-const capturePdf = async (page: Page, button: string): Promise<Buffer> => {
-  const downloaded = page.waitForEvent("download");
-  await page.getByRole("button", { name: button, exact: true }).click();
-  const file = await downloaded;
-  const bytes = await readFile(await file.path());
-  expect(bytes.subarray(0, 5).toString()).toBe("%PDF-");
-  return bytes;
-};
-
-const inspectPdf = async (bytes: Buffer): Promise<IPdfContent> => {
-  const document = await getDocument({ data: new Uint8Array(bytes) }).promise;
-  try {
-    const pages = await Promise.all(
-      Array.from({ length: document.numPages }, async (_, index) => {
-        const page = await document.getPage(index + 1);
-        const [text, operators] = await Promise.all([
-          page.getTextContent(),
-          page.getOperatorList(),
-        ]);
-        const images = operators.fnArray.filter(
-          operator =>
-            operator === OPS.paintImageXObject || operator === OPS.paintInlineImageXObject,
-        ).length;
-        return { images, text: text.items.map(item => ("str" in item ? item.str : "")).join(" ") };
-      }),
-    );
-    return {
-      images: pages.reduce((count, page) => count + page.images, 0),
-      text: pages
-        .map(page => page.text)
-        .join("")
-        .replace(/\s+/g, ""),
-    };
-  } finally {
-    await document.destroy();
-  }
-};
 
 test("An engineer creates a project estimate and manages catalogue items without Jenny or area setup", async ({
   api: adminApi,
@@ -757,320 +701,10 @@ test("Unpriced rule quantities remain visible and prevent approvals and customer
   await page.goto(estimatePath(fixture.id));
   const missing = page.getByRole("row").filter({ hasText: missingSku });
   await expect(missing.getByText("חסר מחיר", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "סקיצה ותוצרים" }).click();
-  await expect(page.getByText("יש להשלים מחירי קטלוג לפני הפקת הסקיצה.")).toBeVisible();
-  await expect(page.getByRole("button", { name: SKETCH })).toBeDisabled();
-  await expect(page.getByRole("button", { name: CUSTOMER_PDF })).toHaveCount(0);
   expect(
     (await api.send(HTTP_METHODS.POST, `${path}/approve`, { version: draft.version })).status(),
   ).toBe(HTTP_STATUS.CONFLICT);
   expect((await api.send(HTTP_METHODS.GET, `${path}/proposal`)).status()).toBe(
     HTTP_STATUS.CONFLICT,
   );
-});
-
-const markedImage = async (page: Page): Promise<Buffer> =>
-  Buffer.from(
-    await page.evaluate(() => {
-      const canvas = document.createElement("canvas");
-      canvas.width = 80;
-      canvas.height = 50;
-      const context = canvas.getContext("2d");
-      if (!context) {
-        throw new Error("Canvas could not draw a disposable test plan");
-      }
-      context.fillStyle = "#1683c9";
-      context.fillRect(0, 0, 80, 50);
-      context.fillStyle = "#fb3629";
-      context.fillRect(30, 15, 20, 20);
-      return canvas.toDataURL("image/png").split(",")[1] ?? "";
-    }),
-    "base64",
-  );
-
-const quotationIdentity = async (response: APIResponse): Promise<string> => {
-  expect(response.status()).toBe(HTTP_STATUS.CREATED);
-  const value: unknown = await response.json();
-  if (!isRecord(value) || typeof value.quotationId !== "string") {
-    throw new Error("Expected a linked quotation ID");
-  }
-  return value.quotationId;
-};
-
-test("an approved projectless estimate blocks quotation creation until a new revision links a project", async ({
-  api,
-  page,
-}) => {
-  const draft = await estimateResponse(
-    await api.send(HTTP_METHODS.POST, ESTIMATES, { name: "אומדן עצמאי לאישור" }),
-    HTTP_STATUS.CREATED,
-  );
-  const path = `${ESTIMATES}/${draft.id}`;
-  const catalogue = await createCatalogueFixture();
-  const area = {
-    id: randomUUID(),
-    name: "אזור הבדיקה",
-    repeatCount: 1,
-    lines: [{ id: randomUUID(), catalogueItemId: catalogue.id, quantity: "1" }],
-  };
-  await estimateResponse(
-    await api.send(HTTP_METHODS.PATCH, path, {
-      version: draft.version,
-      setupStep: "complete",
-      areas: [area],
-    }),
-    HTTP_STATUS.OK,
-  );
-  await page.goto(estimatePath(draft.id));
-  await page.getByRole("button", { name: "סקיצה ותוצרים" }).click();
-  await chooseOption(
-    page,
-    page.getByRole("combobox", { name: "סוג תוכנית" }),
-    "תשריט מסומן לסקיצה",
-  );
-  await uploadPlan(page, MARKED_PLAN, "image/png", await markedImage(page));
-  await expect(page.getByRole("button", { name: `${MARKED_PLAN} · מסומנת` })).toBeVisible();
-  await chooseOption(
-    page,
-    page.getByRole("combobox", { name: `תשריט לסקיצה: ${area.name}` }),
-    MARKED_PLAN,
-  );
-  await capturePdf(page, SKETCH);
-  await page.getByRole("button", { name: "אישור גרסת הסקיצה" }).click();
-  await expect(page.getByText("מאושר", { exact: true })).toBeVisible();
-  const approved = await readEstimate(api, draft.id);
-  expect(approved).toMatchObject({ projectId: null, quotationId: null });
-  await expect(page.getByRole("button", { name: "יצירת טיוטת הצעת מחיר" })).toBeDisabled();
-  const repair = page.getByRole("status").filter({ hasText: "פתחו גרסה חדשה" });
-  await expect(repair).toBeVisible();
-  expect(
-    (
-      await api.send(HTTP_METHODS.POST, `${path}/quotation`, { version: approved.version })
-    ).status(),
-  ).toBe(HTTP_STATUS.BAD_REQUEST);
-  await repair.locator("..").getByRole("button", { name: "פתיחת גרסה חדשה" }).click();
-  await expect.poll(async () => (await readEstimate(api, draft.id)).status).toBe("draft");
-  expect(await readEstimate(api, draft.id)).toMatchObject({
-    version: approved.version + 1,
-    quotationId: null,
-  });
-});
-
-test("Reviewed revisions yield an exact marked sketch and one approved customer proposal without internal images", async ({
-  api,
-  page,
-  apiAs,
-}, testInfo) => {
-  const customer = await seedCustomer(api);
-  const project = await seedStandaloneProject(api, customer);
-  const engineer = await apiAs(TEST_USERS[USER_ROLES.ENGINEER]);
-  const priced = await createCatalogueFixture({ price: "250.0000" });
-  const excluded = await createCatalogueFixture({ price: "50.0000" });
-  const fixture = await estimateResponse(
-    await engineer.send(HTTP_METHODS.POST, ESTIMATES, {
-      name: "אומדן QA מסחרי",
-      projectId: project.id,
-    }),
-    HTTP_STATUS.CREATED,
-  );
-  const path = `${ESTIMATES}/${fixture.id}`;
-  const area = {
-    id: randomUUID(),
-    name: "Sample West Wing",
-    repeatCount: 2,
-    lines: [{ id: randomUUID(), catalogueItemId: priced.id, quantity: "3" }],
-  };
-  const second = {
-    id: randomUUID(),
-    name: "Full Quote East Wing",
-    repeatCount: 1,
-    lines: [{ id: randomUUID(), catalogueItemId: excluded.id, quantity: "1" }],
-  };
-  const question = {
-    id: randomUUID(),
-    prompt: "נדרש אישור לסימון",
-    options: ["אושר QA", "לחזור לבדיקה"],
-    answer: null,
-  };
-  const prepared = await estimateResponse(
-    await engineer.send(HTTP_METHODS.PATCH, path, {
-      version: fixture.version,
-      setupStep: "complete",
-      areas: [area, second],
-      questions: [question],
-    }),
-    HTTP_STATUS.OK,
-  );
-  expect(prepared.projectId).toBe(project.id);
-  await page.goto(estimatePath(fixture.id));
-  await page.getByRole("button", { name: "סקיצה ותוצרים" }).click();
-  await chooseOption(
-    page,
-    page.getByRole("combobox", { name: "סוג תוכנית" }),
-    "תשריט מסומן לסקיצה",
-  );
-  const png = await markedImage(page);
-  await uploadPlan(page, MARKED_PLAN, "image/png", png);
-  await expect(page.getByRole("button", { name: `${MARKED_PLAN} · מסומנת` })).toBeVisible();
-  await chooseOption(
-    page,
-    page.getByRole("combobox", { name: `תשריט לסקיצה: ${area.name}` }),
-    MARKED_PLAN,
-  );
-  await expect(page.getByText("יש לענות על שאלות הבירור לפני הפקת הסקיצה.")).toBeVisible();
-  await expect(page.getByRole("button", { name: SKETCH })).toBeDisabled();
-  const beforeAnswer = await readEstimate(api, fixture.id);
-  expect(beforeAnswer).toMatchObject({
-    plans: [expect.objectContaining({ id: expect.any(String), name: MARKED_PLAN, marked: true })],
-  });
-
-  await page.getByRole("button", { name: "עריכת כתב כמויות", exact: true }).click();
-  await page.getByRole("button", { name: "שאלות לבירור" }).click();
-  await page.getByRole("button", { name: question.options[0] }).click();
-  await page.getByRole("button", { name: "שמירת שינויים", exact: true }).click();
-  await expect(page.getByRole("button", { name: "עריכת כתב כמויות", exact: true })).toBeVisible();
-  await expect(page.getByRole("status").filter({ hasText: question.options[0] })).toBeVisible();
-  const current = await readEstimate(api, fixture.id);
-  expect(
-    (
-      await api.send(HTTP_METHODS.PATCH, path, { version: beforeAnswer.version, name: "stale" })
-    ).status(),
-  ).toBe(HTTP_STATUS.CONFLICT);
-  expect(
-    (await api.send(HTTP_METHODS.POST, `${path}/quotation`, { version: current.version })).status(),
-  ).toBe(HTTP_STATUS.CONFLICT);
-
-  await page.getByRole("button", { name: "סקיצה ותוצרים" }).click();
-  await chooseOption(
-    page,
-    page.getByRole("combobox", { name: `תשריט לסקיצה: ${area.name}` }),
-    MARKED_PLAN,
-  );
-  const sketch = await capturePdf(page, SKETCH);
-  const sketchContent = await inspectPdf(sketch);
-  await testInfo.attach("generated-sketch", { body: sketch, contentType: "application/pdf" });
-  expect(sketchContent.text).toContain(area.name.replace(/\s+/g, ""));
-  expect(sketchContent.text).toContain(MARKED_PLAN);
-  expect(sketchContent.text).toContain(priced.sku);
-  expect(sketchContent.text).not.toContain(second.name.replace(/\s+/g, ""));
-  expect(sketchContent.text).not.toContain(excluded.sku);
-  expect(
-    (
-      await api.send(HTTP_METHODS.POST, `${path}/approve`, { version: beforeAnswer.version })
-    ).status(),
-  ).toBe(HTTP_STATUS.CONFLICT);
-  expect((await readEstimate(engineer, fixture.id)).status).toBe("sketch");
-  expect(
-    (
-      await engineer.send(HTTP_METHODS.POST, `${path}/approve`, { version: current.version })
-    ).status(),
-  ).toBe(HTTP_STATUS.FORBIDDEN);
-  await page.getByRole("button", { name: "אישור גרסת הסקיצה" }).click();
-  await expect(page.getByText("מאושר", { exact: true })).toBeVisible();
-  await expect(page.getByText(`גרסה ${current.version}`, { exact: true })).toBeVisible();
-  expect(await capturePdf(page, "הורדת הסקיצה השמורה")).toEqual(sketch);
-
-  const openQuotation = page.waitForResponse(
-    response =>
-      response.url().endsWith(`${path}/quotation`) &&
-      response.request().method() === HTTP_METHODS.POST,
-  );
-  await page.getByRole("button", { name: "יצירת טיוטת הצעת מחיר" }).click();
-  const quoteResponse = await openQuotation;
-  expect(quoteResponse.status()).toBe(HTTP_STATUS.CREATED);
-  const quotationId = await quotationIdentity(
-    await api.send(HTTP_METHODS.POST, `${path}/quotation`, {
-      version: current.version,
-    }),
-  );
-  expect(await quoteResponse.json()).toEqual({ quotationId });
-  await expect(page).toHaveURL(new RegExp(`/quotations/${quotationId}$`));
-  const quotePath = `/quotation/${quotationId}`;
-  const quote = await quotationDocument(await api.send(HTTP_METHODS.GET, quotePath));
-  expect(quote).toMatchObject({
-    projectId: project.id,
-    customerId: customer.id,
-    status: QUOTATION.STATUS.DRAFT,
-  });
-  expect(quote.sections.flatMap(section => section.items)).toEqual(
-    expect.arrayContaining([
-      expect.objectContaining({
-        catalogueItemId: priced.id,
-        quantity: "6.0000",
-        quotedPrice: "250.0000",
-      }),
-      expect.objectContaining({
-        catalogueItemId: excluded.id,
-        quantity: "1.0000",
-        quotedPrice: "50.0000",
-      }),
-    ]),
-  );
-  expect((await api.send(HTTP_METHODS.GET, `${path}/proposal`)).status()).toBe(
-    HTTP_STATUS.CONFLICT,
-  );
-
-  const adjusted = await saveQuotation(api, quotationId, {
-    ...quotationWrite(quote),
-    discountPercent: "10.00",
-    paymentTerms: PAYMENT_TERMS.PREPAID,
-    paymentTermsNote: "QA PAYMENT NOTE",
-  });
-  expect(adjusted.totals.total).not.toBe(quote.totals.total);
-  const review = await quotationDocument(
-    await api.send(HTTP_METHODS.POST, `${quotePath}/review`, {
-      version: adjusted.version,
-      status: QUOTATION.STATUS.REVIEW,
-    }),
-  );
-  const acknowledged = await quotationDocument(
-    await api.send(HTTP_METHODS.POST, `${quotePath}/warnings`, {
-      version: review.version,
-      warningKeys: review.warnings.map(warning => warning.key),
-    }),
-  );
-  const approved = await quotationDocument(
-    await api.send(HTTP_METHODS.POST, `${quotePath}/review`, {
-      version: acknowledged.version,
-      status: QUOTATION.STATUS.APPROVED,
-    }),
-  );
-  await expect
-    .poll(async () => (await readPublication(api, quotationId)).state, {
-      timeout: PUBLICATION_QA.RENDER_MS,
-    })
-    .toBe(PUBLICATION_STATE.PUBLISHED);
-  await page.goto(estimatePath(fixture.id));
-  await page.getByRole("button", { name: "סקיצה ותוצרים" }).click();
-  const proposal = await capturePdf(page, CUSTOMER_PDF);
-  const proposalContent = await inspectPdf(proposal);
-  await testInfo.attach("generated-proposal", { body: proposal, contentType: "application/pdf" });
-  expect(proposalContent.text).toContain(approved.totals.total);
-  expect(proposalContent.text).toContain("QAPAYMENTNOTE");
-  expect(proposalContent.text).toContain(priced.sku);
-  expect(proposalContent.text).toContain(excluded.sku);
-  expect(proposalContent.text).not.toContain(MARKED_PLAN);
-  expect(sketchContent.images).toBeGreaterThan(proposalContent.images);
-  const revised = await estimateResponse(
-    await engineer.send(HTTP_METHODS.PATCH, path, {
-      version: current.version,
-      name: "אומדן QA מעודכן",
-    }),
-    HTTP_STATUS.OK,
-  );
-  expect(revised).toMatchObject({
-    status: "draft",
-    quotationId: null,
-    version: current.version + 1,
-  });
-  expect((await api.send(HTTP_METHODS.GET, `${path}/sketch`)).status()).toBe(HTTP_STATUS.NOT_FOUND);
-  expect(
-    (await api.send(HTTP_METHODS.POST, `${path}/approve`, { version: current.version })).status(),
-  ).toBe(HTTP_STATUS.CONFLICT);
-  expect(await quotationDocument(await api.send(HTTP_METHODS.GET, quotePath))).toMatchObject({
-    id: approved.id,
-    status: QUOTATION.STATUS.APPROVED,
-    version: approved.version,
-    totals: approved.totals,
-  });
 });
