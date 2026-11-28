@@ -18,12 +18,17 @@ import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { PAYMENT_TERMS } from "../../src/constants/domain.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
 import { PERMISSIONS } from "../../src/constants/permission.constant.ts";
+import { readPublication } from "../../src/api/quotation-publication.api.ts";
 import { withRolePermissions } from "../../src/environment/role-permissions.ts";
 import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
 import { createEstimateEditorPage } from "../../src/pages/estimate-editor.page.ts";
 import { createCatalogueFixture } from "../../src/environment/quotation-fixtures.ts";
 import { JENNY_DRIVE_PDF, registerJennyPdf } from "../../src/environment/jenny-drive-fixture.ts";
 import { quotationDocument, quotationWrite, saveQuotation } from "../../src/api/quotation.api.ts";
+import {
+  PUBLICATION_QA,
+  PUBLICATION_STATE,
+} from "../../src/constants/quotation-publication.constant.ts";
 
 const ESTIMATES = "/engineering-estimates";
 const NEW_ESTIMATE = "כתב כמויות חדש";
@@ -899,6 +904,11 @@ test("Reviewed revisions yield an exact marked sketch and one approved customer 
       status: QUOTATION.STATUS.APPROVED,
     }),
   );
+  await expect
+    .poll(async () => (await readPublication(api, quotationId)).state, {
+      timeout: PUBLICATION_QA.RENDER_MS,
+    })
+    .toBe(PUBLICATION_STATE.PUBLISHED);
   await page.goto(estimatePath(fixture.id));
   await page.getByRole("button", { name: "סקיצה ותוצרים" }).click();
   const proposal = await capturePdf(page, CUSTOMER_PDF);
