@@ -63,7 +63,8 @@ for (const startingStatus of [QUOTATION.STATUS.REVIEW, QUOTATION.STATUS.APPROVED
     expect((await response).status()).toBe(201);
     await expect(dialog).toHaveCount(0);
     await expect(quote.button(LIFECYCLE_COPY.RETURN)).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: quotation.number })).toBeFocused();
+    await expect(page.getByRole("heading", { name: quotation.number, exact: true })).toBeFocused();
+    await createQuotationPage(page).showDetails();
     await page.getByText("פרטים נוספים", { exact: true }).click();
     await expect(quote.field("הערות פנימיות (לא יופיעו ללקוח)")).toBeEnabled();
     await expect(page.getByRole("heading", { name: LIFECYCLE_COPY.HISTORY })).toBeVisible();
@@ -182,6 +183,7 @@ test("unknown return outcome remains visibly reload-latched after closing and au
   await expect(dialog).toContainText(LIFECYCLE_COPY.UNCERTAIN);
   await dialog.getByRole("button", { name: LIFECYCLE_COPY.BACK, exact: true }).click();
   await page.getByRole("button", { name: "עריכה", exact: true }).click();
+  await createQuotationPage(page).showDetails();
   await page.getByText("פרטים נוספים", { exact: true }).click();
   const save = page.waitForResponse((response): boolean => {
     const isSave = response.request().method() === HTTP_METHODS.PUT;

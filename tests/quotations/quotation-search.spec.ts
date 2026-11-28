@@ -60,6 +60,7 @@ test("direct customer search preserves typed queries across loading and empty re
     }
   });
   await quote.goto(initial.id);
+  await quote.showDetails();
   await expect(quote.field(CUSTOMER)).toHaveValue(customer.name);
   await expect(page.locator("details")).toHaveCount(0);
   const gate = createDeferred();
@@ -85,6 +86,7 @@ test("direct customer search preserves typed queries across loading and empty re
     expect((await readQuotation(api, initial.id)).customerId).toBe(target.id);
     expect(duplicateWarnings).toEqual([]);
     const saved = await readQuotation(api, initial.id);
+    await quote.showDetails();
     const missing = `missing-${randomUUID()}`;
     const absent = waitSearch(page, missing);
     await quote.field(CUSTOMER).click();
@@ -121,6 +123,7 @@ test("project search stays customer scoped, retains active typing, selects with 
   const initial = await createQuotation(api, customer.id);
   const quote = createQuotationPage(page);
   await quote.goto(initial.id);
+  await quote.showDetails();
   const field = quote.field(PROJECT);
   await expect(field).toBeVisible();
   await field.click();
@@ -152,8 +155,10 @@ test("project search stays customer scoped, retains active typing, selects with 
   await quote.saved(() => page.getByRole("button", { name: "נקה בחירה", exact: true }).click());
   expect((await readQuotation(api, initial.id)).projectId).toBeNull();
   await page.reload();
+  await quote.showDetails();
   await expect(quote.field(PROJECT)).toHaveValue("");
   await quote.selectEntity(CUSTOMER, foreignCustomer.name);
+  await quote.showDetails();
   await quote.field(PROJECT).click();
   await expect(page.getByRole("option", { name: foreignProject.name, exact: true })).toBeVisible();
   await expect(page.getByRole("option", { name: project.name, exact: true })).toHaveCount(0);

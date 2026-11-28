@@ -59,6 +59,7 @@ test("approved quotation is an order, cancellation remains searchable and locked
   await expect(quote.button(COPY.RESTORE_ORDER)).toBeEnabled();
   await expect(quote.button(COPY.CANCEL_ORDER)).toHaveCount(0);
   await expect(quote.button("החזרה לעריכה")).toHaveCount(0);
+  await createQuotationPage(page).showDetails();
   await page.getByText("פרטים נוספים", { exact: true }).click();
   await expect(quote.field("הערות פנימיות (לא יופיעו ללקוח)")).toBeDisabled();
   await expect(page.getByText(COPY.HISTORY, { exact: true })).toBeVisible();
@@ -110,6 +111,7 @@ test("approved quotation is an order, cancellation remains searchable and locked
   expect(restored.number).toBe(quotation.number);
   expect(restored.cancellationHistory[0]?.reason).toBe(reason);
   expect(restored.cancellationHistory[0]?.restoredAt).toBeTruthy();
+  await createQuotationPage(page).showDetails();
   await page.getByText("פרטים נוספים", { exact: true }).click();
   await expect(page.getByText("שחזור", { exact: true }).first()).toBeVisible();
 });

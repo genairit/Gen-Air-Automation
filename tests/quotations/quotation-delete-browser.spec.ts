@@ -31,7 +31,9 @@ for (const status of Object.values(QUOTATION.STATUS)) {
       await quote.goto(quotation.id);
       const remove = quote.button("מחיקת ההצעה");
       const action = await quotationBox(remove);
-      const heading = await quotationBox(page.getByRole("heading", { name: quotation.number }));
+      const heading = await quotationBox(
+        page.getByRole("heading", { name: quotation.number, exact: true }),
+      );
       expect(action.width).toBeGreaterThanOrEqual(44);
       expect(action.height).toBeGreaterThanOrEqual(44);
       expect(action.x).toBeLessThan(heading.x);
@@ -96,6 +98,7 @@ test("failed delete keeps confirmation open, reload resolves actual stale versio
   await quote.button("טען גרסה עדכנית").click();
   await expect(page.getByRole("alert")).toHaveCount(0);
   await quote.button("חזרה").click();
+  await createQuotationPage(page).showDetails();
   await page.getByText("פרטים נוספים", { exact: true }).click();
   await expect(quote.field("הערות פנימיות (לא יופיעו ללקוח)")).toHaveValue(
     "Changed in another tab",

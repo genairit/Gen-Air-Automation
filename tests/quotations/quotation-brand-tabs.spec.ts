@@ -32,7 +32,7 @@ const line = (catalogueItemId: string, circuit: string | null = null) => ({
   requestedCapacityBtu: null,
 });
 
-test("brand and General tabs keep separate catalogue rows, snapshots, quantities and one total through review", async ({
+test("company and General groups preserve catalog scope, snapshot quantities and one total through review", async ({
   api,
   page,
 }) => {
@@ -51,86 +51,50 @@ test("brand and General tabs keep separate catalogue rows, snapshots, quantities
   });
   const initial = await createQuotation(api, (await seedCustomer(api)).id);
   const quote = createQuotationPage(page);
+  await page.setViewportSize({ width: 1800, height: 1100 });
   await quote.goto(initial.id);
-
-  await expect(page.getByRole("tablist", { name: "לשוניות חברות ופריטים כלליים" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "כללי" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: QUOTATION.BRAND })).toHaveCount(0);
-  await expect(page.getByRole("tab", { name: QUOTATION.OTHER_BRAND })).toHaveCount(0);
-
-  await quote.addBrandTab(QUOTATION.BRAND);
-  await quote.saved(() => quote.button("+ סינגלים").click());
+  await quote.addSystem(QUOTATION.BRAND, QUOTATION.SYSTEM.SINGLE, "Electra room");
   await quote.field("כמות להוספה").fill("2");
   await Promise.all([
-    page.waitForResponse(response => response.url().includes(encodeURIComponent(tadiran.sku))),
+    page.waitForResponse(r => r.url().includes(encodeURIComponent(tadiran.sku))),
     quote.field("חיפוש פריט בקטלוג").fill(tadiran.sku),
   ]);
   await expect(page.getByRole("button").filter({ hasText: tadiran.sku })).toHaveCount(0);
   await quote.add(electra.sku);
-  await quote.fill("מיקום", "Electra room");
-
-  await quote.addBrandTab(QUOTATION.OTHER_BRAND);
-  await expect(quote.field("מיקום")).toHaveCount(0);
-  await quote.saved(() => quote.button("+ סינגלים").click());
-  await quote.add(tadiran.sku);
-  await quote.fill("מיקום", "Tadiran room");
-  await page.getByRole("tab", { name: "כללי" }).click();
-  await expect(quote.field("מיקום")).toHaveCount(0);
-  await quote.saved(() => quote.button("+ פריטים נוספים").click());
-  await Promise.all([
-    page.waitForResponse(response => response.url().includes(encodeURIComponent(electra.sku))),
-    quote.field("חיפוש פריט בקטלוג").fill(electra.sku),
-  ]);
-  await expect(page.getByRole("button").filter({ hasText: electra.sku })).toHaveCount(0);
-  await quote.add(general.sku);
-  await quote.fill("מיקום", "Shared room");
-  await expect(quote.amount("סכום השורות")).toHaveText(/430\.00/);
-
-  await page.getByRole("tab", { name: QUOTATION.BRAND }).click();
-  await expect(quote.field("מיקום")).toHaveValue("Electra room");
-  await page.getByRole("tab", { name: QUOTATION.OTHER_BRAND }).click();
-  await expect(quote.field("מיקום")).toHaveValue("Tadiran room");
-  await page.reload();
-  await expect(page.getByRole("tab", { name: QUOTATION.BRAND })).toBeVisible();
-  await expect(page.getByRole("tab", { name: QUOTATION.OTHER_BRAND })).toBeVisible();
-  await expect(quote.field("מיקום")).toHaveValue("Electra room");
-  await page.getByRole("tab", { name: QUOTATION.OTHER_BRAND }).click();
-  await expect(quote.field("מיקום")).toHaveValue("Tadiran room");
-  await page.getByRole("tab", { name: "כללי" }).click();
-  await expect(quote.field("מיקום")).toHaveValue("Shared room");
-
+  await quote.addSystem(QUOTATION.OTHER_BRAND, QUOTATION.SYSTEM.SINGLE, "Tadiran room");
+  await quote.add(tadiran.sku, 1);
+  await quote.addSystem("", QUOTATION.SYSTEM.GENERAL, "Project services");
+  await quote.add(general.sku, 2);
   const saved = await getQuote(api, initial.id);
   expect(saved.brands).toEqual([QUOTATION.BRAND, QUOTATION.OTHER_BRAND]);
-  expect(saved.sections.map(section => section.brand)).toEqual([
-    QUOTATION.BRAND,
-    QUOTATION.OTHER_BRAND,
-    null,
-  ]);
-  expect(saved.sections.map(section => section.items[0]?.catalogueItemId)).toEqual([
+  expect(saved.sections.map(s => s.brand)).toEqual([QUOTATION.BRAND, QUOTATION.OTHER_BRAND, null]);
+  expect(saved.sections.map(s => s.items[0]?.catalogueItemId)).toEqual([
     electra.id,
     tadiran.id,
     general.id,
   ]);
-  expect(saved.sections.map(section => section.items[0]?.location)).toEqual([
-    "Electra room",
-    "Tadiran room",
-    "Shared room",
-  ]);
-  expect(saved.sections[0]?.items[0]?.quantity).toBe("2.0000");
-  expect(saved.sections.map(section => section.items[0]?.quotedPrice)).toEqual([
+  expect(saved.sections.map(s => s.items[0]?.quotedPrice)).toEqual([
     "100.0000",
     "200.0000",
     "30.0000",
   ]);
+  expect(saved.sections[0]?.items[0]?.quantity).toBe("2.0000");
   expect(saved.totals.subtotal).toBe("430.00");
-
+  await page.reload();
+  const table = page.getByRole("table", { name: "פריטי ההצעה", exact: true });
+  for (const text of [
+    "Electra room",
+    "Tadiran room",
+    "Project services",
+    electra.sku,
+    tadiran.sku,
+    general.sku,
+  ])
+    await expect(table).toContainText(text);
   await quote.transition("סיימתי, לבדיקה");
-  await expect(page.getByRole("cell", { name: electra.sku, exact: true })).toHaveCount(1);
-  await expect(page.getByRole("cell", { name: tadiran.sku, exact: true })).toHaveCount(1);
-  await expect(page.getByRole("cell", { name: general.sku, exact: true })).toHaveCount(1);
-  await expect(page.getByRole("columnheader", { name: /אלקטרה/ })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: /תדיראן/ })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: /כללי/ })).toBeVisible();
+  await expect(table.getByRole("spinbutton")).toHaveCount(0);
+  for (const text of [electra.sku, tadiran.sku, general.sku])
+    await expect(table).toContainText(text);
   await expect(quote.amount("סכום השורות")).toHaveText(/430\.00/);
 });
 
@@ -281,8 +245,9 @@ test("legacy single-brand warning scope and acknowledgements remain valid after 
   await setQuotationWarningScopeFixture(initial.id, 1);
   const quote = createQuotationPage(page);
   await quote.goto(initial.id);
-  await expect(page.getByRole("tab", { name: QUOTATION.BRAND })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "כללי" })).toBeVisible();
+  await expect(page.getByRole("table", { name: "פריטי ההצעה", exact: true })).toContainText(
+    QUOTATION.BRAND,
+  );
   await quote.transition("סיימתי, לבדיקה");
   await expect(
     page.getByRole("checkbox", { name: /מעגל A: יש יחידות פנימיות בלי מעבה/ }),
