@@ -85,6 +85,71 @@ test("creating a General project task without due date sends no customer or inve
   await expect(createTaskPage(page).projectCustomerLink).toHaveText(customer.name);
 });
 
+test("urgent creation confirms keyboard selection and retries urgency on the saved project task", async ({
+  page,
+  api,
+}) => {
+  const project = await seedStandaloneProject(api, await seedCustomer(api));
+  const form = createTaskFormPage(page);
+  const title = createUniqueName("משימה דחופה");
+  let creations = 0;
+  const urgencyPaths: string[] = [];
+  page.on("request", request => {
+    if (isTaskCreationRequest(request)) creations++;
+    const path = new URL(request.url()).pathname;
+    if (request.method() === HTTP_METHODS.PATCH && path.endsWith("/urgency"))
+      urgencyPaths.push(path);
+  });
+  await page.route(
+    "**/api/task/*/urgency",
+    route =>
+      route.fulfill({
+        status: HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        json: { message: "Temporary urgency failure" },
+      }),
+    { times: 1 },
+  );
+  await form.goto(project.id);
+  await form.title.fill(title);
+  await form.description.fill("בדיקת סימון דחיפות");
+  const urgency = form.form.getByRole("radiogroup", { name: "דחיפות" });
+  const regular = urgency.getByRole("radio", { name: /רגילה/ });
+  const urgent = urgency.getByRole("radio", { name: /דחופה/ });
+  await expect(regular).toBeChecked();
+  await regular.press("ArrowLeft");
+  await expect(urgent).toBeFocused();
+  await expect(urgent).toBeChecked();
+  await urgent.press("ArrowRight");
+  await expect(regular).toBeChecked();
+  await regular.press("ArrowDown");
+  await expect(urgent).toBeChecked();
+  const saveUrgent = form.form.getByRole("button", { name: "שמור ושלח התראה", exact: true });
+  await saveUrgent.click();
+  const confirm = page.getByRole("dialog", { name: "לסמן את המשימה כדחופה?", exact: true });
+  await expect(confirm).toBeVisible();
+  await confirm.getByRole("button", { name: "ביטול", exact: true }).click();
+  await expect(form.title).toHaveValue(title);
+  expect(creations).toBe(0);
+  await saveUrgent.click();
+  await confirm.getByRole("button", { name: "סמן כדחופה", exact: true }).click();
+
+  const retry = page.getByRole("dialog", { name: "המשימה נוצרה", exact: true });
+  await expect(retry.getByRole("alert")).toBeVisible();
+  const { items } = await api.getProjectTasks(project.id);
+  expect(items).toHaveLength(1);
+  const task = items[0];
+  expect(task.title).toBe(title);
+  expect((await api.getTask(task.id)).isUrgent).toBe(false);
+  await retry.getByRole("button", { name: "נסה שוב לסמן כדחופה" }).click();
+  await expect(
+    page.getByRole("status").getByRole("link", { name: "פתיחת המשימה" }),
+  ).toHaveAttribute("href", `/tasks/${task.id}`);
+  await expect(page).toHaveURL(buildProjectRoute(project.id));
+  expect(creations).toBe(1);
+  expect(urgencyPaths).toEqual([`/api/task/${task.id}/urgency`, `/api/task/${task.id}/urgency`]);
+  expect(await api.getTask(task.id)).toMatchObject({ projectId: project.id, isUrgent: true });
+});
+
 test("building creation pins the owning project and can cancel without saving", async ({
   page,
   api,
@@ -98,6 +163,7 @@ test("building creation pins the owning project and can cancel without saving", 
   await form.title.fill(title);
   await form.form.getByRole("button", { name: "ביטול", exact: true }).click();
   await expect(form.form).toHaveCount(0);
+  await expect(createProjectPage(page).newTaskButton).toBeFocused();
   expect((await api.getProjectTasks(building.id)).items).toEqual([]);
   await form.open();
   await expect(form.title).toHaveValue("");
