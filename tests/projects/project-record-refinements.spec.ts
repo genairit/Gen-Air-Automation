@@ -72,8 +72,12 @@ for (const kind of ["standalone", "building", "apartment"] as const) {
       await expect(upper.locator("details")).not.toHaveAttribute("open", "");
       await openWorkspaceTab(page, "people");
       if (width === 390) await page.getByRole("button", { name: "אנשי קשר", exact: true }).click();
-      for (const title of ["אדריכל", "מנהל פרויקט", "יועץ"])
+      await expect(page.getByRole("button", { name: "שייך יועץ", exact: true })).toBeEnabled();
+      for (const title of ["אדריכל", "מנהל פרויקט", "יועץ"]) {
         await expect(page.getByText(title, { exact: true })).toBeVisible();
+        if (width === 1280)
+          await expect(page.getByText(title, { exact: true })).toBeInViewport({ ratio: 1 });
+      }
       await page.screenshot({ path: info.outputPath(`people-${kind}-${width}.png`) });
       await page.getByRole("tab", { name: "כתבי כמויות", exact: true }).click();
       const card = page.getByRole("region", { name: `${name} · טיוטה`, exact: true });
