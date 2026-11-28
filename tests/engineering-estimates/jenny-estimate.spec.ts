@@ -94,6 +94,8 @@ const startJenny = async (
   const jenny = createJennyPage(page);
   await page.goto(projectBills(projectId));
   await billPanel(page).getByRole("button", { name: CREATE_BILL, exact: true }).click();
+  await expect(page.getByRole("form", { name: NEW_ESTIMATE, exact: true })).toBeVisible();
+  await expect(jenny.launcher).toBeVisible();
   await expect(jenny.launcher).toHaveCSS("position", "fixed");
   const launcher = await jenny.launcher.boundingBox();
   const viewport = page.viewportSize();
