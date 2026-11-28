@@ -32,7 +32,12 @@ export const NAVIGATION_COPY = {
 export const BOARD_COPY = {
   NEW_TASK: "משימה חדשה",
   NEW_PROJECT: "פרויקט חדש",
-  TITLE: "ניהול פרויקטים ומשימות",
+  CARD: "פרויקטים",
+  STATUS_FILTER: "סטטוס",
+  TYPE_FILTER: "סוג פרויקט",
+  ALL_STATUSES: "כל הסטטוסים",
+  LOADING: "טוען את לוח הפרויקטים...",
+  NO_RESULTS: "לא נמצאו פרויקטים שמתאימים לחיפוש או לשלב שנבחר",
   SEARCH_PLACEHOLDER: "חיפוש פרויקטים, מזהה או קבלן...",
 } as const;
 

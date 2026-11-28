@@ -1,7 +1,7 @@
 import { ROUTES } from "../../src/constants/routes.constant.ts";
 import { createLoginPage } from "../../src/pages/login.page.ts";
+import { createBoardPage } from "../../src/pages/board.page.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
-import { BOARD_COPY } from "../../src/constants/copy.constant.ts";
 import { createAppShell } from "../../src/pages/app-shell.page.ts";
 import { USER_ROLES } from "../../src/constants/user-role.constant.ts";
 import { TEST_USERS } from "../../src/constants/test-users.constant.ts";
@@ -21,7 +21,7 @@ test.describe("login", () => {
     await loginPage.login(ADMIN);
 
     await expect(page).toHaveURL(ROUTES.BOARD);
-    await expect(page.getByText(BOARD_COPY.TITLE)).toBeVisible();
+    await expect(createBoardPage(page).searchBox).toBeVisible();
   });
 
   test("invalid credentials show an error and stay on login", async ({ page }) => {
