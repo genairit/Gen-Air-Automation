@@ -4,6 +4,12 @@ import {
 } from "../../src/mocks/customer.mock.ts";
 
 import {
+  createCustomerPopup,
+  createCustomersPage,
+  createCustomerFormPage,
+} from "../../src/pages/customers.page.ts";
+
+import {
   readBoundingBox,
   isWithinViewportWidth,
   readHorizontalOverflow,
@@ -31,7 +37,6 @@ import {
 
 import type { Page, Locator, Request } from "@playwright/test";
 import { ROUTES } from "../../src/constants/routes.constant.ts";
-import { readTabCount } from "../../src/pages/tab.component.ts";
 import { test, expect } from "../../src/fixtures/test.fixture.ts";
 import { formatFullName } from "../../src/utilities/user.utility.ts";
 import { VIEWPORTS } from "../../src/constants/viewport.constant.ts";
@@ -43,10 +48,10 @@ import { getAuthStatePath } from "../../src/utilities/auth-state.utility.ts";
 import { ROUTE_PATTERNS } from "../../src/constants/route-patterns.constant.ts";
 import { HTTP_METHODS, HTTP_STATUS } from "../../src/constants/http.constant.ts";
 import { API_PATHS, API_PROXY_PREFIX } from "../../src/constants/api.constant.ts";
+import { expectTabSelected, readTabCount } from "../../src/pages/tab.component.ts";
 import type { TCustomerFormInput } from "../../src/interfaces/customer-form.interface.ts";
 import { seedCustomer, seedCustomers, buildCustomerInput } from "../../src/api/seed-data.ts";
 import { buildCustomerRoute, readLastPathSegment } from "../../src/utilities/route.utility.ts";
-import { createCustomersPage, createCustomerFormPage } from "../../src/pages/customers.page.ts";
 
 const INVALID_TAX_ID = "123456789";
 
@@ -129,7 +134,7 @@ test("the customer form refuses to save with an invalid field", async ({ page })
   await expect(page).toHaveURL(ROUTES.NEW_CUSTOMER);
 });
 
-test("the header new-customer button has the add icon, is not full width and opens customer search", async ({
+test("the header new-customer button has the add icon, is not full width and opens the form inside the list", async ({
   page,
 }) => {
   const customersPage = createCustomersPage(page);
@@ -137,6 +142,12 @@ test("the header new-customer button has the add icon, is not full width and ope
   await customersPage.goto();
 
   await expect(customersPage.newCustomerButton).toBeVisible();
+  const header = customersPage.main.locator("header");
+  await expect(header.getByRole("heading", { level: 1, name: "לקוחות" })).toBeVisible();
+  await expect(header.getByRole("button", { name: CUSTOMERS_COPY.NEW_CUSTOMER })).toBeVisible();
+  await expect(customersPage.heading).toHaveCount(1);
+  await expect(page.getByText("לקוחות · ניהול ב-CRM", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("ניהול לקוחות ופרטי הקשר שלהם", { exact: false })).toHaveCount(0);
   await expect(customersPage.newCustomerIcon).toBeVisible();
   await expect(customersPage.managersOnlyCaption).toHaveCount(0);
 
@@ -153,8 +164,31 @@ test("the header new-customer button has the add icon, is not full width and ope
 
   await customersPage.newCustomerButton.click();
 
-  await expect(page).toHaveURL(ROUTES.NEW_CUSTOMER);
-  await expect(createCustomerFormPage(page).field("TAX_ID")).toBeVisible();
+  const popup = createCustomerPopup(page, CUSTOMER_FORM_COPY.TITLE);
+  await expect(page).toHaveURL(ROUTES.CUSTOMERS);
+  await expect(popup.field("TAX_ID")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(popup.dialog).toHaveCount(0);
+  await expect(customersPage.newCustomerButton).toBeFocused();
+});
+
+test("desktop table edit opens the selected client and leaves the list in place", async ({
+  api,
+  page,
+}) => {
+  const customer = await seedCustomer(api);
+  const list = createCustomersPage(page);
+  await list.goto();
+  await list.searchBox.fill(customer.taxId);
+  const row = list.findRow(customer.taxId);
+  await row.getByRole("button", { name: `${CUSTOMERS_COPY.EDIT} · ${customer.name}` }).click();
+  const edit = createCustomerPopup(page, CUSTOMERS_COPY.EDIT);
+  await expect(edit.field("NAME")).toHaveValue(customer.name);
+  await expect(edit.field("TAX_ID")).toHaveValue(customer.taxId);
+  await expect(page).toHaveURL(ROUTES.CUSTOMERS);
+  await edit.cancel.click();
+  await expect(edit.dialog).toHaveCount(0);
+  await expect(row).toBeVisible();
 });
 
 test("the new-customer form shows the approved identity, contact and summary cards", async ({
@@ -376,6 +410,67 @@ test.describe("mobile layout", () => {
       .toBe(true);
   });
 
+  test("skipping project links preserves the filtered list, and editing its row saves only changed fields", async ({
+    page,
+    api,
+  }) => {
+    const input = buildCustomerInput();
+    const list = createCustomersPage(page);
+    await list.goto();
+    await list.searchBox.fill(input.taxId);
+    await list.pendingTab.click();
+    const pendingBefore = await api.countCustomersInSyncStatus(CUSTOMER_SYNC_STATUSES.PENDING);
+    await expect.poll(() => readTabCount(list.pendingTab)).toBe(pendingBefore);
+    await list.newCustomerButton.click();
+    const create = createCustomerPopup(page, CUSTOMER_FORM_COPY.TITLE);
+    await create.save.click();
+    await expect(create.dialog.getByRole("alert")).toBeVisible();
+    await create.field("NAME").fill(input.name);
+    await create.field("TAX_ID").fill(input.taxId);
+    await create.field("ADDRESS").fill(input.address);
+    await expect.poll(() => isWithinViewportWidth(page, create.dialog)).toBe(true);
+    await create.save.click();
+    const links = page.getByRole("dialog", { name: CUSTOMERS_COPY.LINK_PROJECTS });
+    await links.getByRole("button", { name: CUSTOMER_FORM_COPY.SKIP }).click();
+    await expect(links).toHaveCount(0);
+    await expect(list.searchBox).toHaveValue(input.taxId);
+    await expectTabSelected(list.pendingTab);
+    await expect.poll(() => readTabCount(list.pendingTab)).toBe(pendingBefore + 1);
+    const editButton = page.getByRole("button", {
+      name: `${CUSTOMERS_COPY.EDIT} · ${input.name}`,
+      exact: true,
+    });
+    await editButton.click();
+    const edit = createCustomerPopup(page, CUSTOMERS_COPY.EDIT);
+    await expect(edit.field("NAME")).toHaveValue(input.name);
+    await expect(edit.field("TAX_ID")).toHaveValue(input.taxId);
+    const patches: Request[] = [];
+    page.on("request", request => {
+      if (
+        request.method() === HTTP_METHODS.PATCH &&
+        new URL(request.url()).pathname.startsWith(`${CUSTOMER_CREATION_URL}/`)
+      ) {
+        patches.push(request);
+      }
+    });
+    await edit.save.click();
+    await expect(edit.dialog).toHaveCount(0);
+    expect(patches).toHaveLength(0);
+    await editButton.click();
+    const updatedName = `${input.name} מעודכן`;
+    await edit.field("NAME").fill(updatedName);
+    await edit.save.click();
+    await expect(edit.dialog).toHaveCount(0);
+    await expect(page.getByText(updatedName, { exact: true })).toBeVisible();
+    expect(patches.map(request => request.postDataJSON())).toEqual([{ name: updatedName }]);
+    await expect(page).toHaveURL(ROUTES.CUSTOMERS);
+    await expect(list.searchBox).toHaveValue(input.taxId);
+    await expectTabSelected(list.pendingTab);
+    await page.reload();
+    await list.searchBox.fill(input.taxId);
+    await expect(page.getByText(updatedName, { exact: true })).toBeVisible();
+  });
+
   test("a customers list longer than seven pages has no horizontal overflow at 390px", async ({
     page,
     api,
@@ -428,16 +523,23 @@ test.describe("mobile layout", () => {
   test.describe("without customer management", () => {
     test.use({ storageState: getAuthStatePath(USER_ROLES.INSTALLER) });
 
-    test("the customers page caption has no horizontal overflow at 390px", async ({ page }) => {
+    test("read-only users can search without create and edit controls at 390px", async ({
+      page,
+      api,
+    }) => {
+      const customer = await seedCustomer(api);
       const customersPage = createCustomersPage(page);
 
       await customersPage.goto();
 
-      await expect(customersPage.managersOnlyCaption).toBeVisible();
+      await customersPage.searchBox.fill(customer.taxId);
+      await expect(page.getByText(customer.name, { exact: true })).toBeVisible();
+      await expect(customersPage.newCustomerButton).toHaveCount(0);
+      await expect(customersPage.managersOnlyCaption).toHaveCount(0);
+      await expect(
+        page.getByRole("button", { name: `${CUSTOMERS_COPY.EDIT} · ${customer.name}` }),
+      ).toHaveCount(0);
       await expect.poll(() => readHorizontalOverflow(page)).toBeLessThanOrEqual(0);
-      await expect
-        .poll(() => isWithinViewportWidth(page, customersPage.managersOnlyCaption))
-        .toBe(true);
     });
   });
 });

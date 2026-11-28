@@ -121,7 +121,7 @@ for (const role of APP_ACCESS_ROLES) {
 
       await expect(customersPage.heading).toBeVisible();
       await expectVisibility(access.canManageCustomers, customersPage.newCustomerButton);
-      await expectVisibility(!access.canManageCustomers, customersPage.managersOnlyCaption);
+      await expect(customersPage.managersOnlyCaption).toHaveCount(0);
     });
 
     test("task creation belongs on the board with the existing role permission", async ({
